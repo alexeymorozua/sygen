@@ -86,6 +86,7 @@ Restart=on-failure
 RestartSec=5
 Environment=PATH={path_value}
 Environment=HOME={home}
+Environment=DUCTOR_SUPERVISOR=1
 
 [Install]
 WantedBy=default.target
