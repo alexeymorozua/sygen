@@ -170,7 +170,9 @@ async def _recover_session(  # noqa: PLR0913
     orch._process_registry.clear_abort(chat_id)
     await orch._sessions.reset_provider_session(chat_id, provider=provider_name, model=model_name)
 
-    if on_system_status is not None:
+    if reason == "invalid_session" and on_text_delta is not None:
+        await on_text_delta(f"{_SESSION_RECOVERED_MSG}\n\n")
+    elif on_system_status is not None:
         await on_system_status("recovering")
 
     request, session = await _prepare_normal(orch, chat_id, text, model_override=model_override)
@@ -291,10 +293,8 @@ async def normal_streaming(  # noqa: PLR0913
         on_tool_activity=on_tool_activity,
         on_system_status=on_system_status,
     )
-    session_recovered = False
     if not orch._process_registry.was_aborted(chat_id) and _needs_session_recovery(response):
-        session_recovered = _is_invalid_session(response)
-        reason = "invalid_session" if session_recovered else "sigkill"
+        reason = "invalid_session" if _is_invalid_session(response) else "sigkill"
         request, session, response = await _recover_session(
             orch,
             chat_id,
@@ -323,10 +323,7 @@ async def normal_streaming(  # noqa: PLR0913
         )
     await _update_session(orch, session, response)
     logger.info("Streaming flow completed")
-    result = _finish_normal(response, session, orch._config.session_age_warning_hours)
-    if session_recovered:
-        result.text = f"{_SESSION_RECOVERED_MSG}\n\n{result.text}"
-    return result
+    return _finish_normal(response, session, orch._config.session_age_warning_hours)
 
 
 def _session_age_note(session: SessionData, warning_hours: int) -> str:
