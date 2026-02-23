@@ -177,13 +177,21 @@ class DockerManager:
 
         # Auth directories -- mount only if they exist on the host.
         home = Path.home()
+        container_home = "/home/node"
         for auth_dir, target, mode in [
-            (home / ".claude", "/home/node/.claude", "rw"),
-            (home / ".codex", "/home/node/.codex", "rw"),
-            (home / ".gemini", "/home/node/.gemini", "rw"),
+            (home / ".claude", f"{container_home}/.claude", "rw"),
+            (home / ".codex", f"{container_home}/.codex", "rw"),
+            (home / ".gemini", f"{container_home}/.gemini", "rw"),
         ]:
             if auth_dir.is_dir():
                 cmd += ["-v", f"{auth_dir}:{target}:{mode}"]
+
+        # Auth config files at the home root (e.g. ~/.claude.json).
+        for auth_file, target in [
+            (home / ".claude.json", f"{container_home}/.claude.json"),
+        ]:
+            if auth_file.is_file():
+                cmd += ["-v", f"{auth_file}:{target}:rw"]
 
         cmd.append(image)
 

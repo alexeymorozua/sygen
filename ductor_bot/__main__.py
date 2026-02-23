@@ -34,10 +34,17 @@ _IS_WINDOWS = sys.platform == "win32"
 
 
 def _re_exec_bot() -> NoReturn:
-    """Restart the bot process by spawning a fresh interpreter and exiting."""
+    """Re-exec the bot process (cross-platform).
+
+    On POSIX: replaces current process via ``os.execv`` (same PID, same cgroup).
+    On Windows: spawns new process and exits (``os.execv`` doesn't truly replace).
+    """
     args = [sys.executable, "-m", "ductor_bot"]
-    subprocess.Popen(args)
-    sys.exit(0)
+    if _IS_WINDOWS:
+        subprocess.Popen(args)
+        sys.exit(0)
+    else:
+        os.execv(sys.executable, args)  # noqa: S606
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +175,7 @@ def _start_bot(verbose: bool = False) -> None:
     except KeyboardInterrupt:
         exit_code = 0
     if exit_code == EXIT_RESTART:
-        if os.environ.get("DUCTOR_SUPERVISOR"):
+        if os.environ.get("DUCTOR_SUPERVISOR") or os.environ.get("INVOCATION_ID"):
             sys.exit(EXIT_RESTART)
         _re_exec_bot()
     elif exit_code:

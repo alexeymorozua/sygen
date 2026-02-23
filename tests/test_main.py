@@ -417,17 +417,18 @@ class TestUpgradeCli:
 class TestReExecBot:
     """Test cross-platform re-exec helper."""
 
-    def test_re_exec_spawns_process_and_exits(self) -> None:
+    def test_re_exec_uses_execv_on_posix(self) -> None:
         from ductor_bot.__main__ import _re_exec_bot
 
         with (
-            patch("ductor_bot.__main__.subprocess.Popen") as mock_popen,
-            pytest.raises(SystemExit) as exc_info,
+            patch("ductor_bot.__main__._IS_WINDOWS", False),
+            patch("ductor_bot.__main__.os.execv") as mock_execv,
         ):
-            _re_exec_bot()
+            mock_execv.side_effect = SystemExit(0)
+            with pytest.raises(SystemExit):
+                _re_exec_bot()
 
-        mock_popen.assert_called_once_with([sys.executable, "-m", "ductor_bot"])
-        assert exc_info.value.code == 0
+        mock_execv.assert_called_once_with(sys.executable, [sys.executable, "-m", "ductor_bot"])
 
     def test_re_exec_uses_same_args_on_windows_flag(self) -> None:
         from ductor_bot.__main__ import _re_exec_bot
@@ -468,6 +469,21 @@ class TestStartBotRestart:
             patch("ductor_bot.__main__.load_config", return_value=self._mock_config()),
             patch("ductor_bot.__main__.asyncio.run", side_effect=_mock_asyncio_run(42)),
             patch.dict("os.environ", {"DUCTOR_SUPERVISOR": "1"}),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            _start_bot()
+
+        assert exc_info.value.code == 42
+
+    def test_exit42_with_systemd_invocation_id_exits(self) -> None:
+        from ductor_bot.__main__ import _start_bot
+
+        with (
+            patch("ductor_bot.__main__.resolve_paths"),
+            patch("ductor_bot.__main__.setup_logging"),
+            patch("ductor_bot.__main__.load_config", return_value=self._mock_config()),
+            patch("ductor_bot.__main__.asyncio.run", side_effect=_mock_asyncio_run(42)),
+            patch.dict("os.environ", {"INVOCATION_ID": "abc-123"}, clear=True),
             pytest.raises(SystemExit) as exc_info,
         ):
             _start_bot()
