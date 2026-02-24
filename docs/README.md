@@ -12,7 +12,7 @@ ductor is a Telegram bot that forwards chat input to the official Claude Code CL
 6. `docs/modules/bot.md` -- Telegram ingress, middleware, streaming UX, callbacks.
 7. `docs/modules/cli.md` -- provider wrappers, stream parsing, process control.
 8. `docs/modules/workspace.md` -- `~/.ductor` seeding, rule deployment/sync, runtime notices.
-9. Remaining module docs (`session`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `security`, `logging`, `skill_system`).
+9. Remaining module docs (`session`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `skill_system`).
 
 ## System in 60 Seconds
 
@@ -52,4 +52,5 @@ Runtime behavior note:
   - [cleanup](modules/cleanup.md)
   - [security](modules/security.md)
   - [infra](modules/infra.md)
+  - [supervisor](modules/supervisor.md)
   - [logging](modules/logging.md)

@@ -7,7 +7,7 @@ Central routing layer between Telegram UI and CLI execution.
 - `core.py`: `Orchestrator` lifecycle, routing, observer wiring, shutdown
 - `registry.py`: `CommandRegistry`, `OrchestratorResult`
 - `commands.py`: command handlers (`/status`, `/model`, `/cron`, `/diagnose`, `/upgrade`, ...)
-- `flows.py`: normal flow, streaming flow, heartbeat flow, error/sigkill handling
+- `flows.py`: normal flow, streaming flow, heartbeat flow, session-recovery/error handling
 - `directives.py`: leading `@...` directive parser
 - `hooks.py`: hook registry + `MAINMEMORY_REMINDER`
 - `model_selector.py`: interactive model/provider switch wizard (`ms:*`)
@@ -57,6 +57,11 @@ Registered commands:
 
 `/stop` is intentionally not registered here; abort is middleware/bot-level behavior.
 
+Note:
+
+- `/new` is also handled directly in the bot layer (`TelegramBot._on_new`) via `reset_active_provider_session`.
+- keeping `/new` registered in orchestrator preserves behavior for non-bot entry paths that still route through command dispatch.
+
 ## Directives
 
 `parse_directives(text, known_models)` parses only leading `@...` tokens.
@@ -90,7 +95,9 @@ Gemini safeguard:
 
 Error behavior:
 
-- SIGKILL: reset only active provider bucket and retry once
+- recoverable errors:
+  - SIGKILL -> reset active provider bucket and retry once
+  - invalid resumed session (`invalid session` / `session not found`) -> reset active provider bucket and retry once
 - other errors: kill processes, preserve session, return session-error guidance
 
 Success behavior:

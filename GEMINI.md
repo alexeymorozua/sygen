@@ -102,6 +102,20 @@ All run as in-process asyncio tasks:
 - Linux: `journalctl --user -u ductor -f`
 - macOS/Windows: recent lines from `~/.ductor/logs/agent.log` (fallback newest `*.log`)
 
+## CLI Commands
+
+| Command | Effect |
+|---|---|
+| `ductor` | Start bot (runs onboarding if needed) |
+| `ductor stop` | Stop bot and Docker container |
+| `ductor restart` | Restart bot |
+| `ductor upgrade` | Stop, upgrade, restart |
+| `ductor docker rebuild` | Stop bot, remove container & image, rebuilt on next start |
+| `ductor docker enable` | Set `docker.enabled = true` |
+| `ductor docker disable` | Stop container, set `docker.enabled = false` |
+| `ductor service install` | Install as background service |
+| `ductor service [sub]` | Service management (status/stop/logs/...) |
+
 ## Data Files (`~/.ductor`)
 
 - `config/config.json`

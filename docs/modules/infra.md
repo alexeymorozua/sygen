@@ -16,7 +16,10 @@ Runtime infrastructure: process lifecycle, restart/update flow, Docker sandbox, 
 - `service_windows.py`: Windows Task Scheduler backend
 - `version.py`: PyPI version/changelog utilities
 - `updater.py`: `UpdateObserver`, upgrade helpers/sentinel
-- `ductor_bot/run.py`: supervisor loop
+
+Related runtime wrapper:
+
+- `ductor_bot/run.py` (documented in [supervisor.md](supervisor.md)): optional supervisor with restart/backoff + hot-reload
 
 ## Service management
 
@@ -53,6 +56,7 @@ Shared helpers:
 
 - scheduled task name: `ductor`
 - starts 10s after logon
+- restart-on-failure policy: up to 3 retries, 1 minute interval
 - prefers `pythonw.exe -m ductor_bot`, fallback `ductor` binary
 - explicit admin hint panel on access-denied `schtasks` errors
 - `ductor service logs` uses `print_recent_logs()`
@@ -85,10 +89,29 @@ Windows compatibility includes broader `OSError` handling around PID liveness/te
    - `~/.claude`
    - `~/.codex`
    - `~/.gemini`
+   - `~/.claude.json` (file mount)
+6. optionally mount host cache (`mount_host_cache` config flag):
+   - Linux: `~/.cache` (or `$XDG_CACHE_HOME`)
+   - macOS: `~/Library/Caches`
+   - Windows: `%LOCALAPPDATA%`
 
 Linux adds UID/GID mapping (`--user uid:gid`) to avoid root-owned host files.
 
 If setup fails, orchestrator falls back to host execution.
+At runtime, `Orchestrator._ensure_docker()` also health-checks the container and falls back to host execution if recovery fails.
+
+The `Dockerfile.sandbox` includes Chrome/Chromium runtime dependencies (libgbm, libnss3, libasound2, etc.) for browser-based skills using patchright/playwright.
+
+### Docker CLI commands
+
+| Command | Effect |
+|---|---|
+| `ductor docker` | Show docker subcommand help |
+| `ductor docker rebuild` | Stop bot, remove container & image (rebuilt on next start) |
+| `ductor docker enable` | Set `docker.enabled = true` in config |
+| `ductor docker disable` | Stop container, set `docker.enabled = false` in config |
+
+`ductor docker rebuild` is safe to run while the bot runs as a service -- it stops the bot process first, the active service backend (systemd/launchd/Task Scheduler) can restart it, and the image is rebuilt during startup.
 
 ## Version/update system
 
@@ -97,12 +120,6 @@ If setup fails, orchestrator falls back to host execution.
 - `perform_upgrade()` runs `pipx upgrade --force ductor` (or pip fallback)
 - upgrade sentinel stores old/new version + chat for post-restart confirmation
 
-## Supervisor (`ductor_bot/run.py`)
+## Supervisor
 
-Runs `python -m ductor_bot` child process.
-
-Restart conditions:
-
-- exit `42` -> immediate restart
-- file change (when watch mode enabled) -> restart
-- crash -> exponential backoff
+See [supervisor.md](supervisor.md) for the optional wrapper process (`ductor_bot/run.py`).

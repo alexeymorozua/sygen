@@ -111,10 +111,6 @@ ductor executes the real provider CLIs as subprocesses. It does not proxy or spo
 | Telegram User ID | from [@userinfobot](https://t.me/userinfobot) |
 | Docker (optional) | recommended for sandboxing |
 
-###  Docker Support Info:
-Docker has been thoroughly tested on Linux.
-I have not yet had the opportunity to thoroughly test the implementation on Windows.
-
 ### CLI references:
 
 - Claude Code CLI: https://docs.anthropic.com/en/docs/claude-code
@@ -122,6 +118,17 @@ I have not yet had the opportunity to thoroughly test the implementation on Wind
 - Gemini CLI: https://github.com/google-gemini/gemini-cli
 
 Detailed installation: [`docs/installation.md`](docs/installation.md)
+
+## Docker management
+
+```bash
+ductor docker enable
+ductor docker disable
+ductor docker rebuild
+```
+
+- `enable` / `disable`: toggles `docker.enabled` in `~/.ductor/config/config.json`
+- `rebuild`: stops the bot, removes Docker container + image, rebuilds on next start
 
 ## Run as a background service
 
@@ -138,7 +145,7 @@ Platform details:
 
 - Linux: `~/.config/systemd/user/ductor.service`, logs via `journalctl --user -u ductor -f`
 - macOS: `~/Library/LaunchAgents/dev.ductor.plist`, log files at `~/.ductor/logs/service.log` + `service.err`, `ductor service logs` tails recent lines from `agent.log` (fallback newest `*.log`)
-- Windows: Task Scheduler task `ductor` (10s logon delay), prefers `pythonw.exe -m ductor_bot`, `ductor service logs` tails recent lines from `agent.log` (fallback newest `*.log`)
+- Windows: Task Scheduler task `ductor` (10s logon delay, restart-on-failure retries), prefers `pythonw.exe -m ductor_bot`, `ductor service logs` tails recent lines from `agent.log` (fallback newest `*.log`)
 
 ## How it works
 

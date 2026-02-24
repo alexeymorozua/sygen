@@ -29,6 +29,24 @@ def _needs_uid_mapping() -> bool:
     return platform.system() == "Linux"
 
 
+def _host_cache_dir() -> Path | None:
+    """Return the platform-specific user cache directory.
+
+    - Linux:   ~/.cache
+    - macOS:   ~/Library/Caches
+    - Windows: %LOCALAPPDATA%
+    """
+    system = platform.system()
+    if system == "Linux":
+        return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    if system == "Darwin":
+        return Path.home() / "Library" / "Caches"
+    if system == "Windows":
+        local = os.environ.get("LOCALAPPDATA")
+        return Path(local) if local else None
+    return None
+
+
 class DockerManager:
     """Manages a persistent Docker sidecar for sandboxed CLI execution.
 
@@ -222,11 +240,22 @@ class DockerManager:
         # Auth directories -- mount only if they exist on the host.
         home = Path.home()
         container_home = "/home/node"
-        for auth_dir, target, mode in [
+        auth_dirs: list[tuple[Path, str, str]] = [
             (home / ".claude", f"{container_home}/.claude", "rw"),
             (home / ".codex", f"{container_home}/.codex", "rw"),
             (home / ".gemini", f"{container_home}/.gemini", "rw"),
-        ]:
+        ]
+
+        # Optional: mount host cache dir for browser profiles & binaries.
+        # Disabled by default -- exposes host cache to the sandbox.
+        if self._config.mount_host_cache:
+            host_cache = _host_cache_dir()
+            if host_cache and host_cache.is_dir():
+                auth_dirs.append(
+                    (host_cache, f"{container_home}/.cache", "rw"),
+                )
+
+        for auth_dir, target, mode in auth_dirs:
             if auth_dir.is_dir():
                 cmd += ["-v", f"{auth_dir}:{target}:{mode}"]
 

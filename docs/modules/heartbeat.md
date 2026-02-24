@@ -22,7 +22,7 @@ Heartbeat runs periodic model turns in the existing main session to produce proa
 
 Helper:
 
-- `is_quiet_hour(now_hour, quiet_start, quiet_end)` (supports wrap-around windows, evaluated in `user_timezone`)
+- `is_quiet_hour(now_hour, quiet_start, quiet_end)` from `ductor_bot/utils/quiet_hours.py` (supports wrap-around windows)
 
 ## Lifecycle
 

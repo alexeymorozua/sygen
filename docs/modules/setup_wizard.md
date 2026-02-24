@@ -20,6 +20,7 @@ Covers `ductor` CLI command behavior, onboarding wizard, and upgrade/restart/uni
 - `ductor upgrade`: CLI-side upgrade + restart (non-dev installs)
 - `ductor uninstall`: full removal workflow
 - `ductor service <install|status|start|stop|logs|uninstall>`: service control
+- `ductor docker <rebuild|enable|disable>`: Docker lifecycle + config toggle
 - `ductor help`: command table + status hint
 
 Command resolution in `main()` takes the first matching non-flag command token.
@@ -44,6 +45,7 @@ Return semantics:
 
 Caller behavior:
 
+- both default start path and onboarding/reset path call `_stop_bot()` first to avoid duplicate runtime instances,
 - `ductor` default path: exits after successful service install; otherwise starts foreground bot
 - `ductor onboarding` / `ductor reset`: same behavior (no forced foreground start after successful service install)
 
@@ -83,6 +85,13 @@ Note: runtime file logger writes `agent.log`; status counter still scans `ductor
 - Linux: systemd user service
 - macOS: launchd Launch Agent
 - Windows: Task Scheduler
+
+Windows-specific behavior:
+
+- prefers `pythonw.exe -m ductor_bot` for windowless background execution,
+- falls back to `ductor` binary when `pythonw.exe` is unavailable,
+- installs Task Scheduler restart-on-failure retries (3 attempts, 1-minute interval),
+- shows an explicit admin-help panel on `schtasks` access-denied errors.
 
 `ductor service logs` behavior:
 
