@@ -34,6 +34,7 @@ class DockerConfig(BaseModel):
     image_name: str = "ductor-sandbox"
     container_name: str = "ductor-sandbox"
     auto_build: bool = True
+    mount_host_cache: bool = False
 
 
 _DEFAULT_HEARTBEAT_PROMPT = (

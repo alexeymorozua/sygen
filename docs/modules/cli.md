@@ -79,7 +79,12 @@ Normalized events in `stream_events.py` include:
 
 `bot/message_dispatch.py` wraps delta delivery with `StreamCoalescer` (`coalescer.py`) so Telegram edits flush at readable boundaries (paragraph/sentence/idle/full flush).
 
-SIGKILL retry is orchestrator-managed (`flows._recover_after_sigkill`), not CLIService-managed.
+Session recovery is orchestrator-managed (`flows._recover_session`), not CLIService-managed.
+
+Recovery triggers handled in orchestrator flows:
+
+- SIGKILL termination (`returncode == -SIGKILL`)
+- invalid resumed session (`"invalid session"` / `"session not found"` from provider CLI)
 
 ## Provider specifics
 
@@ -147,7 +152,12 @@ Windows uses process-tree termination (`taskkill /F /T`) to avoid orphaned child
 
 ## Docker wrapping
 
-`docker_wrap(cmd, container, chat_id, working_dir)`:
+`docker_wrap(cmd, config, extra_env=None, interactive=False)`:
 
-- no container: execute with local cwd
-- container: `docker exec -e DUCTOR_CHAT_ID=<id> <container> ...`, cwd unset
+- host mode (`config.docker_container == ""`): return original command + resolved local cwd
+- container mode:
+  - wraps command as `docker exec ... <container> ...`,
+  - injects `DUCTOR_CHAT_ID` automatically,
+  - forwards optional env vars via `-e` flags (`extra_env`),
+  - uses `-i` when `interactive=True` (required for stdin-fed providers like Gemini),
+  - returns `cwd=None` (execution happens inside container context).

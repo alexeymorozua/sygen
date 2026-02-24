@@ -124,6 +124,17 @@ Notes:
 - On Linux, ductor maps UID/GID to avoid root-owned files.
 - If Docker setup fails at startup, ductor logs warning and falls back to host execution.
 
+Docker CLI shortcuts:
+
+```bash
+ductor docker enable
+ductor docker disable
+ductor docker rebuild
+```
+
+- `enable` / `disable` toggles `docker.enabled` in `config.json` (restart bot afterwards).
+- `rebuild` stops the bot, removes container + image, and forces fresh build on next start.
+
 ## Background service
 
 Install:
@@ -147,6 +158,12 @@ Backends:
 - Linux: `systemd --user` service `~/.config/systemd/user/ductor.service`
 - macOS: Launch Agent `~/Library/LaunchAgents/dev.ductor.plist`
 - Windows: Task Scheduler task `ductor`
+
+Windows note:
+
+- service install prefers `pythonw.exe -m ductor_bot` (no visible console window),
+- installed Task Scheduler service uses logon trigger + restart-on-failure retries,
+- some systems require elevated terminal permissions for Task Scheduler operations.
 
 Log command behavior:
 

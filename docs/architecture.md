@@ -118,7 +118,9 @@ Default path:
 6. Gemini safeguard: if target provider is Gemini, auth mode is API-key, and `gemini_api_key` in config is empty/`"null"`, return warning text and skip CLI call.
 7. Execute CLI (`CLIService.execute` or `execute_streaming`).
 8. Error behavior:
-   - SIGKILL: reset only active provider bucket and retry once.
+   - recoverable:
+     - SIGKILL: reset only active provider bucket and retry once.
+     - invalid resumed session (`invalid session` / `session not found`): reset active provider bucket and retry once.
    - other errors: kill processes, preserve session, return session-error guidance.
 9. On success: persist session ID (if changed), counters, cost/tokens, and optional session-age note.
 
@@ -220,8 +222,11 @@ Lock usage is path-dependent (e.g., queue cancel and upgrade callbacks are handl
 
 - `/restart`: write restart sentinel, set exit code `42`, stop polling.
 - Marker-based restart: if `restart-requested` file appears, set exit code `42` and stop polling.
+- `__main__` restart handling:
+  - when supervisor env is present (`DUCTOR_SUPERVISOR` or `INVOCATION_ID`), process exits with `42`,
+  - otherwise process re-execs itself (`_re_exec_bot`) for direct foreground usage.
 
-### Supervisor (`ductor_bot/run.py`)
+### Optional Supervisor (`ductor_bot/run.py`)
 
 - Runs child process `python -m ductor_bot`.
 - Optional hot-reload on `.py` changes (if `watchfiles` installed).
@@ -229,6 +234,9 @@ Lock usage is path-dependent (e.g., queue cancel and upgrade callbacks are handl
   - exit `42` -> immediate restart,
   - file change -> restart child,
   - other crash -> exponential backoff.
+
+This wrapper is optional and separate from the default `ductor` CLI entrypoint.
+Detailed behavior: `docs/modules/supervisor.md`.
 
 ## Workspace Seeding Model
 

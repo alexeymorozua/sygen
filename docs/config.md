@@ -109,14 +109,29 @@ Behavior notes:
 
 ## `DockerConfig`
 
-| Field | Type | Default |
-|---|---|---|
-| `enabled` | `bool` | `false` |
-| `image_name` | `str` | `"ductor-sandbox"` |
-| `container_name` | `str` | `"ductor-sandbox"` |
-| `auto_build` | `bool` | `true` |
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | `bool` | `false` | Master toggle |
+| `image_name` | `str` | `"ductor-sandbox"` | Docker image name |
+| `container_name` | `str` | `"ductor-sandbox"` | Docker container name |
+| `auto_build` | `bool` | `true` | Build image automatically when missing |
+| `mount_host_cache` | `bool` | `false` | Mount host `~/.cache` into container (see below) |
 
 `Orchestrator.create()` calls `DockerManager.setup()` when enabled. If setup fails, ductor logs warning and falls back to host execution.
+
+### `mount_host_cache`
+
+Mounts the host's platform-specific cache directory into the container at `/home/node/.cache`:
+
+| Platform | Host path |
+|---|---|
+| Linux | `~/.cache` (or `$XDG_CACHE_HOME`) |
+| macOS | `~/Library/Caches` |
+| Windows | `%LOCALAPPDATA%` |
+
+Use case: browser-based skills (e.g. google-ai-mode) that use patchright/playwright need access to persistent browser profiles and browser binaries stored in the host cache. Without this, each container start requires a fresh CAPTCHA solve and Chrome download.
+
+Disabled by default because it exposes the host cache directory to the sandbox.
 
 ## `HeartbeatConfig`
 

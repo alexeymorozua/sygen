@@ -274,6 +274,7 @@ def _print_usage() -> None:
     svc_hint = "Task Scheduler" if _IS_WINDOWS else ("launchd" if is_macos else "systemd")
     table.add_row("ductor service install", f"Run as background service ({svc_hint})")
     table.add_row("ductor service", "Service management (status/stop/logs/...)")
+    table.add_row("ductor docker", "Docker management (rebuild/enable/disable)")
     table.add_row("ductor status", "Show bot status, paths, and stats")
     table.add_row("ductor help", "Show this message")
     table.add_row("-v, --verbose", "Verbose logging output")
@@ -651,6 +652,7 @@ _COMMANDS: dict[str, str] = {
     "onboarding": "setup",
     "reset": "setup",
     "service": "service",
+    "docker": "docker",
 }
 
 _SERVICE_SUBCOMMANDS = frozenset({"install", "status", "stop", "start", "logs", "uninstall"})
@@ -736,6 +738,131 @@ def _cmd_service(args: list[str]) -> None:
     _console.print()
 
 
+# ---------------------------------------------------------------------------
+# Docker management
+# ---------------------------------------------------------------------------
+
+_DOCKER_SUBCOMMANDS = frozenset({"rebuild", "enable", "disable"})
+
+
+def _parse_docker_subcommand(args: list[str]) -> str | None:
+    """Extract the subcommand after 'docker' from CLI args."""
+    found = False
+    for a in args:
+        if a.startswith("-"):
+            continue
+        if not found and a == "docker":
+            found = True
+            continue
+        if found:
+            return a if a in _DOCKER_SUBCOMMANDS else None
+    return None
+
+
+def _print_docker_help() -> None:
+    """Print the docker subcommand help table."""
+    _console.print()
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="bold green", min_width=30)
+    table.add_column()
+    table.add_row("ductor docker rebuild", "Remove container & image, rebuild on next start")
+    table.add_row("ductor docker enable", "Enable Docker sandboxing")
+    table.add_row("ductor docker disable", "Disable Docker sandboxing")
+    _console.print(
+        Panel(table, title="[bold]Docker Commands[/bold]", border_style="blue", padding=(1, 0)),
+    )
+    _console.print()
+
+
+def _docker_read_config() -> tuple[Path, dict[str, object]] | None:
+    """Read config.json and return (path, data) or None."""
+    paths = resolve_paths()
+    config_path = paths.config_path
+    if not config_path.exists():
+        _console.print("[bold red]Config not found. Run ductor first.[/bold red]")
+        return None
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        _console.print("[bold red]Failed to read config.[/bold red]")
+        return None
+    return config_path, data
+
+
+
+def _docker_set_enabled(*, enabled: bool) -> None:
+    """Set docker.enabled in config.json and handle running state."""
+    result = _docker_read_config()
+    if result is None:
+        return
+    config_path, data = result
+
+    docker = data.setdefault("docker", {})
+    if not isinstance(docker, dict):
+        data["docker"] = docker = {}
+    docker["enabled"] = enabled
+    config_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    if not enabled:
+        container = str(docker.get("container_name", "ductor-sandbox"))
+        _stop_docker_container(container)
+
+    state = "[green]enabled[/green]" if enabled else "[dim]disabled[/dim]"
+    _console.print(f"Docker sandboxing: {state}")
+    _console.print("[dim]Restart the bot to apply.[/dim]")
+
+
+def _docker_rebuild() -> None:
+    """Stop bot, remove container and image, so they get rebuilt on restart."""
+    if not shutil.which("docker"):
+        _console.print("[bold red]Docker not found.[/bold red]")
+        return
+
+    result = _docker_read_config()
+    container = "ductor-sandbox"
+    image = "ductor-sandbox"
+    if result is not None:
+        _, data = result
+        docker = data.get("docker", {})
+        if isinstance(docker, dict):
+            container = str(docker.get("container_name", container))
+            image = str(docker.get("image_name", image))
+
+    _console.print("[dim]Stopping bot...[/dim]")
+    _stop_bot()
+
+    _console.print(f"[dim]Removing container '{container}'...[/dim]")
+    subprocess.run(["docker", "rm", "-f", container], capture_output=True, check=False)
+
+    _console.print(f"[dim]Removing image '{image}'...[/dim]")
+    subprocess.run(["docker", "rmi", image], capture_output=True, check=False)
+
+    _console.print(
+        "[green]Done.[/green] Image will be rebuilt on next bot start.\n"
+        "[dim]If running as a service, it will restart automatically.[/dim]"
+    )
+
+
+def _cmd_docker(args: list[str]) -> None:
+    """Handle 'ductor docker <subcommand>'."""
+    sub = _parse_docker_subcommand(args)
+    if sub is None:
+        _print_docker_help()
+        return
+
+    dispatch: dict[str, _Action] = {
+        "rebuild": _docker_rebuild,
+        "enable": lambda: _docker_set_enabled(enabled=True),
+        "disable": lambda: _docker_set_enabled(enabled=False),
+    }
+    _console.print()
+    dispatch[sub]()
+    _console.print()
+
+
 def _default_action(verbose: bool) -> None:
     """Auto-onboarding if unconfigured, then start bot."""
     if not _is_configured():
@@ -768,6 +895,7 @@ def main() -> None:
         "uninstall": _uninstall,
         "setup": lambda: _cmd_setup(verbose),
         "service": lambda: _cmd_service(args),
+        "docker": lambda: _cmd_docker(args),
     }
 
     handler = dispatch.get(action) if action else None
