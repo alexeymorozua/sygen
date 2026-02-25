@@ -13,6 +13,7 @@ from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_discovery import CodexModelInfo
 from ductor_bot.cli.param_resolver import TaskExecutionConfig, TaskOverrides
 from ductor_bot.config import AgentConfig
+from ductor_bot.cron.execution import OneShotCommand
 from ductor_bot.cron.manager import CronJob, CronManager
 from ductor_bot.cron.observer import CronObserver
 
@@ -181,7 +182,7 @@ class TestExecuteJobWithOverrides:
                 file_access="all",
             )
 
-            mock_build.return_value = ["/usr/bin/claude", "test"]
+            mock_build.return_value = OneShotCommand(cmd=["/usr/bin/claude", "test"])
 
             # Mock subprocess
             proc = AsyncMock()
@@ -237,7 +238,9 @@ class TestExecuteJobWithOverrides:
                 file_access="all",
             )
 
-            mock_build.return_value = ["/usr/bin/claude", "--fast", "--verbose", "test"]
+            mock_build.return_value = OneShotCommand(
+                cmd=["/usr/bin/claude", "--fast", "--verbose", "test"],
+            )
 
             # Mock subprocess
             proc = AsyncMock()
@@ -295,7 +298,7 @@ class TestExecuteJobWithOverrides:
                 file_access="all",
             )
 
-            mock_build.return_value = ["/usr/bin/codex", "exec", "test"]
+            mock_build.return_value = OneShotCommand(cmd=["/usr/bin/codex", "exec", "test"])
 
             # Mock subprocess
             proc = AsyncMock()
@@ -355,7 +358,7 @@ class TestExecuteJobWithOverrides:
                 file_access="all",
             )
 
-            mock_build.return_value = ["/usr/bin/codex", "exec", "test"]
+            mock_build.return_value = OneShotCommand(cmd=["/usr/bin/codex", "exec", "test"])
 
             # Mock subprocess
             proc = AsyncMock()

@@ -476,7 +476,10 @@ class TestCronObserverExecution:
 
         call_count = 0
 
-        async def _communicate_side_effect() -> tuple[bytes, bytes]:
+        async def _communicate_side_effect(
+            *,
+            input: bytes | None = None,  # noqa: A002, ARG001
+        ) -> tuple[bytes, bytes]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:

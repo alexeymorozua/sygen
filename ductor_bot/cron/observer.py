@@ -57,6 +57,7 @@ class _PreparedCronExecution:
     exec_config: TaskExecutionConfig
     cmd: list[str]
     timeout: float
+    stdin_input: bytes | None = None
 
 
 class CronObserver:
@@ -311,6 +312,7 @@ class CronObserver:
                     provider=prepared.exec_config.provider,
                     timeout_seconds=prepared.timeout,
                     timeout_label="Cron job",
+                    stdin_input=prepared.stdin_input,
                 )
             except asyncio.CancelledError:
                 logger.debug("Cron job %s cancelled, subprocess terminated", job_id)
@@ -397,9 +399,9 @@ class CronObserver:
         )
         exec_config = self._resolve_execution_config(overrides)
         enriched = enrich_instruction(instruction, task_folder)
-        cmd = build_cmd(exec_config, enriched)
+        one_shot = build_cmd(exec_config, enriched)
 
-        if cmd is None:
+        if one_shot is None:
             logger.error("%s CLI not found for cron job %s", exec_config.provider, job_id)
             self._manager.update_run_status(
                 job_id,
@@ -410,8 +412,9 @@ class CronObserver:
         return _PreparedCronExecution(
             folder=folder,
             exec_config=exec_config,
-            cmd=cmd,
+            cmd=one_shot.cmd,
             timeout=self._config.cli_timeout,
+            stdin_input=one_shot.stdin_input,
         )
 
     async def _update_mtime(self) -> None:

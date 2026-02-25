@@ -96,15 +96,16 @@ async def test_cron_task_model_override(
 
     # Build command
     with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"):
-        cmd = build_cmd(exec_config, "Test prompt")
+        result = build_cmd(exec_config, "Test prompt")
 
     # Verify command structure
-    assert cmd is not None
-    assert cmd[0] == "/usr/bin/claude"
-    assert "--model" in cmd
-    assert "sonnet" in cmd  # Model override applied
-    assert cmd[-2] == "--"
-    assert cmd[-1] == "Test prompt"
+    assert result is not None
+    assert result.cmd[0] == "/usr/bin/claude"
+    assert "--model" in result.cmd
+    assert "sonnet" in result.cmd  # Model override applied
+    assert result.cmd[-2] == "--"
+    assert result.cmd[-1] == "Test prompt"
+    assert result.stdin_input is None
 
 
 async def test_cron_task_cli_parameters(
@@ -143,14 +144,14 @@ async def test_cron_task_cli_parameters(
 
     # Build command
     with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/codex"):
-        cmd = build_cmd(exec_config, "Test prompt")
+        result = build_cmd(exec_config, "Test prompt")
 
     # Verify --chrome appears in command before --
-    assert cmd is not None
-    assert "--chrome" in cmd
-    separator_idx = cmd.index("--")
-    assert cmd.index("--chrome") < separator_idx
-    assert cmd[-1] == "Test prompt"
+    assert result is not None
+    assert "--chrome" in result.cmd
+    separator_idx = result.cmd.index("--")
+    assert result.cmd.index("--chrome") < separator_idx
+    assert result.cmd[-1] == "Test prompt"
 
 
 async def test_cron_task_reasoning_effort(
@@ -189,15 +190,15 @@ async def test_cron_task_reasoning_effort(
 
     # Build command
     with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/codex"):
-        cmd = build_cmd(exec_config, "Test prompt")
+        result = build_cmd(exec_config, "Test prompt")
 
     # Verify reasoning effort parameter
-    assert cmd is not None
-    assert "-c" in cmd
-    assert "model_reasoning_effort=high" in cmd
+    assert result is not None
+    assert "-c" in result.cmd
+    assert "model_reasoning_effort=high" in result.cmd
     # Verify it's positioned before --
-    separator_idx = cmd.index("--")
-    config_idx = cmd.index("-c")
+    separator_idx = result.cmd.index("--")
+    config_idx = result.cmd.index("-c")
     assert config_idx < separator_idx
 
 
@@ -243,13 +244,13 @@ async def test_cron_task_fallback_to_global(
 
     # Build command
     with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"):
-        cmd = build_cmd(exec_config, "Test prompt")
+        result = build_cmd(exec_config, "Test prompt")
 
     # Verify global config is used
-    assert cmd is not None
-    assert cmd[0] == "/usr/bin/claude"
-    assert "--model" in cmd
-    assert "opus" in cmd  # Global model used when task has no override
+    assert result is not None
+    assert result.cmd[0] == "/usr/bin/claude"
+    assert "--model" in result.cmd
+    assert "opus" in result.cmd  # Global model used when task has no override
     # No CLI parameters since task has empty cli_parameters list
 
 
@@ -297,11 +298,11 @@ async def test_cron_task_provider_switch(
 
     # Build command
     with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/codex"):
-        cmd = build_cmd(exec_config, "Test prompt")
+        result = build_cmd(exec_config, "Test prompt")
 
     # Verify Codex command instead of Claude
-    assert cmd is not None
-    assert cmd[0] == "/usr/bin/codex"
-    assert "exec" in cmd  # Codex uses 'exec' subcommand
-    assert "--model" in cmd
-    assert "gpt-5.2-codex" in cmd
+    assert result is not None
+    assert result.cmd[0] == "/usr/bin/codex"
+    assert "exec" in result.cmd  # Codex uses 'exec' subcommand
+    assert "--model" in result.cmd
+    assert "gpt-5.2-codex" in result.cmd

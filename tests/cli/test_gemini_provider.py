@@ -129,6 +129,14 @@ class TestBuildCommand:
         assert "--extra" in cmd
         assert "flag" in cmd
 
+    def test_headless_prompt_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Command contains -p '' for headless mode (Windows TTY bypass)."""
+        cli = _make_cli(monkeypatch)
+        cmd = cli._build_command()
+        assert "-p" in cmd
+        p_idx = cmd.index("-p")
+        assert cmd[p_idx + 1] == ""
+
 
 class TestPrepareEnv:
     def test_prepends_cli_parent_when_cli_path_is_absolute(

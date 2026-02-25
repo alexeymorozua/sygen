@@ -324,9 +324,9 @@ class WebhookObserver:
 
             exec_config = self._resolve_execution_config(overrides)
             enriched = enrich_instruction(prompt, task_folder)
-            cmd = build_cmd(exec_config, enriched)
+            one_shot = build_cmd(exec_config, enriched)
 
-            if cmd is None:
+            if one_shot is None:
                 return WebhookResult(
                     hook_id=hook_id,
                     hook_title=title,
@@ -349,11 +349,12 @@ class WebhookObserver:
             )
 
             execution = await execute_one_shot(
-                cmd,
+                one_shot.cmd,
                 cwd=folder,
                 provider=exec_config.provider,
                 timeout_seconds=timeout,
                 timeout_label="Webhook cron_task",
+                stdin_input=one_shot.stdin_input,
             )
             if execution.timed_out:
                 logger.warning("Webhook cron_task %s timed out after %.0fs", hook_id, timeout)

@@ -80,6 +80,7 @@ class GeminiCLI(BaseCLI):
         """Build the CLI command list."""
         cfg = self._config
         cmd = ["node", self._cli_js] if self._cli_js else [self._cli]
+        cmd += ["-p", ""]
         cmd += ["--output-format", "stream-json" if streaming else "json"]
         cmd += ["--include-directories", "."]
 
