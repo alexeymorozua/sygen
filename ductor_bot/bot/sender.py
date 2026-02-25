@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_mod
 import logging
 import mimetypes
 import re
@@ -79,12 +80,11 @@ async def _send_text_chunks(
             logger.warning(
                 "HTML send failed at chunk %d/%d, falling back to plain text", i, len(chunks)
             )
-            # Re-split the original text for plain-text sending.  We send the
-            # full text rather than trying to skip already-sent HTML chunks
-            # because HTML and plain-text chunk boundaries don't align
-            # (HTML tags inflate chunk size), so using the HTML chunk index on a
-            # plain-text split would skip wrong content.
-            for pc in split_html_message(clean_text):
+            # Only resend unsent chunks (i onwards) to avoid duplicating
+            # content that was already delivered as HTML.
+            remaining = "\n\n".join(chunks[i:])
+            plain = html_mod.unescape(re.sub(r"<[^>]+>", "", remaining))
+            for pc in split_html_message(plain):
                 last_msg = await bot.send_message(
                     chat_id=chat_id,
                     text=pc,

@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from shutil import which
 
@@ -18,7 +18,15 @@ from ductor_bot.cli.param_resolver import TaskExecutionConfig
 logger = logging.getLogger(__name__)
 
 
-def build_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str] | None:
+@dataclass(slots=True)
+class OneShotCommand:
+    """Command + optional stdin payload for one-shot execution."""
+
+    cmd: list[str] = field(default_factory=list)
+    stdin_input: bytes | None = None
+
+
+def build_cmd(exec_config: TaskExecutionConfig, prompt: str) -> OneShotCommand | None:
     """Build a CLI command for one-shot cron execution."""
     builder = _CMD_BUILDERS.get(exec_config.provider, _build_claude_cmd)
     return builder(exec_config, prompt)
@@ -84,7 +92,7 @@ def indent(text: str, prefix: str) -> str:
 # -- Private builders --
 
 
-def _build_claude_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str] | None:
+def _build_claude_cmd(exec_config: TaskExecutionConfig, prompt: str) -> OneShotCommand | None:
     """Build a Claude CLI command for one-shot cron execution."""
     cli = which("claude")
     if not cli:
@@ -103,16 +111,20 @@ def _build_claude_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str
     # Add extra CLI parameters
     cmd.extend(exec_config.cli_parameters)
     cmd += ["--", prompt]
-    return cmd
+    return OneShotCommand(cmd=cmd)
 
 
-def _build_gemini_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str] | None:
-    """Build a Gemini CLI command for one-shot cron execution."""
+def _build_gemini_cmd(exec_config: TaskExecutionConfig, prompt: str) -> OneShotCommand | None:
+    """Build a Gemini CLI command for one-shot cron execution.
+
+    Uses hybrid mode: ``-p ""`` forces headless mode (bypassing the TTY check
+    that causes exit-42 on Windows), while the actual prompt is fed via stdin.
+    """
     try:
         cli = find_gemini_cli()
     except FileNotFoundError:
         return None
-    cmd = [cli, "--output-format", "json", "--include-directories", "."]
+    cmd = [cli, "-p", "", "--output-format", "json", "--include-directories", "."]
 
     if exec_config.model:
         cmd += ["--model", exec_config.model]
@@ -120,11 +132,10 @@ def _build_gemini_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str
         cmd += ["--approval-mode", "yolo"]
 
     cmd.extend(exec_config.cli_parameters)
-    cmd += ["--", prompt]
-    return cmd
+    return OneShotCommand(cmd=cmd, stdin_input=prompt.encode())
 
 
-def _build_codex_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str] | None:
+def _build_codex_cmd(exec_config: TaskExecutionConfig, prompt: str) -> OneShotCommand | None:
     """Build a Codex CLI command for one-shot cron execution."""
     cli = which("codex")
     if not cli:
@@ -147,10 +158,10 @@ def _build_codex_cmd(exec_config: TaskExecutionConfig, prompt: str) -> list[str]
     cmd.extend(exec_config.cli_parameters)
 
     cmd += ["--", prompt]
-    return cmd
+    return OneShotCommand(cmd=cmd)
 
 
-_CmdBuilder = Callable[[TaskExecutionConfig, str], list[str] | None]
+_CmdBuilder = Callable[[TaskExecutionConfig, str], OneShotCommand | None]
 _ResultParser = Callable[[bytes], str]
 
 _CMD_BUILDERS: dict[str, _CmdBuilder] = {
@@ -178,19 +189,20 @@ class OneShotExecutionResult:
     timed_out: bool
 
 
-async def execute_one_shot(
+async def execute_one_shot(  # noqa: PLR0913
     cmd: list[str],
     *,
     cwd: Path,
     provider: str,
     timeout_seconds: float,
     timeout_label: str,
+    stdin_input: bytes | None = None,
 ) -> OneShotExecutionResult:
     """Run one provider CLI command with timeout and normalized status/result."""
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         cwd=str(cwd),
-        stdin=asyncio.subprocess.DEVNULL,
+        stdin=asyncio.subprocess.PIPE if stdin_input is not None else asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -198,7 +210,7 @@ async def execute_one_shot(
     timed_out = False
     try:
         async with asyncio.timeout(timeout_seconds):
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await proc.communicate(input=stdin_input)
     except TimeoutError:
         timed_out = True
         proc.kill()

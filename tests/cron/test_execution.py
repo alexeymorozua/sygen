@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import asyncio
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from ductor_bot.cli.param_resolver import TaskExecutionConfig
 from ductor_bot.cron.execution import (
     build_cmd,
     enrich_instruction,
+    execute_one_shot,
     indent,
     parse_claude_result,
     parse_codex_result,
@@ -28,10 +31,14 @@ class TestBuildCmd:
             file_access="all",
         )
         with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"):
-            cmd = build_cmd(exec_config, "hello")
-        assert cmd is not None
-        assert cmd[0] == "/usr/bin/claude"
-        assert "--no-session-persistence" in cmd
+            result = build_cmd(exec_config, "hello")
+        assert result is not None
+        assert result.cmd[0] == "/usr/bin/claude"
+        assert "--no-session-persistence" in result.cmd
+        # Claude: prompt as CLI arg, no stdin
+        assert result.stdin_input is None
+        assert result.cmd[-1] == "hello"
+        assert result.cmd[-2] == "--"
 
     def test_codex_provider(self) -> None:
         exec_config = TaskExecutionConfig(
@@ -44,10 +51,12 @@ class TestBuildCmd:
             file_access="all",
         )
         with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/codex"):
-            cmd = build_cmd(exec_config, "hello")
-        assert cmd is not None
-        assert cmd[0] == "/usr/bin/codex"
-        assert "--dangerously-bypass-approvals-and-sandbox" in cmd
+            result = build_cmd(exec_config, "hello")
+        assert result is not None
+        assert result.cmd[0] == "/usr/bin/codex"
+        assert "--dangerously-bypass-approvals-and-sandbox" in result.cmd
+        # Codex: prompt as CLI arg, no stdin
+        assert result.stdin_input is None
 
     def test_codex_full_auto(self) -> None:
         exec_config = TaskExecutionConfig(
@@ -60,9 +69,9 @@ class TestBuildCmd:
             file_access="all",
         )
         with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/codex"):
-            cmd = build_cmd(exec_config, "hello")
-        assert cmd is not None
-        assert "--full-auto" in cmd
+            result = build_cmd(exec_config, "hello")
+        assert result is not None
+        assert "--full-auto" in result.cmd
 
     def test_returns_none_when_cli_missing(self) -> None:
         exec_config = TaskExecutionConfig(
@@ -88,11 +97,19 @@ class TestBuildCmd:
             file_access="all",
         )
         with patch("ductor_bot.cron.execution.find_gemini_cli", return_value="/usr/bin/gemini"):
-            cmd = build_cmd(exec_config, "hello")
-        assert cmd is not None
-        assert cmd[0] == "/usr/bin/gemini"
-        assert "--approval-mode" in cmd
-        assert "yolo" in cmd
+            result = build_cmd(exec_config, "hello")
+        assert result is not None
+        assert result.cmd[0] == "/usr/bin/gemini"
+        assert "--approval-mode" in result.cmd
+        assert "yolo" in result.cmd
+        # Hybrid mode: -p "" instead of -- prompt
+        assert "-p" in result.cmd
+        p_idx = result.cmd.index("-p")
+        assert result.cmd[p_idx + 1] == ""
+        assert "--" not in result.cmd
+        assert "hello" not in result.cmd
+        # Prompt via stdin
+        assert result.stdin_input == b"hello"
 
     def test_gemini_returns_none_when_cli_missing(self) -> None:
         exec_config = TaskExecutionConfig(
@@ -121,9 +138,56 @@ class TestBuildCmd:
             file_access="all",
         )
         with patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"):
-            cmd = build_cmd(exec_config, "hello")
-        assert cmd is not None
-        assert cmd[0] == "/usr/bin/claude"
+            result = build_cmd(exec_config, "hello")
+        assert result is not None
+        assert result.cmd[0] == "/usr/bin/claude"
+        assert result.stdin_input is None
+
+
+class TestExecuteOneShotStdin:
+    """Test execute_one_shot stdin_input parameter."""
+
+    async def test_with_stdin_input_uses_pipe(self) -> None:
+        """stdin_input is forwarded to subprocess via PIPE."""
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            proc = AsyncMock()
+            proc.communicate.return_value = (b'{"result":"ok"}', b"")
+            proc.returncode = 0
+            mock_exec.return_value = proc
+
+            result = await execute_one_shot(
+                ["/usr/bin/gemini", "-p", ""],
+                cwd=Path("/tmp"),
+                provider="gemini",
+                timeout_seconds=60,
+                timeout_label="Test",
+                stdin_input=b"hello",
+            )
+
+        call_kwargs = mock_exec.call_args[1]
+        assert call_kwargs["stdin"] == asyncio.subprocess.PIPE
+        proc.communicate.assert_called_once_with(input=b"hello")
+        assert result.status == "success"
+
+    async def test_without_stdin_input_uses_devnull(self) -> None:
+        """Without stdin_input, DEVNULL is used (backward compat)."""
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            proc = AsyncMock()
+            proc.communicate.return_value = (b'{"result":"ok"}', b"")
+            proc.returncode = 0
+            mock_exec.return_value = proc
+
+            await execute_one_shot(
+                ["/usr/bin/claude", "-p", "--", "hello"],
+                cwd=Path("/tmp"),
+                provider="claude",
+                timeout_seconds=60,
+                timeout_label="Test",
+            )
+
+        call_kwargs = mock_exec.call_args[1]
+        assert call_kwargs["stdin"] == asyncio.subprocess.DEVNULL
+        proc.communicate.assert_called_once_with(input=None)
 
 
 class TestEnrichInstruction:
