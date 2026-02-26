@@ -547,6 +547,122 @@ class TestCronObserverExecution:
         # No exception = success
 
 
+class TestCronResultDelivery:
+    """Result delivery must be robust: no silent drops, no race conditions."""
+
+    async def test_result_delivered_when_job_deleted_after_schedule(self, tmp_path: Path) -> None:
+        """Result handler fires even if the job is removed before execution."""
+        paths = _make_paths(tmp_path)
+        mgr = _make_manager(paths)
+        mgr.add_job(_make_job("ephemeral", title="Ephemeral"))
+        (paths.cron_tasks_dir / "ephemeral").mkdir()
+
+        observer = _make_observer(paths, mgr)
+        callback = AsyncMock()
+        observer.set_result_handler(callback)
+
+        # Remove the job from the manager (simulates a reload that drops it)
+        mgr.remove_job("ephemeral")
+        assert mgr.get_job("ephemeral") is None
+
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b'{"result": "Done"}', b""))
+
+        with (
+            time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
+            patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        ):
+            await observer._execute_job("ephemeral", "Do work", "ephemeral")
+
+        # Result must be delivered using job_id as fallback title
+        callback.assert_awaited_once()
+        title, result_text, status = callback.call_args[0]
+        assert title == "ephemeral"
+        assert result_text == "Done"
+        assert status == "success"
+
+    async def test_result_delivered_before_file_write(self, tmp_path: Path) -> None:
+        """Result handler is called before update_run_status writes to disk."""
+        paths = _make_paths(tmp_path)
+        mgr = _make_manager(paths)
+        mgr.add_job(_make_job("daily", title="My Task"))
+        (paths.cron_tasks_dir / "daily").mkdir()
+
+        observer = _make_observer(paths, mgr)
+
+        call_order: list[str] = []
+
+        async def track_result(*_args: object) -> None:
+            call_order.append("result_delivered")
+
+        original_update = mgr.update_run_status
+
+        def track_update(*args: object, **kwargs: object) -> None:
+            call_order.append("file_written")
+            original_update(*args, **kwargs)
+
+        observer.set_result_handler(track_result)
+
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b'{"result": "ok"}', b""))
+
+        with (
+            time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
+            patch("ductor_bot.cron.execution.which", return_value="/usr/bin/claude"),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch.object(mgr, "update_run_status", side_effect=track_update),
+        ):
+            await observer._execute_job("daily", "Do work", "daily")
+
+        assert call_order == ["result_delivered", "file_written"]
+
+    async def test_result_delivered_for_cli_not_found(self, tmp_path: Path) -> None:
+        """CLI-not-found error is delivered to the result handler."""
+        paths = _make_paths(tmp_path)
+        mgr = _make_manager(paths)
+        mgr.add_job(_make_job("broken", title="Broken Job"))
+        (paths.cron_tasks_dir / "broken").mkdir()
+
+        observer = _make_observer(paths, mgr)
+        callback = AsyncMock()
+        observer.set_result_handler(callback)
+
+        with (
+            time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
+            patch("ductor_bot.cron.execution.which", return_value=None),
+        ):
+            await observer._execute_job("broken", "Do work", "broken")
+
+        callback.assert_awaited_once()
+        title, result_text, _status = callback.call_args[0]
+        assert title == "Broken Job"
+        assert "not found" in result_text.lower()
+
+    async def test_run_at_catches_unexpected_exception(self, tmp_path: Path) -> None:
+        """Unexpected exception in _execute_job does not crash the observer."""
+        paths = _make_paths(tmp_path)
+        mgr = _make_manager(paths)
+        observer = _make_observer(paths, mgr)
+        observer._running = True
+
+        from ductor_bot.cron.observer import _ScheduledJob
+
+        job = _ScheduledJob(
+            id="crash",
+            schedule="* * * * *",
+            instruction="Do",
+            task_folder="crash",
+            timezone="",
+        )
+
+        with patch.object(observer, "_execute_job", side_effect=RuntimeError("boom")):
+            # Must not raise — the exception is logged and the job is rescheduled
+            await observer._run_at(0, job)
+
+
 class TestEnrichInstruction:
     """Tests for enrich_instruction helper."""
 
