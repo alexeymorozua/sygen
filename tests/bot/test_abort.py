@@ -10,14 +10,14 @@ class TestIsAbortTrigger:
 
     @pytest.mark.parametrize(
         "word",
-        ["stop", "abort", "cancel", "halt", "wait", "quit", "exit", "interrupt"],
+        ["stop", "abort", "cancel", "halt", "hold", "wait", "quit", "exit", "esc", "interrupt"],
     )
     def test_english_abort_words(self, word: str) -> None:
         from ductor_bot.bot.abort import is_abort_trigger
 
         assert is_abort_trigger(word) is True
 
-    @pytest.mark.parametrize("word", ["stopp", "warte", "abbruch", "abbrechen"])
+    @pytest.mark.parametrize("word", ["stopp", "warte", "abbruch", "abbrechen", "aufhören"])
     def test_german_abort_words(self, word: str) -> None:
         from ductor_bot.bot.abort import is_abort_trigger
 
