@@ -156,7 +156,8 @@ class TelegramBot:
         self._sequential.set_bot(self._bot)
         self._sequential.set_abort_handler(self._on_abort)
         self._sequential.set_quick_command_handler(self._on_quick_command)
-        self._router.message.outer_middleware(AuthMiddleware(allowed))
+        auth = AuthMiddleware(allowed, group_mention_only=config.group_mention_only)
+        self._router.message.outer_middleware(auth)
         self._router.message.outer_middleware(self._sequential)
         self._router.callback_query.outer_middleware(AuthMiddleware(allowed))
 

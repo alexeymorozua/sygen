@@ -111,7 +111,8 @@ def _is_configured() -> bool:
         return False
     token = data.get("telegram_token", "")
     users = data.get("allowed_user_ids", [])
-    return bool(token) and not str(token).startswith("YOUR_") and bool(users)
+    group_mention_only = data.get("group_mention_only", False)
+    return bool(token) and not str(token).startswith("YOUR_") and (bool(users) or bool(group_mention_only))
 
 
 def load_config() -> AgentConfig:
@@ -188,7 +189,8 @@ async def run_telegram(config: AgentConfig) -> int:
     paths = resolve_paths(ductor_home=config.ductor_home)
 
     missing_token = not config.telegram_token or config.telegram_token.startswith("YOUR_")
-    if missing_token or not config.allowed_user_ids:
+    needs_users = not config.allowed_user_ids and not config.group_mention_only
+    if missing_token or needs_users:
         _console.print(
             "[bold yellow]Config is incomplete. Run [bold]ductor onboarding[/bold].[/bold yellow]"
         )
