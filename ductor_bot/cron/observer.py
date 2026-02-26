@@ -216,6 +216,8 @@ class CronObserver:
         except asyncio.CancelledError:
             logger.debug("Cron job %s cancelled during execution", scheduled_job.id)
             return
+        except Exception:
+            logger.exception("Cron job %s failed unexpectedly", scheduled_job.id)
         if self._running:
             self._schedule_job(
                 scheduled_job.id,
@@ -237,6 +239,20 @@ class CronObserver:
             self._codex_cache,
             task_overrides=task_overrides,
         )
+
+    async def _deliver_result(
+        self, job_id: str, job_title: str, result_text: str, status: str
+    ) -> None:
+        """Send result to the external handler (e.g. Telegram).
+
+        Uses *job_title* (computed at execution start) so delivery works even
+        if the job was removed from the manager mid-execution.
+        """
+        if self._on_result:
+            try:
+                await self._on_result(job_title, result_text, status)
+            except Exception:
+                logger.exception("Error in cron result handler for job %s", job_id)
 
     async def _execute_job(
         self,
@@ -299,8 +315,9 @@ class CronObserver:
                 raise
 
             if result.execution is None:
-                # CLI not found
+                # CLI not found — deliver error to chat, then persist status
                 logger.error("%s CLI not found for cron job %s", exec_config.provider, job_id)
+                await self._deliver_result(job_id, job_title, result.result_text, result.status)
                 self._manager.update_run_status(job_id, status=result.status)
                 return
 
@@ -318,11 +335,6 @@ class CronObserver:
                     result.execution.stderr.decode(errors="replace")[:500],
                 )
 
-            self._manager.update_run_status(job_id, status=result.status)
-            # Refresh our mtime baseline so the file-watcher doesn't treat the
-            # run-status write as a user-initiated change and trigger a full
-            # reschedule of all other jobs.
-            await self._watcher.update_mtime()
             elapsed_ms = (time.monotonic() - t0) * 1000
             logger.info(
                 "Cron job completed job=%s status=%s duration_ms=%.0f stdout=%d result=%d",
@@ -333,11 +345,18 @@ class CronObserver:
                 len(result.result_text),
             )
 
-            if self._on_result and job:
-                try:
-                    await self._on_result(job.title, result.result_text, result.status)
-                except Exception:
-                    logger.exception("Error in cron result handler for job %s", job_id)
+            # Deliver result BEFORE writing run-status to disk.  The file
+            # write can trigger the file-watcher which reschedules (and
+            # cancels) running tasks.  Delivering first guarantees the
+            # Telegram message is sent even if the task is cancelled during
+            # the subsequent file I/O.
+            await self._deliver_result(job_id, job_title, result.result_text, result.status)
+
+            self._manager.update_run_status(job_id, status=result.status)
+            # Refresh our mtime baseline so the file-watcher doesn't treat the
+            # run-status write as a user-initiated change and trigger a full
+            # reschedule of all other jobs.
+            await self._watcher.update_mtime()
 
     def _is_quiet_hours(self, job: CronJob | None, job_title: str) -> bool:
         """Return True when the job must be skipped due to quiet-hour settings."""

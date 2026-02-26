@@ -87,8 +87,12 @@ def _build_upgrade_command(
 ) -> list[str]:
     """Build provider-specific upgrade command."""
     if mode == "pipx":
-        if target_version is None and not force_reinstall:
+        # On non-Windows, prefer `pipx upgrade` for plain upgrades (no pin).
+        if target_version is None and not force_reinstall and sys.platform != "win32":
             return ["pipx", "upgrade", "--force", "ductor"]
+        # `pipx runpip` upgrades inside the venv.  On Windows this is
+        # required because `pipx upgrade` tries to overwrite the global
+        # ductor.exe which the running process holds locked.
         spec = f"ductor=={target_version}" if target_version else "ductor"
         cmd = ["pipx", "runpip", "ductor", "install", "--upgrade", "--no-cache-dir"]
         if force_reinstall:
@@ -150,7 +154,9 @@ async def _perform_upgrade_impl(
 
     # Older pipx setups may not support/handle runpip as expected.
     # Fall back to plain pipx upgrade so we keep behavior resilient.
-    if mode == "pipx" and normalized_target is not None:
+    # On Windows the fallback would hit the same PermissionError on the
+    # locked exe, so skip it there.
+    if mode == "pipx" and normalized_target is not None and sys.platform != "win32":
         fallback_cmd = ["pipx", "upgrade", "--force", "ductor"]
         fb_ok, fb_output = await _run_upgrade_command(fallback_cmd, env=env)
         combined = "\n\n".join(part for part in (output.strip(), fb_output.strip()) if part)
@@ -225,28 +231,40 @@ async def perform_upgrade_pipeline(
     """
     outputs: list[str] = []
 
-    ok, output = await _perform_upgrade_impl(target_version=None, force_reinstall=False)
+    _ok, output = await _perform_upgrade_impl(target_version=None, force_reinstall=False)
     outputs.append(output)
-    if ok:
-        installed = await _wait_for_version_change(current_version)
-        if installed != current_version:
-            return True, installed, _combine_outputs(outputs)
+
+    # Always verify version regardless of the command exit code.  On
+    # Windows, pipx may report failure (exe file lock) even though the
+    # package was upgraded successfully inside the venv.
+    installed = await _wait_for_version_change(current_version)
+    if installed != current_version:
+        return True, installed, _combine_outputs(outputs)
 
     retry_target = await _resolve_retry_target(current_version, target_version)
     if retry_target is None:
         return False, current_version, _combine_outputs(outputs)
 
-    retry_ok, retry_output = await _perform_upgrade_impl(
+    _retry_ok, retry_output = await _perform_upgrade_impl(
         target_version=retry_target,
         force_reinstall=True,
     )
     outputs.append(retry_output)
-    if not retry_ok:
-        return False, current_version, _combine_outputs(outputs)
 
     installed = await _wait_for_version_change(current_version)
-    changed = installed != current_version
-    return changed, installed, _combine_outputs(outputs)
+    if installed != current_version:
+        return True, installed, _combine_outputs(outputs)
+
+    # Detect PyPI CDN propagation delay — the JSON API may announce a
+    # version before the package index used by pip has it available.
+    combined = _combine_outputs(outputs)
+    if "No matching distribution found" in combined:
+        outputs.append(
+            "The new version may not have propagated to all PyPI mirrors yet. "
+            "Please try again in a few minutes."
+        )
+
+    return False, current_version, _combine_outputs(outputs)
 
 
 # ---------------------------------------------------------------------------
