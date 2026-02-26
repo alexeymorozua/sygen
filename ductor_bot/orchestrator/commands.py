@@ -241,8 +241,8 @@ async def _build_status(orch: Orchestrator, chat_id: int) -> str:
     auth = await asyncio.to_thread(check_all_auth)
     auth_lines: list[str] = []
     for provider, result in auth.items():
-        age = f" ({result.age_human})" if result.age_human else ""
-        auth_lines.append(f"  [{provider}] {result.status.value}{age}")
+        age_label = f" ({result.age_human})" if result.age_human else ""
+        auth_lines.append(f"  [{provider}] {result.status.value}{age_label}")
     auth_block = "Auth:\n" + "\n".join(auth_lines)
 
     blocks = ["**Status**", SEP, session_block]

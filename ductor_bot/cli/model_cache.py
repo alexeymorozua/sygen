@@ -125,7 +125,7 @@ class BaseModelCache(ABC):
         except Exception:
             logger.exception("Failed to save %s cache to disk", name)
 
-        return cache  # type: ignore[return-value]
+        return cache
 
 
 class BaseModelCacheObserver(BaseObserver, ABC):

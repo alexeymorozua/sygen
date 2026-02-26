@@ -8,18 +8,23 @@ from __future__ import annotations
 
 ABORT_WORDS: frozenset[str] = frozenset(
     {
+        # English
         "stop",
         "abort",
         "cancel",
         "halt",
+        "hold",
         "wait",
         "quit",
         "exit",
+        "esc",
         "interrupt",
+        # German
         "stopp",
         "warte",
         "abbruch",
         "abbrechen",
+        "aufhören",
     }
 )
 

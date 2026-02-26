@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 _DUCTOR_MOUNT = "/ductor"
 _CONTAINER_WS = f"{_DUCTOR_MOUNT}/workspace"
+_MOUNT_PREFIX = "/mnt"
 
 
 def _needs_uid_mapping() -> bool:
@@ -45,6 +46,48 @@ def _host_cache_dir() -> Path | None:
         local = os.environ.get("LOCALAPPDATA")
         return Path(local) if local else None
     return None
+
+
+def resolve_mount_target(host_path: str, existing_names: set[str]) -> tuple[Path, str] | None:
+    """Resolve a host path to a ``(resolved_path, container_target)`` pair.
+
+    Returns ``None`` when the path does not exist or is not a directory.
+    Deduplicates container-side basenames by appending ``_2``, ``_3``, etc.
+    """
+    expanded = Path(os.path.expandvars(host_path)).expanduser()
+    try:
+        resolved = expanded.resolve(strict=True)
+    except OSError:
+        logger.warning("Docker mount path does not exist: %s", host_path)
+        return None
+    if not resolved.is_dir():
+        logger.warning("Docker mount path is not a directory: %s", host_path)
+        return None
+
+    base = resolved.name or "root"
+    # Sanitize: strip characters not safe in Linux paths.
+    safe = "".join(c for c in base if c not in '<>:"|?*')
+    name = safe or "mount"
+    candidate = name
+    counter = 2
+    while candidate in existing_names:
+        candidate = f"{name}_{counter}"
+        counter += 1
+    existing_names.add(candidate)
+    return resolved, f"{_MOUNT_PREFIX}/{candidate}"
+
+
+def _build_user_mount_flags(mounts: list[str]) -> list[str]:
+    """Return ``-v`` flags for user-configured project mounts."""
+    flags: list[str] = []
+    used_names: set[str] = set()
+    for mount_path in mounts:
+        pair = resolve_mount_target(mount_path, used_names)
+        if pair is not None:
+            host_resolved, container_target = pair
+            flags += ["-v", f"{host_resolved}:{container_target}:rw"]
+            logger.info("User mount: %s -> %s", host_resolved, container_target)
+    return flags
 
 
 class DockerManager:
@@ -265,6 +308,9 @@ class DockerManager:
         ]:
             if auth_file.is_file():
                 cmd += ["-v", f"{auth_file}:{target}:rw"]
+
+        # User-defined project mounts.
+        cmd += _build_user_mount_flags(self._config.mounts)
 
         cmd.append(image)
 
