@@ -2,6 +2,7 @@
 
 from ductor_bot.workspace.cron_tasks import create_cron_task as create_cron_task
 from ductor_bot.workspace.cron_tasks import delete_cron_task as delete_cron_task
+from ductor_bot.workspace.cron_tasks import ensure_task_rule_files as ensure_task_rule_files
 from ductor_bot.workspace.cron_tasks import list_cron_tasks as list_cron_tasks
 from ductor_bot.workspace.cron_tasks import render_cron_task_claude_md as render_cron_task_claude_md
 from ductor_bot.workspace.cron_tasks import (
@@ -24,6 +25,7 @@ __all__ = [
     "cleanup_ductor_links",
     "create_cron_task",
     "delete_cron_task",
+    "ensure_task_rule_files",
     "init_workspace",
     "list_cron_tasks",
     "read_file",

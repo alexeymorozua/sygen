@@ -170,6 +170,47 @@ def _create_venv(venv_dir: Path) -> None:
         logger.warning("Failed to create .venv at %s", venv_dir, exc_info=True)
 
 
+def ensure_task_rule_files(cron_tasks_dir: Path) -> int:
+    """Add missing rule files to existing cron task folders.
+
+    Checks which provider rule files exist in the ``cron_tasks/`` root
+    (deployed by ``RulesSelector``) and creates any that are missing in
+    task subdirectories.  Content is copied from an existing rule file in
+    the same task folder so the agent instructions stay consistent.
+
+    Only adds files — never removes.  Safe to call repeatedly (idempotent).
+
+    Returns the number of files created.
+    """
+    if not cron_tasks_dir.is_dir():
+        return 0
+
+    expected = _detect_rule_filenames(cron_tasks_dir)
+    created = 0
+
+    for task_dir in sorted(cron_tasks_dir.iterdir()):
+        if not task_dir.is_dir():
+            continue
+
+        # Identify existing rule files — skip dirs that have none (not a task).
+        existing = [name for name in _RULE_FILENAMES if (task_dir / name).is_file()]
+        if not existing:
+            continue
+
+        missing = [name for name in expected if not (task_dir / name).is_file()]
+        if not missing:
+            continue
+
+        # Copy content from the first existing rule file (they're identical).
+        source_content = (task_dir / existing[0]).read_text(encoding="utf-8")
+        for name in missing:
+            (task_dir / name).write_text(source_content, encoding="utf-8")
+            created += 1
+            logger.info("Created missing rule file %s in task %s", name, task_dir.name)
+
+    return created
+
+
 def list_cron_tasks(paths: DuctorPaths) -> list[str]:
     """Return sorted names of all cron task directories."""
     if not paths.cron_tasks_dir.is_dir():

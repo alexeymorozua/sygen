@@ -10,6 +10,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from ductor_bot.workspace.cron_tasks import ensure_task_rule_files
 from ductor_bot.workspace.paths import DuctorPaths
 from ductor_bot.workspace.rules_selector import RulesSelector
 from ductor_bot.workspace.skill_sync import sync_bundled_skills, sync_skills
@@ -302,6 +303,7 @@ def init_workspace(paths: DuctorPaths) -> None:
     except Exception:
         logger.exception("Failed to deploy rule files")
 
+    ensure_task_rule_files(paths.cron_tasks_dir)
     sync_rule_files(paths.workspace)
     _smart_merge_config(paths)
     _clean_orphan_symlinks(paths)
@@ -367,12 +369,16 @@ _RULE_SYNC_INTERVAL = 10.0  # seconds
 async def watch_rule_files(workspace: Path, *, interval: float = _RULE_SYNC_INTERVAL) -> None:
     """Continuously sync CLAUDE.md <-> AGENTS.md <-> GEMINI.md across the workspace.
 
-    Runs ``sync_rule_files`` in a thread every *interval* seconds so that
-    changes made by any CLI agent are propagated to all rule files automatically.
+    Every *interval* seconds:
+    1. ``ensure_task_rule_files`` adds missing rule files to existing cron
+       tasks (e.g. GEMINI.md after a new provider was authenticated).
+    2. ``sync_rule_files`` propagates content changes across all rule files.
     """
+    cron_tasks_dir = workspace / "cron_tasks"
     while True:
         await asyncio.sleep(interval)
         try:
+            await asyncio.to_thread(ensure_task_rule_files, cron_tasks_dir)
             await asyncio.to_thread(sync_rule_files, workspace)
         except Exception:
             logger.exception("Rule file sync failed")
