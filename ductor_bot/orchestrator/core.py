@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ductor_bot.background import BackgroundObserver, BackgroundResult, BackgroundTask
 from ductor_bot.cleanup import CleanupObserver
 from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_cache_observer import CodexCacheObserver
@@ -18,8 +19,8 @@ from ductor_bot.cli.gemini_cache_observer import GeminiCacheObserver
 from ductor_bot.cli.process_registry import ProcessRegistry
 from ductor_bot.cli.service import CLIService, CLIServiceConfig
 from ductor_bot.config import (
-    _CLAUDE_MODELS,
     _GEMINI_ALIASES,
+    CLAUDE_MODELS,
     AgentConfig,
     ModelRegistry,
     get_gemini_models,
@@ -61,7 +62,6 @@ from ductor_bot.webhook.manager import WebhookManager
 from ductor_bot.webhook.models import WebhookResult
 from ductor_bot.webhook.observer import WebhookObserver
 from ductor_bot.workspace.init import (
-    init_workspace,
     inject_runtime_environment,
     watch_rule_files,
 )
@@ -151,6 +151,8 @@ class Orchestrator:
         self._webhook_observer: WebhookObserver | None = (
             None  # Created in create() after cache init
         )
+        self._bg_observer: BackgroundObserver | None = None
+        self._codex_cache: CodexModelCache | None = None
         self._api_stop: Callable[[], Awaitable[None]] | None = None
         self._cleanup_observer = CleanupObserver(config, paths)
         self._codex_cache_observer: CodexCacheObserver | None = None
@@ -170,9 +172,11 @@ class Orchestrator:
 
     @classmethod
     async def create(cls, config: AgentConfig) -> Orchestrator:
-        """Async factory: initialize workspace, build Orchestrator."""
+        """Async factory: build Orchestrator.
+
+        Workspace must already be initialized by the caller (``__main__.load_config``).
+        """
         paths = resolve_paths(ductor_home=config.ductor_home)
-        await asyncio.to_thread(init_workspace, paths)
 
         os.environ["DUCTOR_HOME"] = str(paths.ductor_home)
 
@@ -209,6 +213,8 @@ class Orchestrator:
         await asyncio.to_thread(orch._init_gemini_state)
 
         safe_codex_cache = await orch._init_model_caches(paths)
+        orch._codex_cache = safe_codex_cache
+        orch._bg_observer = BackgroundObserver(paths, timeout_seconds=config.cli_timeout)
         orch._cron_observer = CronObserver(
             paths,
             orch._cron_manager,
@@ -270,7 +276,7 @@ class Orchestrator:
 
     def _refresh_known_model_ids(self) -> None:
         """Refresh directive-known model IDs from dynamic provider registries."""
-        self._known_model_ids = _CLAUDE_MODELS | _GEMINI_ALIASES | get_gemini_models()
+        self._known_model_ids = CLAUDE_MODELS | _GEMINI_ALIASES | get_gemini_models()
 
     def _apply_auth_results(
         self,
@@ -329,7 +335,7 @@ class Orchestrator:
             name, color = provider_meta.get(pid, (pid.title(), "#A1A1AA"))
             models: list[str]
             if pid == "claude":
-                models = sorted(_CLAUDE_MODELS)
+                models = sorted(CLAUDE_MODELS)
             elif pid == "gemini":
                 gemini = get_gemini_models()
                 models = sorted(gemini) if gemini else sorted(_GEMINI_ALIASES)
@@ -464,8 +470,11 @@ class Orchestrator:
         return provider
 
     async def abort(self, chat_id: int) -> int:
-        """Kill all active CLI processes for chat_id."""
-        return await self._process_registry.kill_all(chat_id)
+        """Kill all active CLI processes and background tasks for chat_id."""
+        killed = await self._process_registry.kill_all(chat_id)
+        if self._bg_observer:
+            killed += await self._bg_observer.cancel_all(chat_id)
+        return killed
 
     def resolve_runtime_target(self, requested_model: str | None = None) -> tuple[str, str]:
         """Resolve requested model to the effective ``(model, provider)`` pair."""
@@ -507,6 +516,36 @@ class Orchestrator:
         """Set the webhook wake handler (provided by the bot layer)."""
         if self._webhook_observer:
             self._webhook_observer.set_wake_handler(handler)
+
+    def set_bg_result_handler(
+        self,
+        handler: Callable[[BackgroundResult], Awaitable[None]],
+    ) -> None:
+        """Forward background task results to an external handler (e.g. Telegram)."""
+        if self._bg_observer:
+            self._bg_observer.set_result_handler(handler)
+
+    def submit_background_task(
+        self,
+        chat_id: int,
+        prompt: str,
+        message_id: int,
+        thread_id: int | None,
+    ) -> str:
+        """Submit a background task using the current provider/model. Returns task_id."""
+        from ductor_bot.cli.param_resolver import resolve_cli_config
+
+        if self._bg_observer is None:
+            msg = "Background observer not initialized"
+            raise RuntimeError(msg)
+        exec_config = resolve_cli_config(self._config, self._codex_cache)
+        return self._bg_observer.submit(chat_id, prompt, message_id, thread_id, exec_config)
+
+    def active_background_tasks(self, chat_id: int | None = None) -> list[BackgroundTask]:
+        """Return active background tasks, optionally filtered by chat_id."""
+        if self._bg_observer is None:
+            return []
+        return self._bg_observer.active_tasks(chat_id)
 
     @property
     def active_provider_name(self) -> str:
@@ -559,7 +598,9 @@ class Orchestrator:
             )
             logger.info("Generated API auth token (persisted to config)")
 
-        default_chat_id = config.allowed_user_ids[0] if config.allowed_user_ids else 1
+        default_chat_id = config.api.chat_id or (
+            config.allowed_user_ids[0] if config.allowed_user_ids else 1
+        )
         server = ApiServer(config.api, default_chat_id=default_chat_id)
         server.set_message_handler(self.handle_message_streaming)
         server.set_abort_handler(self.abort)
@@ -583,6 +624,23 @@ class Orchestrator:
 
         self._api_stop = server.stop
 
+    async def _stop_observers(self) -> None:
+        """Stop all background observers and caches."""
+        if self._bg_observer:
+            await self._bg_observer.shutdown()
+        await self._heartbeat.stop()
+        if self._webhook_observer:
+            await self._webhook_observer.stop()
+        if self._cron_observer:
+            await self._cron_observer.stop()
+        await self._cleanup_observer.stop()
+        if self._codex_cache_observer:
+            await self._codex_cache_observer.stop()
+            self._codex_cache_observer = None
+        if self._gemini_cache_observer:
+            await self._gemini_cache_observer.stop()
+            self._gemini_cache_observer = None
+
     async def shutdown(self) -> None:
         """Cleanup on bot shutdown."""
         killed = await self._process_registry.kill_all_active()
@@ -596,18 +654,7 @@ class Orchestrator:
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
         await asyncio.to_thread(cleanup_ductor_links, self._paths)
-        await self._heartbeat.stop()
-        if self._webhook_observer:
-            await self._webhook_observer.stop()
-        if self._cron_observer:
-            await self._cron_observer.stop()
-        await self._cleanup_observer.stop()
-        if self._codex_cache_observer:
-            await self._codex_cache_observer.stop()
-            self._codex_cache_observer = None
-        if self._gemini_cache_observer:
-            await self._gemini_cache_observer.stop()
-            self._gemini_cache_observer = None
+        await self._stop_observers()
         if self._docker:
             await self._docker.teardown()
         logger.info("Orchestrator shutdown")

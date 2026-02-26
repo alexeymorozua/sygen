@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
-from aiogram.types import FSInputFile, InlineKeyboardMarkup
+from aiogram.types import FSInputFile, InlineKeyboardMarkup, ReplyParameters
 
 from ductor_bot.bot.buttons import extract_buttons
 from ductor_bot.bot.formatting import markdown_to_telegram_html, split_html_message
@@ -113,7 +113,7 @@ async def _send_text_chunks(
     chat_id: int,
     clean_text: str,
     *,
-    reply_to: Message | None = None,
+    reply_to_message_id: int | None = None,
     thread_id: int | None = None,
 ) -> Message | None:
     """Send *clean_text* as HTML chunks, falling back to plain text on error."""
@@ -122,8 +122,17 @@ async def _send_text_chunks(
     chunks = split_html_message(html_text)
     for i, chunk in enumerate(chunks):
         try:
-            if reply_to and i == 0:
-                last_msg = await reply_to.answer(chunk, parse_mode=ParseMode.HTML)
+            if reply_to_message_id and i == 0:
+                last_msg = await bot.send_message(
+                    chat_id=chat_id,
+                    text=chunk,
+                    parse_mode=ParseMode.HTML,
+                    reply_parameters=ReplyParameters(
+                        message_id=reply_to_message_id,
+                        allow_sending_without_reply=True,
+                    ),
+                    message_thread_id=thread_id,
+                )
             else:
                 last_msg = await bot.send_message(
                     chat_id=chat_id,
@@ -159,6 +168,7 @@ async def send_rich(  # noqa: PLR0913
     text: str,
     *,
     reply_to: Message | None = None,
+    reply_to_message_id: int | None = None,
     allowed_roots: Sequence[Path] | None = None,
     reply_markup: InlineKeyboardMarkup | None = None,
     thread_id: int | None = None,
@@ -175,9 +185,15 @@ async def send_rich(  # noqa: PLR0913
     button_markup = reply_markup if reply_markup is not None else extract_buttons(clean_text)[1]
     last_msg: Message | None = None
 
+    effective_reply_id = reply_to.message_id if reply_to else reply_to_message_id
+
     if clean_text:
         last_msg = await _send_text_chunks(
-            bot, chat_id, clean_text, reply_to=reply_to, thread_id=thread_id
+            bot,
+            chat_id,
+            clean_text,
+            reply_to_message_id=effective_reply_id,
+            thread_id=thread_id,
         )
 
     if button_markup is not None and last_msg is not None:

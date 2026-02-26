@@ -43,10 +43,12 @@ class TestSendRich:
         bot = MagicMock()
         bot.send_message = AsyncMock()
         reply_msg = MagicMock()
-        reply_msg.answer = AsyncMock()
+        reply_msg.message_id = 42
 
         await send_rich(bot, chat_id=1, text="reply text", reply_to=reply_msg)
-        reply_msg.answer.assert_called_once()
+        bot.send_message.assert_called_once()
+        call_kwargs = bot.send_message.call_args.kwargs
+        assert call_kwargs["reply_parameters"].message_id == 42
 
     async def test_empty_text_with_file_still_sends_file(self, tmp_path: Path) -> None:
         from ductor_bot.bot.sender import send_rich
@@ -125,8 +127,9 @@ class TestSendRichButtons:
         bot = MagicMock()
         sent_msg = MagicMock()
         sent_msg.message_id = 77
+        bot.send_message = AsyncMock(return_value=sent_msg)
         reply_msg = MagicMock()
-        reply_msg.answer = AsyncMock(return_value=sent_msg)
+        reply_msg.message_id = 99
         bot.edit_message_reply_markup = AsyncMock()
 
         await send_rich(bot, chat_id=1, text="X\n[button:Ok]", reply_to=reply_msg)

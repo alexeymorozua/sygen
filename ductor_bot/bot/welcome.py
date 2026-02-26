@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ductor_bot.bot.response_format import SEP
+from ductor_bot.text.response_format import SEP
 
 if TYPE_CHECKING:
     from ductor_bot.cli.auth import AuthResult

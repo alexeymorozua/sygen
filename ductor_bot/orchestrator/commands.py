@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ductor_bot.bot.response_format import SEP, fmt, new_session_text, stop_text
 from ductor_bot.cli.auth import check_all_auth
 from ductor_bot.infra.version import check_pypi, get_current_version
 from ductor_bot.orchestrator.cron_selector import cron_selector_start
 from ductor_bot.orchestrator.model_selector import model_selector_start, switch_model
 from ductor_bot.orchestrator.registry import OrchestratorResult
+from ductor_bot.text.response_format import SEP, fmt, new_session_text, stop_text
 from ductor_bot.workspace.loader import read_mainmemory
 
 if TYPE_CHECKING:
@@ -227,6 +227,17 @@ async def _build_status(orch: Orchestrator, chat_id: int) -> str:
     else:
         session_block = f"No active session.\n{_model_line(runtime_model)}"
 
+    bg_tasks = orch.active_background_tasks(chat_id)
+    bg_block = ""
+    if bg_tasks:
+        import time
+
+        bg_lines = [f"Background tasks: {len(bg_tasks)} running"]
+        for t in bg_tasks:
+            age = time.monotonic() - t.submitted_at
+            bg_lines.append(f"  `{t.task_id}` {t.prompt[:40]}... ({age:.0f}s)")
+        bg_block = "\n".join(bg_lines)
+
     auth = await asyncio.to_thread(check_all_auth)
     auth_lines: list[str] = []
     for provider, result in auth.items():
@@ -234,7 +245,11 @@ async def _build_status(orch: Orchestrator, chat_id: int) -> str:
         auth_lines.append(f"  [{provider}] {result.status.value}{age}")
     auth_block = "Auth:\n" + "\n".join(auth_lines)
 
-    return fmt("**Status**", SEP, session_block, SEP, auth_block)
+    blocks = ["**Status**", SEP, session_block]
+    if bg_block:
+        blocks += [SEP, bg_block]
+    blocks += [SEP, auth_block]
+    return fmt(*blocks)
 
 
 async def _read_log_tail(log_path: Path, lines: int = 50) -> str:

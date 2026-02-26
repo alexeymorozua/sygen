@@ -30,7 +30,7 @@ from ductor_bot.cli.stream_events import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-_EXEC_PATH = "ductor_bot.cli.claude_provider.asyncio.create_subprocess_exec"
+_EXEC_PATH = "ductor_bot.cli.executor.asyncio.create_subprocess_exec"
 
 
 def _make_cli(

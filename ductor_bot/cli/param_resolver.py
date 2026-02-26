@@ -11,9 +11,7 @@ if TYPE_CHECKING:
     from ductor_bot.cli.codex_cache import CodexModelCache
     from ductor_bot.config import AgentConfig
 
-from ductor_bot.config import _GEMINI_ALIASES, get_gemini_models
-
-_CLAUDE_MODELS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
+from ductor_bot.config import _GEMINI_ALIASES, CLAUDE_MODELS, get_gemini_models
 
 
 def _looks_like_gemini_model(model: str) -> bool:
@@ -95,8 +93,8 @@ def resolve_cli_config(
 
     # 3. Validate model
     if provider == "claude":
-        if model not in _CLAUDE_MODELS:
-            msg = f"Invalid Claude model: {model}. Must be one of {sorted(_CLAUDE_MODELS)}"
+        if model not in CLAUDE_MODELS:
+            msg = f"Invalid Claude model: {model}. Must be one of {sorted(CLAUDE_MODELS)}"
             raise DuctorError(msg)
     elif provider == "gemini":
         _validate_gemini_model(model)

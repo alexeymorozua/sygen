@@ -11,7 +11,7 @@ Telegram Update
        - quick commands (/status /memory /cron /diagnose /model /showfiles): lock bypass
        - otherwise: dedupe + per-chat lock (+ queue tracking)
   -> TelegramBot handler
-       - /start /help /info /showfiles /stop /restart /new
+       - /start /help /info /showfiles /stop /restart /new /bg
        - normal text/media -> Orchestrator
        - callback routes (model selector, cron selector, file browser, upgrade, queue cancel)
   -> Orchestrator

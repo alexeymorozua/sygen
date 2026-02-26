@@ -6,15 +6,12 @@ for changes and keeps the in-memory registry in sync.
 
 from __future__ import annotations
 
-import contextlib
-import json
 import logging
-import os
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ductor_bot.infra.json_store import atomic_json_save, load_json
 from ductor_bot.webhook.models import WebhookEntry
 
 logger = logging.getLogger(__name__)
@@ -89,28 +86,15 @@ class WebhookManager:
 
     def _load(self) -> list[WebhookEntry]:
         """Load hooks from JSON file."""
-        if not self._hooks_path.exists():
+        data = load_json(self._hooks_path)
+        if data is None:
             return []
         try:
-            data = json.loads(self._hooks_path.read_text(encoding="utf-8"))
             return [WebhookEntry.from_dict(h) for h in data.get("hooks", [])]
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except (KeyError, TypeError):
             logger.warning("Corrupt webhooks file: %s", self._hooks_path)
             return []
 
     def _save(self) -> None:
         """Save hooks to JSON file atomically (temp write + rename)."""
-        self._hooks_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {"hooks": [h.to_dict() for h in self._hooks]}
-        content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-        fd, tmp_path = tempfile.mkstemp(dir=str(self._hooks_path.parent), suffix=".tmp")
-        tmp = Path(tmp_path)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(content)
-            tmp.replace(self._hooks_path)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                os.close(fd)
-            tmp.unlink(missing_ok=True)
-            raise
+        atomic_json_save(self._hooks_path, {"hooks": [h.to_dict() for h in self._hooks]})

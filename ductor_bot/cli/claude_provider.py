@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -11,16 +9,13 @@ from pathlib import Path
 from shutil import which
 
 from ductor_bot.cli.base import (
-    _CREATION_FLAGS,
     _IS_WINDOWS,
     BaseCLI,
     CLIConfig,
-    _win_feed_stdin,
-    _win_stdin_pipe,
     docker_wrap,
 )
+from ductor_bot.cli.executor import run_oneshot_subprocess, run_streaming_subprocess
 from ductor_bot.cli.stream_events import (
-    ResultEvent,
     StreamEvent,
     parse_stream_line,
 )
@@ -101,34 +96,15 @@ class ClaudeCodeCLI(BaseCLI):
         cmd = self._build_command(prompt, resume_session, continue_session)
         exec_cmd, use_cwd = docker_wrap(cmd, self._config)
         _log_cmd(exec_cmd)
-        process = await asyncio.create_subprocess_exec(
-            *exec_cmd,
-            stdin=_win_stdin_pipe(),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=use_cwd,
-            creationflags=_CREATION_FLAGS,
+        return await run_oneshot_subprocess(
+            config=self._config,
+            exec_cmd=exec_cmd,
+            use_cwd=use_cwd,
+            prompt=prompt,
+            timeout_seconds=timeout_seconds,
+            parse_output=_parse_response,
+            provider_label="CLI",
         )
-        logger.info("CLI subprocess starting pid=%s", process.pid)
-
-        reg = self._config.process_registry
-        tracked = (
-            reg.register(self._config.chat_id, process, self._config.process_label) if reg else None
-        )
-        try:
-            stdin_data = prompt.encode() if _IS_WINDOWS else None
-            async with asyncio.timeout(timeout_seconds):
-                stdout, stderr = await process.communicate(input=stdin_data)
-        except TimeoutError:
-            process.kill()
-            await process.wait()
-            logger.warning("CLI timed out after %.0fs", timeout_seconds)
-            return CLIResponse(result="", is_error=True, timed_out=True)
-        finally:
-            if tracked and reg:
-                reg.unregister(tracked)
-
-        return _parse_response(stdout, stderr, process.returncode)
 
     def _build_command_streaming(
         self,
@@ -158,73 +134,23 @@ class ClaudeCodeCLI(BaseCLI):
         cmd = self._build_command_streaming(prompt, resume_session, continue_session)
         exec_cmd, use_cwd = docker_wrap(cmd, self._config)
         _log_cmd(exec_cmd, streaming=True)
-        process = await asyncio.create_subprocess_exec(
-            *exec_cmd,
-            stdin=_win_stdin_pipe(),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=use_cwd,
-            limit=4 * 1024 * 1024,
-            creationflags=_CREATION_FLAGS,
-        )
-        if process.stdout is None or process.stderr is None:
-            msg = "Subprocess created without stdout/stderr pipes"
-            raise RuntimeError(msg)
-        await _win_feed_stdin(process, prompt)
-        logger.info("CLI subprocess starting pid=%s", process.pid)
 
-        reg = self._config.process_registry
-        tracked = (
-            reg.register(self._config.chat_id, process, self._config.process_label) if reg else None
-        )
-        stderr_drain = asyncio.create_task(process.stderr.read())
-        try:
-            async with asyncio.timeout(timeout_seconds):
-                while True:
-                    line_bytes = await process.stdout.readline()
-                    if not line_bytes:
-                        break
-                    line = line_bytes.decode(errors="replace").rstrip()
-                    logger.debug("Stream line: %s", line[:120])
-                    for event in parse_stream_line(line):
-                        yield event
-            # Normal end-of-stream: collect stderr now while still in the try block
-            # so the finally clause can cancel the task if needed.
-            stderr_bytes = await stderr_drain
-        except TimeoutError:
-            process.kill()
-            await process.wait()
-            logger.warning("CLI stream timed out after %.0fs", timeout_seconds)
-            yield ResultEvent(type="result", result="", is_error=True)
-            return
-        finally:
-            await _cancel_drain(stderr_drain)
-            if tracked and reg:
-                reg.unregister(tracked)
-
-        await process.wait()
-        stderr_text = stderr_bytes.decode(errors="replace")[:2000] if stderr_bytes else ""
-
-        if process.returncode != 0:
-            logger.warning(
-                "CLI stream exited with code %d: %s",
-                process.returncode,
-                stderr_text[:200] if stderr_text else "(no stderr)",
-            )
-            yield ResultEvent(
-                type="result",
-                result=stderr_text[:500],
-                is_error=True,
-                returncode=process.returncode,
-            )
+        async for event in run_streaming_subprocess(
+            config=self._config,
+            exec_cmd=exec_cmd,
+            use_cwd=use_cwd,
+            prompt=prompt,
+            timeout_seconds=timeout_seconds,
+            line_handler=_claude_line_handler,
+            provider_label="CLI",
+        ):
+            yield event
 
 
-async def _cancel_drain(drain: asyncio.Task[bytes]) -> None:
-    """Cancel a stderr drain task and silently absorb any resulting exception."""
-    if not drain.done():
-        drain.cancel()
-        with contextlib.suppress(BaseException):
-            await drain
+async def _claude_line_handler(line: str) -> AsyncGenerator[StreamEvent, None]:
+    """Parse a single Claude stream-json line into stream events."""
+    for event in parse_stream_line(line):
+        yield event
 
 
 def _add_opt(cmd: list[str], flag: str, value: str | None) -> None:

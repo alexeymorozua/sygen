@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,14 +18,7 @@ from ductor_bot.infra.service_windows import (
     stop_service,
     uninstall_service,
 )
-
-
-def _completed(returncode: int = 0, stdout: str = "", stderr: str = "") -> MagicMock:
-    r = MagicMock(spec=subprocess.CompletedProcess)
-    r.returncode = returncode
-    r.stdout = stdout
-    r.stderr = stderr
-    return r
+from tests.infra.conftest import make_completed
 
 
 class TestGenerateTaskXml:
@@ -63,36 +55,36 @@ class TestGenerateTaskXml:
 
 class TestIsAccessDenied:
     def test_english_access_denied(self) -> None:
-        result = _completed(1, stderr="ERROR: Access is denied.")
+        result = make_completed(1, stderr="ERROR: Access is denied.")
         assert _is_access_denied(result) is True
 
     def test_german_zugriff_verweigert(self) -> None:
-        result = _completed(1, stderr="FEHLER: Zugriff verweigert.")
+        result = make_completed(1, stderr="FEHLER: Zugriff verweigert.")
         assert _is_access_denied(result) is True
 
     def test_german_zugriff_wurde_verweigert(self) -> None:
-        result = _completed(1, stderr="FEHLER: Der Zugriff wurde verweigert.")
+        result = make_completed(1, stderr="FEHLER: Der Zugriff wurde verweigert.")
         assert _is_access_denied(result) is True
 
     def test_other_error(self) -> None:
-        result = _completed(1, stderr="ERROR: The system cannot find the file.")
+        result = make_completed(1, stderr="ERROR: The system cannot find the file.")
         assert _is_access_denied(result) is False
 
     def test_access_denied_in_stdout(self) -> None:
-        result = _completed(1, stdout="Access is denied", stderr="")
+        result = make_completed(1, stdout="Access is denied", stderr="")
         assert _is_access_denied(result) is True
 
 
 class TestIsServiceInstalled:
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     def test_installed_when_query_succeeds(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="TaskName: ductor")
+        mock_run.return_value = make_completed(0, stdout="TaskName: ductor")
         assert is_service_installed() is True
         mock_run.assert_called_once_with("/Query", "/TN", _TASK_NAME, "/FO", "LIST")
 
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     def test_not_installed_when_query_fails(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(1, stderr="not found")
+        mock_run.return_value = make_completed(1, stderr="not found")
         assert is_service_installed() is False
 
 
@@ -106,7 +98,7 @@ class TestIsServiceRunning:
     def test_running_when_status_contains_running(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        mock_run.return_value = _completed(0, stdout='"ductor","Running","Interactive"')
+        mock_run.return_value = make_completed(0, stdout='"ductor","Running","Interactive"')
         assert is_service_running() is True
 
     @patch("ductor_bot.infra.service_windows._run_schtasks")
@@ -114,7 +106,7 @@ class TestIsServiceRunning:
     def test_not_running_when_status_says_ready(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        mock_run.return_value = _completed(0, stdout='"ductor","Ready","Interactive"')
+        mock_run.return_value = make_completed(0, stdout='"ductor","Ready","Interactive"')
         assert is_service_running() is False
 
 
@@ -138,7 +130,7 @@ class TestInstallService:
     ) -> None:
         xml_file = tmp_path / "task.xml"
         mock_xml_path.return_value = xml_file
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
 
         console = MagicMock()
         assert install_service(console) is True
@@ -162,7 +154,7 @@ class TestInstallService:
     ) -> None:
         xml_file = tmp_path / "task.xml"
         mock_xml_path.return_value = xml_file
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
 
         console = MagicMock()
         assert install_service(console) is True
@@ -200,7 +192,7 @@ class TestInstallService:
     ) -> None:
         xml_file = tmp_path / "task.xml"
         mock_xml_path.return_value = xml_file
-        mock_run.return_value = _completed(1, stderr="ERROR: Access is denied.")
+        mock_run.return_value = make_completed(1, stderr="ERROR: Access is denied.")
 
         console = MagicMock()
         assert install_service(console) is False
@@ -212,7 +204,7 @@ class TestUninstallService:
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     @patch("ductor_bot.infra.service_windows.is_service_installed", return_value=True)
     def test_uninstall_success(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         assert uninstall_service(console) is True
         assert mock_run.call_count == 2  # End + Delete
@@ -227,8 +219,8 @@ class TestUninstallService:
     def test_uninstall_shows_admin_hint_on_access_denied(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        end_result = _completed(0)
-        delete_result = _completed(1, stderr="ERROR: Access is denied.")
+        end_result = make_completed(0)
+        delete_result = make_completed(1, stderr="ERROR: Access is denied.")
         mock_run.side_effect = [end_result, delete_result]
         console = MagicMock()
         assert uninstall_service(console) is False
@@ -239,7 +231,7 @@ class TestStartService:
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     @patch("ductor_bot.infra.service_windows.is_service_installed", return_value=True)
     def test_start_success(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         start_service(console)
         mock_run.assert_called_once_with("/Run", "/TN", _TASK_NAME)
@@ -255,7 +247,7 @@ class TestStopService:
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     @patch("ductor_bot.infra.service_windows.is_service_running", return_value=True)
     def test_stop_success(self, _running: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         stop_service(console)
         mock_run.assert_called_once_with("/End", "/TN", _TASK_NAME)
@@ -271,7 +263,7 @@ class TestPrintServiceStatus:
     @patch("ductor_bot.infra.service_windows._run_schtasks")
     @patch("ductor_bot.infra.service_windows.is_service_installed", return_value=True)
     def test_prints_status(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="Task details here")
+        mock_run.return_value = make_completed(0, stdout="Task details here")
         console = MagicMock()
         print_service_status(console)
         console.print.assert_called_with("Task details here")

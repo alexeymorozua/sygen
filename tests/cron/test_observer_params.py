@@ -167,7 +167,7 @@ class TestExecuteJobWithOverrides:
         # Mock CLI execution
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
-            patch("ductor_bot.cron.observer.build_cmd") as mock_build,
+            patch("ductor_bot.cron.execution.build_cmd") as mock_build,
             patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
@@ -223,7 +223,7 @@ class TestExecuteJobWithOverrides:
         # Mock CLI execution
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
-            patch("ductor_bot.cron.observer.build_cmd") as mock_build,
+            patch("ductor_bot.cron.execution.build_cmd") as mock_build,
             patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
@@ -283,7 +283,7 @@ class TestExecuteJobWithOverrides:
         # Mock CLI execution
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
-            patch("ductor_bot.cron.observer.build_cmd") as mock_build,
+            patch("ductor_bot.cron.execution.build_cmd") as mock_build,
             patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
@@ -343,7 +343,7 @@ class TestExecuteJobWithOverrides:
         # Mock CLI execution
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
-            patch("ductor_bot.cron.observer.build_cmd") as mock_build,
+            patch("ductor_bot.cron.execution.build_cmd") as mock_build,
             patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):

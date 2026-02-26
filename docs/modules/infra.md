@@ -9,7 +9,7 @@ Runtime infrastructure: process lifecycle, restart/update flow, Docker sandbox, 
 - `docker.py`: `DockerManager`
 - `install.py`: install mode detection (`pipx` / `pip` / `dev`)
 - `service.py`: platform dispatch facade
-- `service_common.py`: shared console helper
+- `service_base.py`: shared console helper, NVM path collection
 - `service_logs.py`: shared recent-log renderer
 - `service_linux.py`: Linux systemd backend
 - `service_macos.py`: macOS launchd backend
@@ -31,7 +31,7 @@ Related runtime wrapper:
 
 Shared helpers:
 
-- `ensure_console()` in `service_common.py`
+- `ensure_console()` in `service_base.py`
 - `print_recent_logs()` in `service_logs.py`
 
 `print_recent_logs()` behavior:

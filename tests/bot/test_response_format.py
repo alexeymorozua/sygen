@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ductor_bot.bot.response_format import classify_cli_error, new_session_text, session_error_text
+from ductor_bot.text.response_format import classify_cli_error, new_session_text, session_error_text
 
 
 class TestClassifyCliError:

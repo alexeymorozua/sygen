@@ -7,7 +7,7 @@ import contextlib
 import html as html_mod
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.default import DefaultBotProperties
@@ -16,6 +16,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, FSInputFile, ReplyParameters
 
+from ductor_bot.background import BackgroundResult
 from ductor_bot.bot.file_browser import (
     file_browser_start,
     handle_file_browser_callback,
@@ -36,7 +37,6 @@ from ductor_bot.bot.message_dispatch import (
     run_streaming_message,
 )
 from ductor_bot.bot.middleware import MQ_PREFIX, AuthMiddleware, SequentialMiddleware
-from ductor_bot.bot.response_format import SEP, fmt
 from ductor_bot.bot.sender import send_files_from_text as _send_files_from_text
 from ductor_bot.bot.sender import send_rich
 from ductor_bot.bot.topic import get_thread_id
@@ -60,6 +60,7 @@ from ductor_bot.infra.updater import (
 )
 from ductor_bot.infra.version import VersionInfo, get_current_version
 from ductor_bot.log_context import set_log_context
+from ductor_bot.text.response_format import SEP, fmt
 from ductor_bot.workspace.paths import DuctorPaths
 
 if TYPE_CHECKING:
@@ -92,7 +93,7 @@ _HELP_TEXT = fmt(
     SEP,
     f"Session\n{_help_line('new')}\n{_help_line('stop')}\n{_help_line('status')}",
     f"AI\n{_help_line('model')}\n{_help_line('memory')}",
-    f"Automation\n{_help_line('cron')}",
+    f"Automation\n{_help_line('cron')}\n{_help_line('bg')}",
     "System\n"
     f"{_help_line('showfiles')}\n"
     f"{_help_line('info')}\n"
@@ -158,6 +159,11 @@ class TelegramBot:
         """Allowed root directories for ``<file:...>`` tag sends."""
         return resolve_allowed_roots(self._config.file_access, paths.workspace)
 
+    async def _broadcast(self, text: str, **kwargs: Any) -> None:
+        """Send a message to all allowed users."""
+        for uid in self._config.allowed_user_ids:
+            await send_rich(self._bot, uid, text, **kwargs)
+
     async def _on_startup(self) -> None:
         from ductor_bot.orchestrator.core import Orchestrator
 
@@ -182,6 +188,7 @@ class TelegramBot:
         self._orchestrator.set_heartbeat_handler(self._on_heartbeat_result)
         self._orchestrator.set_webhook_result_handler(self._on_webhook_result)
         self._orchestrator.set_webhook_wake_handler(self._handle_webhook_wake)
+        self._orchestrator.set_bg_result_handler(self._on_bg_result)
 
         # Check for post-upgrade notification
         upgrade = await asyncio.to_thread(consume_upgrade_sentinel, self._orch.paths.ductor_home)
@@ -215,6 +222,7 @@ class TelegramBot:
         r.message(Command("stop"))(self._on_stop)
         r.message(Command("restart"))(self._on_restart)
         r.message(Command("new"))(self._on_new)
+        r.message(Command("bg"))(self._on_bg)
         r.message(Command("showfiles"))(self._on_showfiles)
         for cmd in ("status", "memory", "model", "cron", "diagnose", "upgrade"):
             r.message(Command(cmd))(self._on_command)
@@ -409,6 +417,59 @@ class TelegramBot:
 
     async def _on_new(self, message: Message) -> None:
         await handle_new_session(self._orch, self._bot, message)
+
+    async def _on_bg(self, message: Message) -> None:
+        """Handle /bg: submit a background task."""
+        text = (message.text or "").strip()
+        parts = text.split(None, 1)
+        chat_id = message.chat.id
+        thread_id = get_thread_id(message)
+
+        if len(parts) < 2 or not parts[1].strip():
+            await send_rich(
+                self._bot,
+                chat_id,
+                fmt(
+                    "**Background Task**",
+                    SEP,
+                    "Usage: `/bg <prompt>`\n\n"
+                    "Runs the task in the background using the current model.\n"
+                    "You'll receive a notification when it completes.\n"
+                    "Use /stop to cancel running tasks.",
+                ),
+                reply_to=message,
+                thread_id=thread_id,
+            )
+            return
+
+        prompt = parts[1].strip()
+        try:
+            task_id = self._orch.submit_background_task(
+                chat_id=chat_id,
+                prompt=prompt,
+                message_id=message.message_id,
+                thread_id=thread_id,
+            )
+        except ValueError as exc:
+            await send_rich(self._bot, chat_id, str(exc), reply_to=message, thread_id=thread_id)
+            return
+
+        _model, provider = self._orch.resolve_runtime_target(self._orch._config.model)
+        provider_label = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}.get(
+            provider, provider
+        )
+        await send_rich(
+            self._bot,
+            chat_id,
+            fmt(
+                "**Background Task Started**",
+                SEP,
+                f"Task `{task_id}` running on {provider_label}.\n"
+                "You'll be notified when it finishes.",
+            ),
+            reply_to=message,
+            thread_id=thread_id,
+        )
 
     async def _on_restart(self, message: Message) -> None:
         from ductor_bot.infra.restart import write_restart_sentinel
@@ -681,12 +742,45 @@ class TelegramBot:
 
     # -- Background handlers ---------------------------------------------------
 
+    async def _on_bg_result(self, result: BackgroundResult) -> None:
+        """Send background task result as a NEW message (triggers notification)."""
+        elapsed = f"{result.elapsed_seconds:.0f}s"
+
+        if result.status == "aborted":
+            text = fmt(
+                "**Background Task Cancelled**",
+                SEP,
+                f"Task `{result.task_id}` was cancelled.\nPrompt: _{result.prompt_preview}_",
+            )
+        elif result.status.startswith("error:"):
+            text = fmt(
+                f"**Background Task Failed** ({elapsed})",
+                SEP,
+                f"Task `{result.task_id}` failed ({result.status}).\n"
+                f"Prompt: _{result.prompt_preview}_\n\n"
+                + (result.result_text[:2000] if result.result_text else "_No output._"),
+            )
+        else:
+            text = fmt(
+                f"**Background Task Complete** ({elapsed})",
+                SEP,
+                result.result_text or "_No output._",
+            )
+
+        roots = self._file_roots(self._orch.paths)
+        await send_rich(
+            self._bot,
+            result.chat_id,
+            text,
+            reply_to_message_id=result.message_id,
+            allowed_roots=roots,
+            thread_id=result.thread_id,
+        )
+
     async def _on_cron_result(self, title: str, result: str, status: str) -> None:
         """Send cron job result to all allowed users."""
         text = f"**TASK: {title}**\n\n{result}" if result else f"**TASK: {title}**\n\n_{status}_"
-        roots = self._file_roots(self._orch.paths)
-        for uid in self._config.allowed_user_ids:
-            await send_rich(self._bot, uid, text, allowed_roots=roots)
+        await self._broadcast(text, allowed_roots=self._file_roots(self._orch.paths))
 
     async def _on_heartbeat_result(self, chat_id: int, text: str) -> None:
         """Send heartbeat alert to the user."""
@@ -724,9 +818,7 @@ class TelegramBot:
             text = f"**WEBHOOK (CRON TASK): {result.hook_title}**\n\n{result.result_text}"
         else:
             text = f"**WEBHOOK (CRON TASK): {result.hook_title}**\n\n_{result.status}_"
-        roots = self._file_roots(self._orch.paths)
-        for uid in self._config.allowed_user_ids:
-            await send_rich(self._bot, uid, text, allowed_roots=roots)
+        await self._broadcast(text, allowed_roots=self._file_roots(self._orch.paths))
 
     # -- Update notifications --------------------------------------------------
 
@@ -756,8 +848,7 @@ class TelegramBot:
             SEP,
             f"Installed: `{info.current}`\nNew:       `{info.latest}`",
         )
-        for uid in self._config.allowed_user_ids:
-            await send_rich(self._bot, uid, text, reply_markup=keyboard)
+        await self._broadcast(text, reply_markup=keyboard)
 
     async def _handle_upgrade_callback(
         self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None

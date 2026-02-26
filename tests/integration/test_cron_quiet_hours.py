@@ -115,7 +115,7 @@ async def test_cron_runs_during_active_hours(tmp_path: Path) -> None:
     result_handler = AsyncMock()
     obs.set_result_handler(result_handler)
 
-    with patch("ductor_bot.cron.observer.build_cmd", return_value=None):
+    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
         await obs._execute_job("test-job", "do something", "test_task")
 
     # Job reached execution (build_cmd returned None -> error:cli_not_found)
@@ -187,7 +187,7 @@ async def test_cron_quiet_hours_boundary_end(tmp_path: Path) -> None:
     result_handler = AsyncMock()
     obs.set_result_handler(result_handler)
 
-    with patch("ductor_bot.cron.observer.build_cmd", return_value=None):
+    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
         await obs._execute_job("test-job", "do something", "test_task")
 
     # NOT skipped because hour 8 is the exclusive end boundary
@@ -213,7 +213,7 @@ async def test_cron_quiet_hours_disabled(tmp_path: Path) -> None:
     result_handler = AsyncMock()
     obs.set_result_handler(result_handler)
 
-    with patch("ductor_bot.cron.observer.build_cmd", return_value=None):
+    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
         await obs._execute_job("test-job", "do something", "test_task")
 
     # Job proceeded past quiet hours check (build_cmd returned None -> error)

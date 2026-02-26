@@ -22,7 +22,7 @@ Telegram interface layer (`aiogram`): handlers, middleware, streaming delivery, 
 
 Bot-level handlers (`app.py`):
 
-- `/start`, `/help`, `/info`, `/showfiles`, `/stop`, `/restart`, `/new`
+- `/start`, `/help`, `/info`, `/showfiles`, `/stop`, `/restart`, `/new`, `/bg`
 
 Orchestrator-routed commands:
 

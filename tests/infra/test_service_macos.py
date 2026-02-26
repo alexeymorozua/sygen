@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import plistlib
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,14 +18,7 @@ from ductor_bot.infra.service_macos import (
     stop_service,
     uninstall_service,
 )
-
-
-def _completed(returncode: int = 0, stdout: str = "", stderr: str = "") -> MagicMock:
-    r = MagicMock(spec=subprocess.CompletedProcess)
-    r.returncode = returncode
-    r.stdout = stdout
-    r.stderr = stderr
-    return r
+from tests.infra.conftest import make_completed
 
 
 class TestGeneratePlistData:
@@ -112,7 +104,7 @@ class TestIsServiceRunning:
     @patch("ductor_bot.infra.service_macos._run_launchctl")
     @patch("ductor_bot.infra.service_macos.is_service_installed", return_value=True)
     def test_running_when_pid_present(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(
+        mock_run.return_value = make_completed(
             0,
             stdout='{\n\t"PID" = 12345;\n\t"Label" = "dev.ductor";\n};',
         )
@@ -121,7 +113,7 @@ class TestIsServiceRunning:
     @patch("ductor_bot.infra.service_macos._run_launchctl")
     @patch("ductor_bot.infra.service_macos.is_service_installed", return_value=True)
     def test_not_running_when_no_pid(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(
+        mock_run.return_value = make_completed(
             0,
             stdout='{\n\t"Label" = "dev.ductor";\n\t"LastExitStatus" = 0;\n};',
         )
@@ -132,7 +124,7 @@ class TestIsServiceRunning:
     def test_not_running_when_launchctl_fails(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        mock_run.return_value = _completed(1, stderr="Could not find service")
+        mock_run.return_value = make_completed(1, stderr="Could not find service")
         assert is_service_running() is False
 
 
@@ -160,7 +152,7 @@ class TestInstallService:
         paths_obj = MagicMock()
         paths_obj.logs_dir = tmp_path / "logs"
         mock_paths.return_value = paths_obj
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
 
         console = MagicMock()
         assert install_service(console) is True
@@ -190,7 +182,7 @@ class TestUninstallService:
         self, _installed: MagicMock, mock_path: MagicMock, mock_run: MagicMock
     ) -> None:
         mock_path.return_value = MagicMock()
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         assert uninstall_service(console) is True
 
@@ -204,7 +196,7 @@ class TestStartService:
     @patch("ductor_bot.infra.service_macos._run_launchctl")
     @patch("ductor_bot.infra.service_macos.is_service_installed", return_value=True)
     def test_start_success(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         start_service(console)
         mock_run.assert_called_once_with("start", _LABEL)
@@ -220,7 +212,7 @@ class TestStopService:
     @patch("ductor_bot.infra.service_macos._run_launchctl")
     @patch("ductor_bot.infra.service_macos.is_service_running", return_value=True)
     def test_stop_success(self, _running: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         stop_service(console)
         mock_run.assert_called_once_with("stop", _LABEL)
@@ -236,7 +228,7 @@ class TestPrintServiceStatus:
     @patch("ductor_bot.infra.service_macos._run_launchctl")
     @patch("ductor_bot.infra.service_macos.is_service_installed", return_value=True)
     def test_prints_status(self, _installed: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="Agent details here")
+        mock_run.return_value = make_completed(0, stdout="Agent details here")
         console = MagicMock()
         print_service_status(console)
         console.print.assert_called_with("Agent details here")

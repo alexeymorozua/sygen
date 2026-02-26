@@ -146,44 +146,6 @@ async def test_create_with_authenticated_provider(
             return_value=paths,
         ),
         patch(
-            "ductor_bot.orchestrator.core.init_workspace",
-        ),
-        patch(
-            "ductor_bot.orchestrator.core.asyncio.to_thread",
-            new_callable=AsyncMock,
-        ) as mock_to_thread,
-        patch(
-            "ductor_bot.orchestrator.core.watch_rule_files",
-            new_callable=AsyncMock,
-        ),
-    ):
-        mock_to_thread.side_effect = [
-            None,  # init_workspace
-            {"claude": claude_auth, "codex": codex_auth},  # check_all_auth
-        ]
-
-        orch = Orchestrator(config, paths)
-        orch._cron_observer = MagicMock()
-        orch._cron_observer.start = AsyncMock()
-        orch._heartbeat = MagicMock()
-        orch._heartbeat.start = AsyncMock()
-        orch._heartbeat.set_heartbeat_handler = MagicMock()
-        orch._heartbeat.set_busy_check = MagicMock()
-
-        with patch.object(Orchestrator, "__init__", return_value=None):
-            # Directly test the factory path by calling internal logic
-            pass
-
-    # Simpler approach: test create() end-to-end with full mocking
-    with (
-        patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
-            return_value=paths,
-        ),
-        patch(
-            "ductor_bot.orchestrator.core.init_workspace",
-        ) as mock_init_ws,
-        patch(
             "ductor_bot.cli.auth.check_all_auth",
             return_value={"claude": claude_auth, "codex": codex_auth},
         ),
@@ -195,7 +157,6 @@ async def test_create_with_authenticated_provider(
         result = await Orchestrator.create(config)
 
     assert result._available_providers == frozenset({"claude"})
-    mock_init_ws.assert_called_once_with(paths)
 
 
 async def test_create_no_authenticated_providers(
@@ -209,9 +170,6 @@ async def test_create_no_authenticated_providers(
         patch(
             "ductor_bot.orchestrator.core.resolve_paths",
             return_value=paths,
-        ),
-        patch(
-            "ductor_bot.orchestrator.core.init_workspace",
         ),
         patch(
             "ductor_bot.cli.auth.check_all_auth",
@@ -240,9 +198,6 @@ async def test_create_installed_but_not_authenticated(
             return_value=paths,
         ),
         patch(
-            "ductor_bot.orchestrator.core.init_workspace",
-        ),
-        patch(
             "ductor_bot.cli.auth.check_all_auth",
             return_value={"claude": claude_auth, "codex": codex_auth},
         ),
@@ -269,9 +224,6 @@ async def test_create_both_providers_authenticated(
             return_value=paths,
         ),
         patch(
-            "ductor_bot.orchestrator.core.init_workspace",
-        ),
-        patch(
             "ductor_bot.cli.auth.check_all_auth",
             return_value={"claude": claude_auth, "codex": codex_auth},
         ),
@@ -295,9 +247,6 @@ async def test_create_starts_cron_and_heartbeat(
         patch(
             "ductor_bot.orchestrator.core.resolve_paths",
             return_value=paths,
-        ),
-        patch(
-            "ductor_bot.orchestrator.core.init_workspace",
         ),
         patch(
             "ductor_bot.cli.auth.check_all_auth",

@@ -29,9 +29,11 @@ _IS_WINDOWS = sys.platform == "win32"
 _CREATION_FLAGS: int = getattr(subprocess, "CREATE_NO_WINDOW", 0) if _IS_WINDOWS else 0
 
 
-def _win_stdin_pipe() -> int | None:
-    """Return ``asyncio.subprocess.PIPE`` on Windows, else ``None``."""
-    return asyncio.subprocess.PIPE if _IS_WINDOWS else None
+def _win_feed_stdin(process: asyncio.subprocess.Process, data: str) -> None:
+    """Write prompt to stdin and close on Windows; no-op on POSIX."""
+    if _IS_WINDOWS and process.stdin is not None:
+        process.stdin.write(data.encode())
+        process.stdin.close()
 
 
 async def _feed_stdin_and_close(
@@ -68,11 +70,6 @@ async def _feed_stdin_and_close(
         closed_result = wait_closed()
         if inspect.isawaitable(closed_result):
             await closed_result
-
-
-async def _win_feed_stdin(process: asyncio.subprocess.Process, data: str) -> None:
-    """Write prompt to stdin and close on Windows; no-op on POSIX."""
-    await _feed_stdin_and_close(process, data, windows_only=True)
 
 
 @dataclass(slots=True)

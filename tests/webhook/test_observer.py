@@ -86,7 +86,7 @@ class TestWebhookObserverLifecycle:
 
         await observer.start()
         assert observer._server is None
-        assert observer._watcher_task is None
+        assert observer._watcher._task is None
         await observer.stop()
 
     async def test_stop_cleans_up(self, tmp_path: Path) -> None:
@@ -97,13 +97,14 @@ class TestWebhookObserverLifecycle:
         # Mock the server start to avoid actual port binding
         with patch.object(observer, "_server") as mock_server:
             observer._running = True
-            observer._watcher_task = asyncio.create_task(asyncio.sleep(999))
+            observer._watcher._task = asyncio.create_task(asyncio.sleep(999))
+            observer._watcher._running = True
             mock_server.stop = AsyncMock()
 
             await observer.stop()
 
             assert observer._running is False
-            assert observer._watcher_task is None
+            assert observer._watcher._task is None
 
 
 # ---------------------------------------------------------------------------

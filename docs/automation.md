@@ -4,10 +4,27 @@ ductor automation systems:
 
 | System | Trigger | Execution Context | Output |
 |---|---|---|---|
+| Background (`/bg`) | user command | workspace (one-shot) | Telegram notification |
 | Cron jobs | schedule | isolated task folder | Telegram result |
 | Webhooks | HTTP POST | wake or isolated `cron_task` | Telegram result |
 | Heartbeat | interval | active main session | Telegram alert (non-ACK only) |
 | Cleanup | daily hour | filesystem maintenance | no Telegram message |
+
+## Background tasks (`/bg`)
+
+`/bg <prompt>` runs a one-shot CLI task in the background. The chat is free immediately; a new Telegram message is sent when the task completes (triggering a push notification).
+
+Key properties:
+
+- uses the current provider/model (same as normal conversation)
+- one-shot execution via `build_cmd()` + `execute_one_shot()` (reuses cron execution infrastructure)
+- no session persistence -- each `/bg` task is stateless
+- result message replies to the original `/bg` message for context
+- `/stop` cancels all background tasks for the chat (via asyncio task cancellation)
+- max 5 concurrent tasks per chat
+- `/status` shows active background tasks
+
+Status values: `success`, `error:timeout`, `error:exit_<code>`, `error:cli_not_found`, `error:internal`, `aborted`.
 
 ## Cron jobs
 

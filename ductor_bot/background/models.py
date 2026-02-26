@@ -1,0 +1,37 @@
+"""Data models for background task tracking."""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass, field
+
+
+@dataclass(slots=True)
+class BackgroundTask:
+    """In-flight background task metadata."""
+
+    task_id: str
+    chat_id: int
+    prompt: str
+    message_id: int
+    thread_id: int | None
+    provider: str
+    model: str
+    submitted_at: float
+    asyncio_task: asyncio.Task[None] | None = field(default=None, repr=False)
+
+
+@dataclass(slots=True)
+class BackgroundResult:
+    """Outcome delivered after a background task completes."""
+
+    task_id: str
+    chat_id: int
+    message_id: int
+    thread_id: int | None
+    prompt_preview: str
+    result_text: str
+    status: str
+    elapsed_seconds: float
+    provider: str
+    model: str

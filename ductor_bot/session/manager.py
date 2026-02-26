@@ -5,14 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
-import tempfile
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from ductor_bot.config import AgentConfig, resolve_user_timezone
+from ductor_bot.infra.json_store import atomic_json_save, load_json
 
 logger = logging.getLogger(__name__)
 
@@ -520,12 +519,8 @@ class SessionManager:
         """Load sessions from JSON file."""
 
         def _read() -> dict[str, SessionData]:
-            if not self._path.exists():
-                return {}
-            try:
-                data = json.loads(self._path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                logger.warning("Corrupt sessions file, starting fresh")
+            data = load_json(self._path)
+            if data is None:
                 return {}
             return {k: SessionData(**v) for k, v in data.items()}
 
@@ -535,17 +530,6 @@ class SessionManager:
         """Atomically write sessions to JSON file."""
 
         def _write() -> None:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            data = {k: asdict(v) for k, v in sessions.items()}
-            content = json.dumps(data, indent=2)
-            tmp_fd, tmp_path_str = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")
-            os.close(tmp_fd)
-            tmp = Path(tmp_path_str)
-            try:
-                tmp.write_text(content, encoding="utf-8")
-                tmp.replace(self._path)
-            except OSError:
-                tmp.unlink(missing_ok=True)
-                raise
+            atomic_json_save(self._path, {k: asdict(v) for k, v in sessions.items()})
 
         await asyncio.to_thread(_write)
