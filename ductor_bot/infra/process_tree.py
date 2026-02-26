@@ -106,10 +106,13 @@ def _send_posix_signal(targets: list[int], sig: signal.Signals) -> None:
 def kill_all_ductor_processes() -> int:
     """Find and force-kill remaining ``ductor`` processes system-wide.
 
-    On Windows: scans ``tasklist`` for processes whose image name contains
-    ``ductor`` (e.g. ``ductor.exe``).  On POSIX this is a no-op because the
-    PID-file mechanism is sufficient and broad ``pgrep`` patterns would
-    unsafely match unrelated processes (editors, shells in a ductor directory).
+    On Windows this uses two strategies:
+    1. ``tasklist`` scan for ``ductor.exe`` processes
+    2. PowerShell scan for ``python.exe``/``pythonw.exe`` running from the
+       pipx venv directory (covers ``pythonw.exe -m ductor_bot``)
+
+    On POSIX this is a no-op because the PID-file mechanism is sufficient and
+    broad ``pgrep`` patterns would unsafely match unrelated processes.
 
     Skips the current process so the caller survives.
     Returns the number of processes killed.
@@ -118,11 +121,13 @@ def kill_all_ductor_processes() -> int:
         return 0
 
     current = os.getpid()
-    return _kill_all_ductor_windows(current)
+    killed = _kill_ductor_exe_windows(current)
+    killed += _kill_venv_python_windows(current)
+    return killed
 
 
-def _kill_all_ductor_windows(current_pid: int) -> int:
-    """Use ``tasklist`` to find ductor processes, then ``taskkill /F /T``."""
+def _kill_ductor_exe_windows(current_pid: int) -> int:
+    """Kill processes whose image name is ``ductor.exe``."""
     try:
         result = subprocess.run(
             ["tasklist", "/FO", "CSV", "/NH"],
@@ -149,6 +154,47 @@ def _kill_all_ductor_windows(current_pid: int) -> int:
             logger.info("Killing ductor process: pid=%d name=%s", pid, name)
             _run_taskkill(pid, force=True)
             killed += 1
+    return killed
+
+
+def _kill_venv_python_windows(current_pid: int) -> int:
+    r"""Kill ``python.exe``/``pythonw.exe`` processes running from the pipx venv.
+
+    When ductor is installed via ``pipx``, the bot runs as
+    ``pythonw.exe -m ductor_bot`` inside ``~\pipx\venvs\ductor\``.
+    These processes lock the venv executables and prevent ``pipx install --force``.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                (
+                    "Get-Process python,pythonw -ErrorAction SilentlyContinue"
+                    " | Where-Object { $_.Path -like '*pipx*ductor*' }"
+                    " | Select-Object -ExpandProperty Id"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return 0
+
+    killed = 0
+    for raw_line in result.stdout.strip().splitlines():
+        token = raw_line.strip()
+        if not token.isdigit():
+            continue
+        pid = int(token)
+        if pid == current_pid or pid <= 0:
+            continue
+        logger.info("Killing venv python process: pid=%d", pid)
+        _run_taskkill(pid, force=True)
+        killed += 1
     return killed
 
 
