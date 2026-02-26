@@ -252,15 +252,21 @@ def _start_bot(verbose: bool = False) -> None:
         sys.exit(exit_code)
 
 
-def _stop_bot(*, kill_all: bool = False) -> None:
-    """Stop running bot instance and Docker container if active.
+def _stop_bot() -> None:
+    """Stop all running ductor instances and Docker container.
 
-    Args:
-        kill_all: If True, also kill **all** system-wide ductor processes
-                  (not just the PID-file instance). Used during uninstall.
+    1. Stop the system service (prevents Task Scheduler/systemd/launchd respawn)
+    2. Kill the PID-file instance
+    3. Kill any remaining ductor processes system-wide
+    4. Wait for file locks to release (Windows only)
+    5. Stop Docker container if enabled
     """
     from ductor_bot.infra.pidlock import _is_process_alive, _kill_and_wait
 
+    # 1. Stop service to prevent respawn
+    _stop_service_if_running()
+
+    # 2. Kill PID-file instance
     paths = resolve_paths()
     pid_file = paths.ductor_home / "bot.pid"
     stopped = False
@@ -279,18 +285,22 @@ def _stop_bot(*, kill_all: bool = False) -> None:
         else:
             pid_file.unlink(missing_ok=True)
 
-    if kill_all:
-        from ductor_bot.infra.process_tree import kill_all_ductor_processes
+    # 3. Kill all remaining ductor processes system-wide
+    from ductor_bot.infra.process_tree import kill_all_ductor_processes
 
-        extra = kill_all_ductor_processes()
-        if extra:
-            _console.print(f"[dim]Killed {extra} remaining ductor process(es).[/dim]")
-            stopped = True
+    extra = kill_all_ductor_processes()
+    if extra:
+        _console.print(f"[dim]Killed {extra} remaining ductor process(es).[/dim]")
+        stopped = True
 
     if not stopped:
         _console.print("[dim]No running bot instance found.[/dim]")
 
-    # Stop Docker container if enabled in config
+    # 4. Brief wait for file locks to release on Windows
+    if _IS_WINDOWS and stopped:
+        time.sleep(1.0)
+
+    # 5. Stop Docker container if enabled in config
     config_path = paths.config_path
     if config_path.exists():
         try:
@@ -301,6 +311,17 @@ def _stop_bot(*, kill_all: bool = False) -> None:
                 _stop_docker_container(container)
         except (json.JSONDecodeError, OSError):
             pass
+
+
+def _stop_service_if_running() -> None:
+    """Stop the system service if installed and running."""
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        from ductor_bot.infra.service import is_service_installed, is_service_running, stop_service
+
+        if is_service_installed() and is_service_running():
+            stop_service(_console)
 
 
 def _stop_docker_container(container_name: str) -> None:
@@ -538,7 +559,7 @@ def _uninstall() -> None:
         return
 
     # 1. Stop bot + Docker container + all ductor processes
-    _stop_bot(kill_all=True)
+    _stop_bot()
 
     # 2. Remove Docker image
     paths = resolve_paths()
