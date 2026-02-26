@@ -214,6 +214,7 @@ class AgentConfig(BaseModel):
     api: ApiConfig = Field(default_factory=ApiConfig)
     cli_parameters: CLIParametersConfig = Field(default_factory=CLIParametersConfig)
     user_timezone: str = ""
+    group_mention_only: bool = False
     telegram_token: str = ""
     allowed_user_ids: list[int] = Field(default_factory=list)
 
