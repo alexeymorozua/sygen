@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from ductor_bot.cli.auth import AuthStatus, check_all_auth
-from ductor_bot.config import get_gemini_models, update_config_file_async
+from ductor_bot.config import CLAUDE_MODELS, get_gemini_models, update_config_file_async
 
 if TYPE_CHECKING:
     from ductor_bot.cli.codex_cache import CodexModelCache
@@ -20,8 +20,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 MS_PREFIX = "ms:"
-
-_CLAUDE_MODELS = ("haiku", "sonnet", "opus")
 
 _EFFORT_LABELS: dict[str, str] = {
     "low": "Low",
@@ -313,7 +311,7 @@ async def _build_model_step(
     """Build the model selection keyboard for a provider."""
     if provider == "claude":
         buttons = [
-            InlineKeyboardButton(text=m.upper(), callback_data=f"ms:m:{m}") for m in _CLAUDE_MODELS
+            InlineKeyboardButton(text=m.upper(), callback_data=f"ms:m:{m}") for m in CLAUDE_MODELS
         ]
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[

@@ -402,7 +402,9 @@ class TestUpgradeCli:
             patch("ductor_bot.__main__.resolve_paths", return_value=paths),
             patch(
                 "ductor_bot.infra.updater.perform_upgrade_pipeline",
-                new=AsyncMock(return_value=(False, get_current_version(), "error: package not found")),
+                new=AsyncMock(
+                    return_value=(False, get_current_version(), "error: package not found")
+                ),
             ),
             patch("ductor_bot.__main__._re_exec_bot") as mock_exec,
             patch("ductor_bot.__main__._stop_bot"),

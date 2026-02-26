@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -11,6 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ductor_bot.config import resolve_user_timezone
+from ductor_bot.infra.base_observer import BaseObserver
 from ductor_bot.log_context import set_log_context
 from ductor_bot.utils.quiet_hours import is_quiet_hour
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 HeartbeatResultCallback = Callable[[int, str], Awaitable[None]]
 
 
-class HeartbeatObserver:
+class HeartbeatObserver(BaseObserver):
     """Sends periodic heartbeat prompts through the main session.
 
     Follows the CronObserver lifecycle pattern: start/stop with an asyncio
@@ -32,13 +32,12 @@ class HeartbeatObserver:
     """
 
     def __init__(self, config: AgentConfig) -> None:
+        super().__init__()
         self._config = config
         self._on_result: HeartbeatResultCallback | None = None
         self._handle_heartbeat: Callable[[int], Awaitable[str | None]] | None = None
         self._is_chat_busy: Callable[[int], bool] | None = None
         self._stale_cleanup: Callable[[], Awaitable[int]] | None = None
-        self._task: asyncio.Task[None] | None = None
-        self._running = False
 
     @property
     def _hb(self) -> HeartbeatConfig:
@@ -71,9 +70,7 @@ class HeartbeatObserver:
         if self._handle_heartbeat is None:
             logger.error("Heartbeat handler not set, cannot start")
             return
-        self._running = True
-        self._task = asyncio.create_task(self._loop())
-        self._task.add_done_callback(_log_task_crash)
+        await super().start()
         logger.info(
             "Heartbeat started (every %dm, quiet %d:00-%d:00)",
             self._hb.interval_minutes,
@@ -83,16 +80,10 @@ class HeartbeatObserver:
 
     async def stop(self) -> None:
         """Stop the heartbeat background loop."""
-        self._running = False
-        if self._task:
-            task = self._task
-            self._task = None
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        await super().stop()
         logger.info("Heartbeat stopped")
 
-    async def _loop(self) -> None:
+    async def _run(self) -> None:
         """Sleep -> check -> execute -> repeat."""
         last_wall = time.time()
         try:
@@ -175,12 +166,3 @@ class HeartbeatObserver:
                 raise
             except Exception:
                 logger.exception("Heartbeat result delivery error")
-
-
-def _log_task_crash(task: asyncio.Task[None]) -> None:
-    """Log if the heartbeat background task crashes unexpectedly."""
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger.error("Heartbeat loop crashed: %s", exc, exc_info=exc)

@@ -14,6 +14,7 @@ import pytest
 
 from ductor_bot.cli.base import CLIConfig
 from ductor_bot.cli.codex_provider import CodexCLI, _codex_final_result, _log_cmd
+from ductor_bot.cli.executor import SubprocessResult
 from ductor_bot.cli.process_registry import ProcessRegistry
 from ductor_bot.cli.stream_events import (
     AssistantTextDelta,
@@ -376,7 +377,7 @@ class TestSend:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -394,7 +395,7 @@ class TestSend:
         proc.communicate = AsyncMock(side_effect=TimeoutError)
         proc.returncode = None
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -417,7 +418,7 @@ class TestSend:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -439,7 +440,7 @@ class TestSend:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -458,7 +459,7 @@ class TestSend:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -477,7 +478,7 @@ class TestSend:
         proc.communicate = AsyncMock(side_effect=TimeoutError)
         proc.returncode = None
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -514,7 +515,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -554,7 +555,7 @@ class TestSendStreaming:
         stderr_mock.read = AsyncMock(return_value=b"")
         proc.stderr = stderr_mock
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -576,7 +577,7 @@ class TestSendStreaming:
         proc.stdout = None
         proc.stderr = None
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -602,7 +603,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -629,7 +630,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -665,7 +666,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -696,7 +697,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -726,7 +727,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, stderr=b"fatal error", returncode=1)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -751,7 +752,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -775,7 +776,7 @@ class TestSendStreaming:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -794,70 +795,73 @@ class TestSendStreaming:
 
 
 class TestCodexFinalResult:
-    async def test_success_with_text(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_success_with_text(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 0
-        proc.wait = AsyncMock()
 
-        result = await _codex_final_result(proc, ["Hello", "World"], "th-42")
+        result = _codex_final_result(
+            SubprocessResult(process=proc, stderr_bytes=b""), ["Hello", "World"], "th-42"
+        )
         assert result.is_error is False
         assert result.result == "Hello\nWorld"
         assert result.session_id == "th-42"
 
-    async def test_success_empty_text(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_success_empty_text(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 0
-        proc.wait = AsyncMock()
 
-        result = await _codex_final_result(proc, [], None)
+        result = _codex_final_result(SubprocessResult(process=proc, stderr_bytes=b""), [], None)
         assert result.is_error is False
         assert result.result == ""
         assert result.session_id is None
 
-    async def test_error_with_stderr(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_error_with_stderr(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 1
-        proc.wait = AsyncMock()
 
-        result = await _codex_final_result(proc, ["partial"], None, b"fatal error")
+        result = _codex_final_result(
+            SubprocessResult(process=proc, stderr_bytes=b"fatal error"), ["partial"], None
+        )
         assert result.is_error is True
         assert "fatal error" in result.result
 
-    async def test_error_no_stderr_uses_accumulated(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_error_no_stderr_uses_accumulated(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 1
-        proc.wait = AsyncMock()
 
-        result = await _codex_final_result(proc, ["error msg"], None, b"")
+        result = _codex_final_result(
+            SubprocessResult(process=proc, stderr_bytes=b""), ["error msg"], None
+        )
         assert result.is_error is True
         assert "error msg" in result.result
 
-    async def test_error_no_output_at_all(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_error_no_output_at_all(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 1
-        proc.wait = AsyncMock()
 
-        result = await _codex_final_result(proc, [], None, b"")
+        result = _codex_final_result(SubprocessResult(process=proc, stderr_bytes=b""), [], None)
         assert result.is_error is True
         assert result.result == "(no output)"
 
-    async def test_error_result_truncated_at_500(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_error_result_truncated_at_500(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 1
-        proc.wait = AsyncMock()
 
         long_stderr = ("x" * 600).encode()
-        result = await _codex_final_result(proc, [], None, long_stderr)
+        result = _codex_final_result(
+            SubprocessResult(process=proc, stderr_bytes=long_stderr), [], None
+        )
         assert result.is_error is True
         assert len(result.result) <= 500
 
-    async def test_stderr_bytes_truncated_at_2000(self) -> None:
-        proc = AsyncMock(spec=asyncio.subprocess.Process)
+    def test_stderr_bytes_truncated_at_2000(self) -> None:
+        proc = MagicMock(spec=asyncio.subprocess.Process)
         proc.returncode = 1
-        proc.wait = AsyncMock()
 
         long_stderr = b"y" * 3000
-        result = await _codex_final_result(proc, [], None, long_stderr)
+        result = _codex_final_result(
+            SubprocessResult(process=proc, stderr_bytes=long_stderr), [], None
+        )
         # The error_detail uses stderr_text which is truncated at 2000
         # then the result is further truncated at 500
         assert result.is_error is True
@@ -914,7 +918,7 @@ class TestDockerIntegration:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -1004,7 +1008,7 @@ class TestSendWithoutRegistry:
         )
         proc = _make_process_mock(stdout=jsonl.encode(), returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -1026,7 +1030,7 @@ class TestSendWithoutRegistry:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -1072,7 +1076,7 @@ class TestStreamingContinueSessionIgnored:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)
@@ -1099,7 +1103,7 @@ class TestStreamingNonTextEventsNotAccumulated:
         ]
         proc = _make_streaming_process(lines, returncode=0)
 
-        with patch("ductor_bot.cli.codex_provider.asyncio") as mock_asyncio:
+        with patch("ductor_bot.cli.executor.asyncio") as mock_asyncio:
             mock_asyncio.timeout = asyncio.timeout
             mock_asyncio.subprocess = asyncio.subprocess
             mock_asyncio.create_subprocess_exec = AsyncMock(return_value=proc)

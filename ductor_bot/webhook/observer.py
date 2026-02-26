@@ -9,12 +9,9 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from ductor_bot.cli.param_resolver import TaskOverrides, resolve_cli_config
-from ductor_bot.cron.execution import (
-    build_cmd,
-    enrich_instruction,
-    execute_one_shot,
-    indent,
-)
+from ductor_bot.cron.execution import enrich_instruction, indent
+from ductor_bot.infra.file_watcher import FileWatcher
+from ductor_bot.infra.task_runner import check_folder, run_oneshot_task
 from ductor_bot.utils.quiet_hours import check_quiet_hour
 from ductor_bot.webhook.models import WebhookResult, render_template
 from ductor_bot.webhook.server import WebhookServer
@@ -60,9 +57,11 @@ class WebhookObserver:
         self._server: WebhookServer | None = None
         self._on_result: WebhookResultCallback | None = None
         self._handle_wake: WakeHandler | None = None
-        self._watcher_task: asyncio.Task[None] | None = None
-        self._last_mtime: float = 0.0
         self._running = False
+        self._watcher = FileWatcher(
+            paths.webhooks_path,
+            self._on_file_change,
+        )
 
     def set_result_handler(self, handler: WebhookResultCallback) -> None:
         """Set callback for delivering webhook results to Telegram."""
@@ -104,41 +103,29 @@ class WebhookObserver:
             return
 
         self._running = True
-        self._watcher_task = asyncio.create_task(self._watch_loop())
+        await self._watcher.start()
         logger.info("WebhookObserver started (%d hooks)", len(self._manager.list_hooks()))
 
     async def stop(self) -> None:
         """Stop the webhook server and file watcher."""
         self._running = False
-        if self._watcher_task:
-            self._watcher_task.cancel()
-            self._watcher_task = None
+        await self._watcher.stop()
         if self._server:
             await self._server.stop()
             self._server = None
         logger.info("WebhookObserver stopped")
 
-    # -- File watcher --
+    # -- File watcher callback --
 
-    async def _watch_loop(self) -> None:
-        """Poll webhooks.json mtime every 5 seconds, reload on change."""
-        while self._running:
-            await asyncio.sleep(5)
-            try:
-                current_mtime = await asyncio.to_thread(
-                    lambda: self._paths.webhooks_path.stat().st_mtime,
-                )
-            except FileNotFoundError:
-                continue
-            if current_mtime != self._last_mtime:
-                self._last_mtime = current_mtime
-                # Call reload() in the event loop (not a thread) so that
-                # concurrent record_trigger() calls in the same thread cannot
-                # race with an in-progress _load() that would overwrite their
-                # in-memory mutations.  The webhook JSON file is small so the
-                # synchronous read is negligible.
-                self._manager.reload()
-                logger.info("Webhooks reloaded (%d hooks)", len(self._manager.list_hooks()))
+    async def _on_file_change(self) -> None:
+        """Reload manager in the event loop (not a thread) for thread safety.
+
+        Concurrent record_trigger() calls in the same thread cannot race with
+        an in-progress _load() that would overwrite their in-memory mutations.
+        The webhook JSON file is small so the synchronous read is negligible.
+        """
+        self._manager.reload()
+        logger.info("Webhooks reloaded (%d hooks)", len(self._manager.list_hooks()))
 
     # -- Dispatch --
 
@@ -313,7 +300,7 @@ class WebhookObserver:
 
         async with dep_queue.acquire(hook_id, title, dependency):
             folder = self._paths.cron_tasks_dir / task_folder
-            if not await asyncio.to_thread(folder.is_dir):
+            if not await check_folder(folder):
                 return WebhookResult(
                     hook_id=hook_id,
                     hook_title=title,
@@ -324,16 +311,6 @@ class WebhookObserver:
 
             exec_config = self._resolve_execution_config(overrides)
             enriched = enrich_instruction(prompt, task_folder)
-            one_shot = build_cmd(exec_config, enriched)
-
-            if one_shot is None:
-                return WebhookResult(
-                    hook_id=hook_id,
-                    hook_title=title,
-                    mode="cron_task",
-                    result_text="",
-                    status=f"error:cli_not_found_{exec_config.provider}",
-                )
 
             timeout = self._config.cli_timeout
             logger.info(
@@ -348,26 +325,32 @@ class WebhookObserver:
                 indent(enriched, "    "),
             )
 
-            execution = await execute_one_shot(
-                one_shot.cmd,
+            result = await run_oneshot_task(
+                exec_config,
+                enriched,
                 cwd=folder,
-                provider=exec_config.provider,
                 timeout_seconds=timeout,
                 timeout_label="Webhook cron_task",
-                stdin_input=one_shot.stdin_input,
             )
-            if execution.timed_out:
+
+            if result.execution is None:
+                return WebhookResult(
+                    hook_id=hook_id,
+                    hook_title=title,
+                    mode="cron_task",
+                    result_text="",
+                    status=result.status,
+                )
+
+            if result.execution.timed_out:
                 logger.warning("Webhook cron_task %s timed out after %.0fs", hook_id, timeout)
 
-            if execution.stderr:
+            if result.execution.stderr:
                 logger.debug(
                     "Webhook stderr (%s): %s",
                     hook_id,
-                    execution.stderr.decode(errors="replace")[:500],
+                    result.execution.stderr.decode(errors="replace")[:500],
                 )
-
-            status = execution.status
-            result_text = execution.result_text
 
             logger.info(
                 "--- WEBHOOK CRON_TASK DONE ---\n"
@@ -375,15 +358,15 @@ class WebhookObserver:
                 "  Stdout:   %d bytes\n  Result:   %d chars",
                 hook_id,
                 exec_config.provider,
-                status,
-                len(execution.stdout),
-                len(result_text),
+                result.status,
+                len(result.execution.stdout),
+                len(result.result_text),
             )
 
             return WebhookResult(
                 hook_id=hook_id,
                 hook_title=title,
                 mode="cron_task",
-                result_text=result_text,
-                status=status,
+                result_text=result.result_text,
+                status=result.status,
             )

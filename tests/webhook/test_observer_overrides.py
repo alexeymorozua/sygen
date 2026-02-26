@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -122,29 +122,18 @@ def test_dispatch_with_cli_parameters(
         task_folder="test-folder",
     )
 
-    # Mock build_cmd to capture what's passed
-    with patch("ductor_bot.webhook.observer.build_cmd") as mock_build_cmd:
-        mock_build_cmd.return_value = [
-            "codex",
-            "exec",
-            "--custom-param",
-            "custom-value",
-            "--",
-            "prompt",
-        ]
+    # Create TaskOverrides from hook
+    overrides = TaskOverrides(
+        provider=hook.provider,
+        model=hook.model,
+        reasoning_effort=hook.reasoning_effort,
+        cli_parameters=hook.cli_parameters,
+    )
 
-        # Create TaskOverrides from hook
-        overrides = TaskOverrides(
-            provider=hook.provider,
-            model=hook.model,
-            reasoning_effort=hook.reasoning_effort,
-            cli_parameters=hook.cli_parameters,
-        )
+    exec_config = observer._resolve_execution_config(overrides)
 
-        exec_config = observer._resolve_execution_config(overrides)
-
-        # Verify the resolved config has the webhook params
-        assert exec_config.provider == "codex"
-        assert exec_config.model == "gpt-4o"
-        assert exec_config.reasoning_effort == "high"
-        assert exec_config.cli_parameters == ["--custom-param", "custom-value"]
+    # Verify the resolved config has the webhook params
+    assert exec_config.provider == "codex"
+    assert exec_config.model == "gpt-4o"
+    assert exec_config.reasoning_effort == "high"
+    assert exec_config.cli_parameters == ["--custom-param", "custom-value"]

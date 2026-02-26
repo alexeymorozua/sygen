@@ -9,13 +9,13 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ductor_bot.bot.response_format import session_error_text
 from ductor_bot.cli.types import AgentRequest, AgentResponse
 from ductor_bot.config import NULLISH_TEXT_VALUES
 from ductor_bot.log_context import set_log_context
 from ductor_bot.orchestrator.hooks import HookContext
 from ductor_bot.orchestrator.registry import OrchestratorResult
 from ductor_bot.session import SessionData
+from ductor_bot.text.response_format import session_error_text
 from ductor_bot.workspace.loader import read_mainmemory
 
 if TYPE_CHECKING:

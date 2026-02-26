@@ -9,9 +9,19 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rich.panel import Panel
-
-from ductor_bot.infra.service_common import collect_nvm_bin_dirs, ensure_console
+from ductor_bot.infra.service_base import (
+    collect_nvm_bin_dirs,
+    ensure_console,
+    find_ductor_binary,
+    print_binary_not_found,
+    print_install_success,
+    print_not_installed,
+    print_not_running,
+    print_removed,
+    print_start_failed,
+    print_started,
+    print_stopped,
+)
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -32,7 +42,7 @@ def _service_path() -> Path:
 
 def _find_ductor_binary() -> str | None:
     """Find the ductor binary path."""
-    return shutil.which("ductor")
+    return find_ductor_binary()
 
 
 def _has_systemd() -> bool:
@@ -126,7 +136,7 @@ def install_service(console: Console | None = None) -> bool:
 
     binary = _find_ductor_binary()
     if not binary:
-        console.print("[bold red]Could not find the ductor binary in PATH.[/bold red]")
+        print_binary_not_found(console)
         return False
 
     service_dir = _systemd_user_dir()
@@ -164,19 +174,10 @@ def install_service(console: Console | None = None) -> bool:
         console.print(f"[bold red]Failed to start service:[/bold red] {result.stderr.strip()}")
         return False
 
-    console.print(
-        Panel(
-            "[bold green]ductor is now running as a background service.[/bold green]\n\n"
-            "It starts on boot and restarts on crash.\n\n"
-            "[bold]Useful commands:[/bold]\n\n"
-            "  [cyan]ductor service status[/cyan]     Check if it's running\n"
-            "  [cyan]ductor service stop[/cyan]       Stop the service\n"
-            "  [cyan]ductor service logs[/cyan]       View live logs\n"
-            "  [cyan]ductor service uninstall[/cyan]  Remove the service",
-            title="[bold green]Service Installed[/bold green]",
-            border_style="green",
-            padding=(1, 2),
-        ),
+    print_install_success(
+        console,
+        detail="It starts on boot and restarts on crash.",
+        logs_hint="View live logs",
     )
     return True
 
@@ -198,7 +199,7 @@ def uninstall_service(console: Console | None = None) -> bool:
     _service_path().unlink(missing_ok=True)
     _run_systemctl("daemon-reload")
 
-    console.print("[green]Service removed.[/green]")
+    print_removed(console)
     return True
 
 
@@ -211,14 +212,14 @@ def start_service(console: Console | None = None) -> None:
         return
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_systemctl("start", _SERVICE_NAME)
     if result.returncode == 0:
-        console.print("[green]Service started.[/green]")
+        print_started(console)
     else:
-        console.print(f"[red]Failed to start: {result.stderr.strip()}[/red]")
+        print_start_failed(console, result.stderr.strip())
 
 
 def stop_service(console: Console | None = None) -> None:
@@ -226,9 +227,9 @@ def stop_service(console: Console | None = None) -> None:
     console = ensure_console(console)
     if is_service_running():
         _run_systemctl("stop", _SERVICE_NAME)
-        console.print("[green]Service stopped.[/green]")
+        print_stopped(console)
     else:
-        console.print("[dim]Service is not running.[/dim]")
+        print_not_running(console)
 
 
 def print_service_status(console: Console | None = None) -> None:
@@ -240,7 +241,7 @@ def print_service_status(console: Console | None = None) -> None:
         return
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_systemctl("status", _SERVICE_NAME, "--no-pager")

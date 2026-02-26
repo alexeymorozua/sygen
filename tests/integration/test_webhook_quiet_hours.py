@@ -128,7 +128,7 @@ async def test_webhook_runs_during_active_hours(tmp_path: Path) -> None:
     )
     _add_hook(mgr, paths)
 
-    with patch("ductor_bot.webhook.observer.build_cmd", return_value=None):
+    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
         result = await obs._dispatch_cron_task(
             "test-hook",
             "Test Hook",

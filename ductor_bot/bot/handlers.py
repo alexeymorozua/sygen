@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from ductor_bot.bot.response_format import new_session_text, stop_text
 from ductor_bot.bot.sender import send_rich
 from ductor_bot.bot.topic import get_thread_id
 from ductor_bot.bot.typing import TypingContext
+from ductor_bot.text.response_format import new_session_text, stop_text
 
 if TYPE_CHECKING:
     from aiogram import Bot

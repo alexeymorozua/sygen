@@ -6,15 +6,13 @@ for changes and schedules jobs in-process.
 
 from __future__ import annotations
 
-import contextlib
-import json
 import logging
-import os
-import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from ductor_bot.infra.json_store import atomic_json_save, load_json
 
 logger = logging.getLogger(__name__)
 
@@ -181,12 +179,12 @@ class CronManager:
 
     def _load(self) -> list[CronJob]:
         """Load jobs from JSON file."""
-        if not self._jobs_path.exists():
+        data = load_json(self._jobs_path)
+        if data is None:
             return []
         try:
-            data = json.loads(self._jobs_path.read_text(encoding="utf-8"))
             jobs = [CronJob.from_dict(j) for j in data.get("jobs", [])]
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except (KeyError, TypeError):
             logger.warning("Corrupt cron jobs file: %s", self._jobs_path)
             return []
         for j in jobs:
@@ -195,19 +193,4 @@ class CronManager:
 
     def _save(self) -> None:
         """Save jobs to JSON file atomically (temp write + rename)."""
-        self._jobs_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {"jobs": [j.to_dict() for j in self._jobs]}
-        content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-        fd, tmp_path = tempfile.mkstemp(dir=str(self._jobs_path.parent), suffix=".tmp")
-        tmp = Path(tmp_path)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(content)
-            tmp.replace(self._jobs_path)
-        except BaseException:
-            # If os.fdopen raised before taking ownership the fd is still open.
-            # Suppress OSError in case the file object already closed it.
-            with contextlib.suppress(OSError):
-                os.close(fd)
-            tmp.unlink(missing_ok=True)
-            raise
+        atomic_json_save(self._jobs_path, {"jobs": [j.to_dict() for j in self._jobs]})

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,14 +15,7 @@ from ductor_bot.infra.service_linux import (
     stop_service,
     uninstall_service,
 )
-
-
-def _completed(returncode: int = 0, stdout: str = "", stderr: str = "") -> MagicMock:
-    r = MagicMock(spec=subprocess.CompletedProcess)
-    r.returncode = returncode
-    r.stdout = stdout
-    r.stderr = stderr
-    return r
+from tests.infra.conftest import make_completed
 
 
 class TestGenerateServiceUnit:
@@ -67,14 +59,14 @@ class TestIsServiceRunning:
     @patch("ductor_bot.infra.service_linux.is_service_installed", return_value=True)
     @patch("ductor_bot.infra.service_linux._has_systemd", return_value=True)
     def test_running(self, _sys: MagicMock, _inst: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="active")
+        mock_run.return_value = make_completed(0, stdout="active")
         assert is_service_running() is True
 
     @patch("ductor_bot.infra.service_linux._run_systemctl")
     @patch("ductor_bot.infra.service_linux.is_service_installed", return_value=True)
     @patch("ductor_bot.infra.service_linux._has_systemd", return_value=True)
     def test_not_running(self, _sys: MagicMock, _inst: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="inactive")
+        mock_run.return_value = make_completed(0, stdout="inactive")
         assert is_service_running() is False
 
 
@@ -112,7 +104,7 @@ class TestStartService:
         _installed: MagicMock,
         mock_run: MagicMock,
     ) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         start_service(console)
         mock_run.assert_called_once_with("start", _SERVICE_NAME)
@@ -122,7 +114,7 @@ class TestStopService:
     @patch("ductor_bot.infra.service_linux._run_systemctl")
     @patch("ductor_bot.infra.service_linux.is_service_running", return_value=True)
     def test_stop_success(self, _running: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         stop_service(console)
         mock_run.assert_called_once_with("stop", _SERVICE_NAME)
@@ -149,7 +141,7 @@ class TestUninstallService:
         mock_run: MagicMock,
     ) -> None:
         mock_path.return_value = MagicMock()
-        mock_run.return_value = _completed(0)
+        mock_run.return_value = make_completed(0)
         console = MagicMock()
         assert uninstall_service(console) is True
 
@@ -165,7 +157,7 @@ class TestPrintServiceStatus:
     @patch("ductor_bot.infra.service_linux.is_service_installed", return_value=True)
     @patch("ductor_bot.infra.service_linux._has_systemd", return_value=True)
     def test_prints_status(self, _sys: MagicMock, _inst: MagicMock, mock_run: MagicMock) -> None:
-        mock_run.return_value = _completed(0, stdout="active running")
+        mock_run.return_value = make_completed(0, stdout="active running")
         console = MagicMock()
         print_service_status(console)
         console.print.assert_called_with("active running")

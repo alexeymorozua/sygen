@@ -94,18 +94,8 @@ class TestCodexCacheObserver:
 
         assert observer.get_cache() is None
 
-    async def test_observer_verifies_60_minute_interval(
-        self,
-        tmp_path: Path,
-        mock_cache: CodexModelCache,
-    ) -> None:
-        """Verify observer's code uses 3600 seconds (60 minutes)."""
-        # This test verifies the implementation uses the correct constant
-        # by checking the source code directly rather than mocking the event loop
-        import inspect
+    async def test_observer_verifies_60_minute_interval(self) -> None:
+        """Verify observer uses the expected refresh interval."""
+        from ductor_bot.cli.model_cache import REFRESH_INTERVAL_S
 
-        from ductor_bot.cli.codex_cache_observer import CodexCacheObserver
-
-        source = inspect.getsource(CodexCacheObserver._refresh_loop)
-        # Verify the source code contains 3600 (60 minutes in seconds)
-        assert "3600" in source, "Refresh loop should use 3600 seconds (60 minutes)"
+        assert REFRESH_INTERVAL_S == 3600

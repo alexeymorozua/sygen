@@ -50,7 +50,8 @@ def _make_server(
     )
     server = ApiServer(config, default_chat_id=default_chat_id)
     server.set_message_handler(
-        message_handler or AsyncMock(return_value=SimpleNamespace(text="ok", stream_fallback=False)),
+        message_handler
+        or AsyncMock(return_value=SimpleNamespace(text="ok", stream_fallback=False)),
     )
     server.set_abort_handler(abort_handler or AsyncMock(return_value=0))
     upload = tmp_path / "uploads"
@@ -129,17 +130,20 @@ class TestE2EHandshake:
         await ws.close()
 
     async def test_auth_ok_includes_providers(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, server = api_ws
-        server.set_provider_info([
-            {
-                "id": "claude",
-                "name": "Claude Code",
-                "color": "#F97316",
-                "models": ["haiku", "sonnet", "opus"],
-            },
-        ])
+        server.set_provider_info(
+            [
+                {
+                    "id": "claude",
+                    "name": "Claude Code",
+                    "color": "#F97316",
+                    "models": ["haiku", "sonnet", "opus"],
+                },
+            ]
+        )
         server.set_active_state_getter(lambda: ("sonnet", "claude"))
         ws = await client.ws_connect("/ws")
         _e2e, resp = await _do_handshake(ws)
@@ -156,7 +160,8 @@ class TestE2EHandshake:
         await ws.close()
 
     async def test_auth_ok_without_providers_has_empty_list(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -205,7 +210,11 @@ class TestE2EHandshake:
         import asyncio
 
         config = ApiConfig(
-            enabled=True, host="127.0.0.1", port=0, token="tok", allow_public=True,
+            enabled=True,
+            host="127.0.0.1",
+            port=0,
+            token="tok",
+            allow_public=True,
         )
         server = ApiServer(config, default_chat_id=1)
         server.set_message_handler(AsyncMock())
@@ -235,7 +244,8 @@ class TestE2EHandshake:
 
 class TestEncryptedMessages:
     async def test_send_message_and_receive_result(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -308,7 +318,8 @@ class TestEncryptedMessages:
         await ws.close()
 
     async def test_stop_command_triggers_abort(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -320,7 +331,8 @@ class TestEncryptedMessages:
         await ws.close()
 
     async def test_empty_message_returns_encrypted_error(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -333,7 +345,8 @@ class TestEncryptedMessages:
         await ws.close()
 
     async def test_unknown_type_returns_encrypted_error(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -346,7 +359,8 @@ class TestEncryptedMessages:
         await ws.close()
 
     async def test_bad_ciphertext_returns_decrypt_error(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         client, _ = api_ws
         ws = await client.ws_connect("/ws")
@@ -360,7 +374,8 @@ class TestEncryptedMessages:
         await ws.close()
 
     async def test_plaintext_json_rejected_after_auth(
-        self, api_ws: tuple[TestClient, ApiServer],
+        self,
+        api_ws: tuple[TestClient, ApiServer],
     ) -> None:
         """After auth, plaintext JSON should fail decryption."""
         client, _ = api_ws

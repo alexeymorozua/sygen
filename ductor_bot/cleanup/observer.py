@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ductor_bot.config import resolve_user_timezone
+from ductor_bot.infra.base_observer import BaseObserver
 
 if TYPE_CHECKING:
     from ductor_bot.config import AgentConfig, CleanupConfig
@@ -51,7 +52,7 @@ def _delete_old_files(directory: Path, max_age_days: int) -> int:
     return deleted
 
 
-class CleanupObserver:
+class CleanupObserver(BaseObserver):
     """Runs daily file cleanup for telegram_files, output_to_user, and api_files.
 
     Follows the same lifecycle pattern as HeartbeatObserver:
@@ -59,10 +60,9 @@ class CleanupObserver:
     """
 
     def __init__(self, config: AgentConfig, paths: DuctorPaths) -> None:
+        super().__init__()
         self._config = config
         self._paths = paths
-        self._task: asyncio.Task[None] | None = None
-        self._running = False
         self._last_run_date: str = ""
 
     @property
@@ -74,9 +74,7 @@ class CleanupObserver:
         if not self._cfg.enabled:
             logger.info("File cleanup disabled in config")
             return
-        self._running = True
-        self._task = asyncio.create_task(self._loop())
-        self._task.add_done_callback(_log_task_crash)
+        await super().start()
         logger.info(
             "File cleanup started (telegram: %dd, output: %dd, api: %dd, hour: %d:00)",
             self._cfg.telegram_files_days,
@@ -87,16 +85,10 @@ class CleanupObserver:
 
     async def stop(self) -> None:
         """Stop the cleanup background loop."""
-        self._running = False
-        if self._task:
-            task = self._task
-            self._task = None
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        await super().stop()
         logger.info("File cleanup stopped")
 
-    async def _loop(self) -> None:
+    async def _run(self) -> None:
         """Sleep -> check hour -> run if due -> repeat."""
         try:
             while self._running:
@@ -151,12 +143,3 @@ class CleanupObserver:
 def _run_cleanup(targets: list[tuple[Path, int]]) -> list[int]:
     """Synchronous cleanup runner (called via ``asyncio.to_thread``)."""
     return [_delete_old_files(d, days) for d, days in targets]
-
-
-def _log_task_crash(task: asyncio.Task[None]) -> None:
-    """Log if the cleanup background task crashes unexpectedly."""
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger.error("Cleanup loop crashed: %s", exc, exc_info=exc)

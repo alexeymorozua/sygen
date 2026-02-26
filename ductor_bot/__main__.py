@@ -766,7 +766,6 @@ def _docker_read_config() -> tuple[Path, dict[str, object]] | None:
     return config_path, data
 
 
-
 def _docker_set_enabled(*, enabled: bool) -> None:
     """Set docker.enabled in config.json and handle running state."""
     result = _docker_read_config()

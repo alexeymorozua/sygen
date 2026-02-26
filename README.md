@@ -235,6 +235,7 @@ Full schema: [`docs/config.md`](docs/config.md)
 | `/status` | Session/provider/auth status |
 | `/memory` | Show persistent memory file |
 | `/cron` | Interactive cron management |
+| `/bg` | Run task in background (notification on completion) |
 | `/showfiles` | Browse `~/.ductor/` |
 | `/diagnose` | Runtime diagnostics + cache/log info |
 | `/upgrade` | Check/apply update flow |

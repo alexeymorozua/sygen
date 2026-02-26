@@ -12,7 +12,20 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 from rich.panel import Panel
 
-from ductor_bot.infra.service_common import ensure_console
+from ductor_bot.infra.service_base import (
+    ensure_console,
+    find_ductor_binary,
+    print_binary_not_found,
+    print_install_success,
+    print_no_service,
+    print_not_installed,
+    print_not_running,
+    print_removed,
+    print_start_failed,
+    print_started,
+    print_stop_failed,
+    print_stopped,
+)
 from ductor_bot.infra.service_logs import print_recent_logs
 from ductor_bot.workspace.paths import resolve_paths
 
@@ -58,7 +71,7 @@ def _is_access_denied(result: subprocess.CompletedProcess[str]) -> bool:
 
 def _find_ductor_binary() -> str | None:
     """Find the ductor binary path."""
-    return shutil.which("ductor")
+    return find_ductor_binary()
 
 
 def _find_pythonw() -> str | None:
@@ -177,7 +190,7 @@ def install_service(console: Console | None = None) -> bool:
     else:
         binary = _find_ductor_binary()
         if not binary:
-            console.print("[bold red]Could not find the ductor binary in PATH.[/bold red]")
+            print_binary_not_found(console)
             return False
         command = binary
         arguments = ""
@@ -219,19 +232,9 @@ def install_service(console: Console | None = None) -> bool:
         )
         return False
 
-    console.print(
-        Panel(
-            "[bold green]ductor is now running as a background service.[/bold green]\n\n"
-            "It starts 10s after login and restarts on crash (up to 3 retries, 1 min apart).\n\n"
-            "[bold]Useful commands:[/bold]\n\n"
-            "  [cyan]ductor service status[/cyan]     Check if it's running\n"
-            "  [cyan]ductor service stop[/cyan]       Stop the service\n"
-            "  [cyan]ductor service logs[/cyan]       View recent logs\n"
-            "  [cyan]ductor service uninstall[/cyan]  Remove the service",
-            title="[bold green]Service Installed[/bold green]",
-            border_style="green",
-            padding=(1, 2),
-        ),
+    print_install_success(
+        console,
+        detail="It starts 10s after login and restarts on crash (up to 3 retries, 1 min apart).",
     )
     return True
 
@@ -241,7 +244,7 @@ def uninstall_service(console: Console | None = None) -> bool:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]No service installed.[/dim]")
+        print_no_service(console)
         return False
 
     # /End stops the running instance, /Delete removes the definition
@@ -255,7 +258,7 @@ def uninstall_service(console: Console | None = None) -> bool:
             console.print(f"[red]Failed to remove task: {result.stderr.strip()}[/red]")
         return False
 
-    console.print("[green]Service removed.[/green]")
+    print_removed(console)
     return True
 
 
@@ -264,14 +267,14 @@ def start_service(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_schtasks("/Run", "/TN", _TASK_NAME)
     if result.returncode == 0:
-        console.print("[green]Service started.[/green]")
+        print_started(console)
     else:
-        console.print(f"[red]Failed to start: {result.stderr.strip()}[/red]")
+        print_start_failed(console, result.stderr.strip())
 
 
 def stop_service(console: Console | None = None) -> None:
@@ -279,14 +282,14 @@ def stop_service(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_running():
-        console.print("[dim]Service is not running.[/dim]")
+        print_not_running(console)
         return
 
     result = _run_schtasks("/End", "/TN", _TASK_NAME)
     if result.returncode == 0:
-        console.print("[green]Service stopped.[/green]")
+        print_stopped(console)
     else:
-        console.print(f"[red]Failed to stop: {result.stderr.strip()}[/red]")
+        print_stop_failed(console, result.stderr.strip())
 
 
 def print_service_status(console: Console | None = None) -> None:
@@ -294,7 +297,7 @@ def print_service_status(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_schtasks("/Query", "/TN", _TASK_NAME, "/FO", "LIST", "/V")

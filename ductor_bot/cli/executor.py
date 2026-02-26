@@ -1,0 +1,199 @@
+"""Shared subprocess execution for CLI providers.
+
+Centralises the duplicated subprocess lifecycle (creation, stdin feeding,
+process-registry tracking, stderr draining, streaming read-loop with timeout,
+and cleanup) that was repeated across ``claude_provider`` and ``codex_provider``.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+from collections.abc import AsyncGenerator, Callable
+from dataclasses import dataclass
+
+from ductor_bot.cli.base import (
+    _CREATION_FLAGS,
+    _IS_WINDOWS,
+    CLIConfig,
+    _win_feed_stdin,
+)
+from ductor_bot.cli.stream_events import ResultEvent, StreamEvent
+from ductor_bot.cli.types import CLIResponse
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class SubprocessResult:
+    """Outcome of a completed streaming subprocess."""
+
+    process: asyncio.subprocess.Process
+    stderr_bytes: bytes
+
+
+# ---------------------------------------------------------------------------
+# Streaming subprocess
+# ---------------------------------------------------------------------------
+
+LineHandler = Callable[[str], AsyncGenerator[StreamEvent, None]]
+"""Async generator that receives a decoded stdout line and yields events."""
+
+PostHandler = Callable[[SubprocessResult], AsyncGenerator[StreamEvent, None]]
+"""Async generator that receives the subprocess result after stream ends."""
+
+
+async def _default_post_handler(result: SubprocessResult) -> AsyncGenerator[StreamEvent, None]:
+    """Yield an error ``ResultEvent`` when the process exited non-zero."""
+    if result.process.returncode != 0:
+        stderr_text = (
+            result.stderr_bytes.decode(errors="replace")[:2000] if result.stderr_bytes else ""
+        )
+        yield ResultEvent(
+            type="result",
+            result=stderr_text[:500],
+            is_error=True,
+            returncode=result.process.returncode,
+        )
+
+
+async def run_streaming_subprocess(  # noqa: PLR0913
+    config: CLIConfig,
+    exec_cmd: list[str],
+    use_cwd: str | None,
+    prompt: str,
+    timeout_seconds: float | None,
+    line_handler: LineHandler,
+    *,
+    provider_label: str = "CLI",
+    post_handler: PostHandler | None = None,
+) -> AsyncGenerator[StreamEvent, None]:
+    """Spawn a subprocess and stream stdout lines through *line_handler*.
+
+    Lifecycle:
+    1. Create subprocess with stdout/stderr pipes
+    2. Feed stdin on Windows (prompt via pipe)
+    3. Register in process registry
+    4. Drain stderr in background task
+    5. Stream stdout lines through *line_handler* with timeout
+    6. On timeout: kill, yield error, return
+    7. Cleanup: cancel drain, unregister tracked process
+    8. Post-loop: delegate to *post_handler* (default: yield error on non-zero exit)
+    """
+    process = await asyncio.create_subprocess_exec(
+        *exec_cmd,
+        stdin=_win_stdin_pipe(),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=use_cwd,
+        limit=4 * 1024 * 1024,
+        creationflags=_CREATION_FLAGS,
+    )
+    if process.stdout is None or process.stderr is None:
+        msg = "Subprocess created without stdout/stderr pipes"
+        raise RuntimeError(msg)
+    _win_feed_stdin(process, prompt)
+    logger.info("%s subprocess starting pid=%s", provider_label, process.pid)
+
+    reg = config.process_registry
+    tracked = reg.register(config.chat_id, process, config.process_label) if reg else None
+    stderr_drain = asyncio.create_task(process.stderr.read())
+
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            while True:
+                line_bytes = await process.stdout.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode(errors="replace").rstrip()
+                logger.debug("Stream line: %s", line[:120])
+                async for event in line_handler(line):
+                    yield event
+        stderr_bytes = await stderr_drain
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        logger.warning("%s stream timed out after %.0fs", provider_label, timeout_seconds)
+        yield ResultEvent(type="result", result="", is_error=True)
+        return
+    finally:
+        await _cancel_drain(stderr_drain)
+        if tracked and reg:
+            reg.unregister(tracked)
+
+    await process.wait()
+
+    handler = post_handler or _default_post_handler
+    async for event in handler(SubprocessResult(process=process, stderr_bytes=stderr_bytes)):
+        yield event
+
+
+# ---------------------------------------------------------------------------
+# Non-streaming subprocess
+# ---------------------------------------------------------------------------
+
+
+async def run_oneshot_subprocess(  # noqa: PLR0913
+    config: CLIConfig,
+    exec_cmd: list[str],
+    use_cwd: str | None,
+    prompt: str,
+    timeout_seconds: float | None,
+    parse_output: Callable[[bytes, bytes, int | None], CLIResponse],
+    *,
+    provider_label: str = "CLI",
+) -> CLIResponse:
+    """Run a subprocess, wait for completion, return parsed output.
+
+    Lifecycle:
+    1. Create subprocess with pipes
+    2. Communicate (stdin on Windows + wait)
+    3. Register/unregister in process registry
+    4. Handle timeout
+    5. Parse output via *parse_output* callback
+    """
+    process = await asyncio.create_subprocess_exec(
+        *exec_cmd,
+        stdin=_win_stdin_pipe(),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=use_cwd,
+        creationflags=_CREATION_FLAGS,
+    )
+    logger.info("%s subprocess starting pid=%s", provider_label, process.pid)
+
+    reg = config.process_registry
+    tracked = reg.register(config.chat_id, process, config.process_label) if reg else None
+    try:
+        stdin_data = prompt.encode() if _IS_WINDOWS else None
+        async with asyncio.timeout(timeout_seconds):
+            stdout, stderr = await process.communicate(input=stdin_data)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        logger.warning("%s timed out after %.0fs", provider_label, timeout_seconds)
+        return CLIResponse(result="", is_error=True, timed_out=True)
+    finally:
+        if tracked and reg:
+            reg.unregister(tracked)
+
+    return parse_output(stdout, stderr, process.returncode)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _win_stdin_pipe() -> int | None:
+    """Return ``asyncio.subprocess.PIPE`` on Windows, else ``None``."""
+    return asyncio.subprocess.PIPE if _IS_WINDOWS else None
+
+
+async def _cancel_drain(drain: asyncio.Task[bytes]) -> None:
+    """Cancel a stderr drain task and silently absorb any resulting exception."""
+    if not drain.done():
+        drain.cancel()
+        with contextlib.suppress(BaseException):
+            await drain

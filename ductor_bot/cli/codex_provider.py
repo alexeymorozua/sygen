@@ -2,26 +2,26 @@
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import logging
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from shutil import which
 
 from ductor_bot.cli.base import (
-    _CREATION_FLAGS,
     _IS_WINDOWS,
     BaseCLI,
     CLIConfig,
-    _win_feed_stdin,
-    _win_stdin_pipe,
     docker_wrap,
 )
 from ductor_bot.cli.codex_events import (
     CodexThinkingFilter,
     parse_codex_jsonl,
     parse_codex_stream_event,
+)
+from ductor_bot.cli.executor import (
+    SubprocessResult,
+    run_oneshot_subprocess,
+    run_streaming_subprocess,
 )
 from ductor_bot.cli.stream_events import (
     AssistantTextDelta,
@@ -156,34 +156,15 @@ class CodexCLI(BaseCLI):
         cmd = self._build_command(prompt, resume_session, json_output=True)
         exec_cmd, use_cwd = docker_wrap(cmd, self._config)
         _log_cmd(exec_cmd)
-        process = await asyncio.create_subprocess_exec(
-            *exec_cmd,
-            stdin=_win_stdin_pipe(),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=use_cwd,
-            creationflags=_CREATION_FLAGS,
+        return await run_oneshot_subprocess(
+            config=self._config,
+            exec_cmd=exec_cmd,
+            use_cwd=use_cwd,
+            prompt=prompt,
+            timeout_seconds=timeout_seconds,
+            parse_output=self._parse_output,
+            provider_label="Codex",
         )
-        logger.info("Codex subprocess starting pid=%s", process.pid)
-
-        reg = self._config.process_registry
-        tracked = (
-            reg.register(self._config.chat_id, process, self._config.process_label) if reg else None
-        )
-        try:
-            stdin_data = prompt.encode() if _IS_WINDOWS else None
-            async with asyncio.timeout(timeout_seconds):
-                stdout, stderr = await process.communicate(input=stdin_data)
-        except TimeoutError:
-            process.kill()
-            await process.wait()
-            logger.warning("Codex CLI timed out after %.0fs", timeout_seconds)
-            return CLIResponse(result="", is_error=True, timed_out=True)
-        finally:
-            if tracked and reg:
-                reg.unregister(tracked)
-
-        return self._parse_output(stdout, stderr, process.returncode)
 
     async def send_streaming(
         self,
@@ -196,64 +177,35 @@ class CodexCLI(BaseCLI):
         cmd = self._build_command(prompt, resume_session, json_output=True)
         exec_cmd, use_cwd = docker_wrap(cmd, self._config)
         _log_cmd(exec_cmd, streaming=True)
-        process = await asyncio.create_subprocess_exec(
-            *exec_cmd,
-            stdin=_win_stdin_pipe(),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=use_cwd,
-            limit=4 * 1024 * 1024,
-            creationflags=_CREATION_FLAGS,
-        )
-        if process.stdout is None or process.stderr is None:
-            msg = "Subprocess created without stdout/stderr pipes"
-            raise RuntimeError(msg)
-        await _win_feed_stdin(process, prompt)
-        logger.info("Codex subprocess starting pid=%s", process.pid)
 
-        reg = self._config.process_registry
-        tracked = (
-            reg.register(self._config.chat_id, process, self._config.process_label) if reg else None
-        )
         state = _StreamState()
         thinking_filter = CodexThinkingFilter()
-        stderr_drain = asyncio.create_task(process.stderr.read())
 
-        try:
-            async with asyncio.timeout(timeout_seconds):
-                while True:
-                    line_bytes = await process.stdout.readline()
-                    if not line_bytes:
-                        break
-                    line = line_bytes.decode(errors="replace").rstrip()
-                    if not line:
-                        continue
-
-                    logger.debug("Stream line: %s", line[:120])
-                    for raw_event in parse_codex_stream_event(line):
-                        for event in thinking_filter.process(raw_event):
-                            state.track(event)
-                            yield event
-                for event in thinking_filter.flush():
+        async def line_handler(line: str) -> AsyncGenerator[StreamEvent, None]:
+            if not line:
+                return
+            for raw_event in parse_codex_stream_event(line):
+                for event in thinking_filter.process(raw_event):
                     state.track(event)
                     yield event
-            # Normal end-of-stream: collect stderr now while still in the try
-            # block so the finally clause can cancel the drain task if needed.
-            stderr_bytes = await stderr_drain
-        except TimeoutError:
-            process.kill()
-            await process.wait()
-            logger.warning("Codex stream timed out after %.0fs", timeout_seconds)
-            yield ResultEvent(type="result", result="", is_error=True)
-            return
-        finally:
-            await _cancel_drain(stderr_drain)
-            if tracked and reg:
-                reg.unregister(tracked)
+            for event in thinking_filter.flush():
+                state.track(event)
+                yield event
 
-        yield await _codex_final_result(
-            process, state.accumulated_text, state.thread_id, stderr_bytes
-        )
+        async def post_handler(result: SubprocessResult) -> AsyncGenerator[StreamEvent, None]:
+            yield _codex_final_result(result, state.accumulated_text, state.thread_id)
+
+        async for event in run_streaming_subprocess(
+            config=self._config,
+            exec_cmd=exec_cmd,
+            use_cwd=use_cwd,
+            prompt=prompt,
+            timeout_seconds=timeout_seconds,
+            line_handler=line_handler,
+            provider_label="Codex",
+            post_handler=post_handler,
+        ):
+            yield event
 
     @staticmethod
     def _parse_output(
@@ -294,33 +246,26 @@ class CodexCLI(BaseCLI):
         return response
 
 
-async def _cancel_drain(drain: asyncio.Task[bytes]) -> None:
-    """Cancel a stderr drain task and silently absorb any resulting exception."""
-    if not drain.done():
-        drain.cancel()
-        with contextlib.suppress(BaseException):
-            await drain
-
-
-async def _codex_final_result(
-    process: asyncio.subprocess.Process,
+def _codex_final_result(
+    result: SubprocessResult,
     accumulated_text: list[str],
     thread_id: str | None,
-    stderr_bytes: bytes = b"",
 ) -> ResultEvent:
     """Build the final ResultEvent after the stream loop completes."""
-    await process.wait()
-    stderr_text = stderr_bytes.decode(errors="replace")[:2000] if stderr_bytes else ""
+    stderr_text = result.stderr_bytes.decode(errors="replace")[:2000] if result.stderr_bytes else ""
 
-    if process.returncode != 0:
+    if result.process.returncode != 0:
         error_detail = stderr_text or "\n".join(accumulated_text) or "(no output)"
         logger.error(
             "Codex stream exited with code %d: %s",
-            process.returncode,
+            result.process.returncode,
             error_detail[:300],
         )
         return ResultEvent(
-            type="result", result=error_detail[:500], is_error=True, returncode=process.returncode
+            type="result",
+            result=error_detail[:500],
+            is_error=True,
+            returncode=result.process.returncode,
         )
 
     return ResultEvent(
@@ -328,7 +273,7 @@ async def _codex_final_result(
         session_id=thread_id,
         result="\n".join(accumulated_text),
         is_error=False,
-        returncode=process.returncode,
+        returncode=result.process.returncode,
     )
 
 

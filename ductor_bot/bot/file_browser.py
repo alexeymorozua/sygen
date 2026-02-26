@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ductor_bot.bot.response_format import SEP, fmt
 from ductor_bot.security.paths import is_path_safe
+from ductor_bot.text.response_format import SEP, fmt
 
 if TYPE_CHECKING:
     from ductor_bot.workspace.paths import DuctorPaths

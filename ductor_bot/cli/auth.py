@@ -329,8 +329,9 @@ def gemini_uses_api_key_mode() -> bool:
 
 
 def _ductor_config_path() -> Path:
-    base = Path(os.environ.get("DUCTOR_HOME", str(Path.home() / ".ductor"))).expanduser()
-    return base / "config" / "config.json"
+    from ductor_bot.workspace.paths import resolve_paths
+
+    return resolve_paths().config_path
 
 
 def _has_active_google_account(accounts_file: Path) -> bool:

@@ -9,9 +9,21 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rich.panel import Panel
-
-from ductor_bot.infra.service_common import collect_nvm_bin_dirs, ensure_console
+from ductor_bot.infra.service_base import (
+    collect_nvm_bin_dirs,
+    ensure_console,
+    find_ductor_binary,
+    print_binary_not_found,
+    print_install_success,
+    print_no_service,
+    print_not_installed,
+    print_not_running,
+    print_removed,
+    print_start_failed,
+    print_started,
+    print_stop_failed,
+    print_stopped,
+)
 from ductor_bot.infra.service_logs import print_recent_logs
 from ductor_bot.workspace.paths import resolve_paths
 
@@ -34,7 +46,7 @@ def _plist_path() -> Path:
 
 def _find_ductor_binary() -> str | None:
     """Find the ductor binary path."""
-    return shutil.which("ductor")
+    return find_ductor_binary()
 
 
 def _run_launchctl(*args: str) -> subprocess.CompletedProcess[str]:
@@ -123,7 +135,7 @@ def install_service(console: Console | None = None) -> bool:
 
     binary = _find_ductor_binary()
     if not binary:
-        console.print("[bold red]Could not find the ductor binary in PATH.[/bold red]")
+        print_binary_not_found(console)
         return False
 
     # Unload existing agent if present (clean re-install)
@@ -150,19 +162,9 @@ def install_service(console: Console | None = None) -> bool:
 
     logger.info("Launch Agent loaded: %s", _LABEL)
 
-    console.print(
-        Panel(
-            "[bold green]ductor is now running as a background service.[/bold green]\n\n"
-            "It starts on login and restarts on crash (10s throttle).\n\n"
-            "[bold]Useful commands:[/bold]\n\n"
-            "  [cyan]ductor service status[/cyan]     Check if it's running\n"
-            "  [cyan]ductor service stop[/cyan]       Stop the service\n"
-            "  [cyan]ductor service logs[/cyan]       View recent logs\n"
-            "  [cyan]ductor service uninstall[/cyan]  Remove the service",
-            title="[bold green]Service Installed[/bold green]",
-            border_style="green",
-            padding=(1, 2),
-        ),
+    print_install_success(
+        console,
+        detail="It starts on login and restarts on crash (10s throttle).",
     )
     return True
 
@@ -172,7 +174,7 @@ def uninstall_service(console: Console | None = None) -> bool:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]No service installed.[/dim]")
+        print_no_service(console)
         return False
 
     result = _run_launchctl("unload", "-w", str(_plist_path()))
@@ -181,7 +183,7 @@ def uninstall_service(console: Console | None = None) -> bool:
         return False
 
     _plist_path().unlink(missing_ok=True)
-    console.print("[green]Service removed.[/green]")
+    print_removed(console)
     return True
 
 
@@ -190,14 +192,14 @@ def start_service(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_launchctl("start", _LABEL)
     if result.returncode == 0:
-        console.print("[green]Service started.[/green]")
+        print_started(console)
     else:
-        console.print(f"[red]Failed to start: {result.stderr.strip()}[/red]")
+        print_start_failed(console, result.stderr.strip())
 
 
 def stop_service(console: Console | None = None) -> None:
@@ -205,14 +207,14 @@ def stop_service(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_running():
-        console.print("[dim]Service is not running.[/dim]")
+        print_not_running(console)
         return
 
     result = _run_launchctl("stop", _LABEL)
     if result.returncode == 0:
-        console.print("[green]Service stopped.[/green]")
+        print_stopped(console)
     else:
-        console.print(f"[red]Failed to stop: {result.stderr.strip()}[/red]")
+        print_stop_failed(console, result.stderr.strip())
 
 
 def print_service_status(console: Console | None = None) -> None:
@@ -220,7 +222,7 @@ def print_service_status(console: Console | None = None) -> None:
     console = ensure_console(console)
 
     if not is_service_installed():
-        console.print("[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]")
+        print_not_installed(console)
         return
 
     result = _run_launchctl("list", _LABEL)
