@@ -30,7 +30,7 @@ from ductor_bot.bot.handlers import (
     handle_new_session,
     strip_mention,
 )
-from ductor_bot.bot.media import has_media, is_media_addressed, resolve_media_text
+from ductor_bot.bot.media import has_media, is_media_addressed, is_message_addressed, resolve_media_text
 from ductor_bot.bot.message_dispatch import (
     NonStreamingDispatch,
     StreamingDispatch,
@@ -891,8 +891,9 @@ class TelegramBot:
 
     async def _resolve_text(self, message: Message) -> str | None:
         """Extract processable text from *message* (plain text or media prompt)."""
+        is_group = message.chat.type in ("group", "supergroup")
+
         if has_media(message):
-            is_group = message.chat.type in ("group", "supergroup")
             if is_group and not is_media_addressed(message, self._bot_id, self._bot_username):
                 return None
             paths = self._orch.paths
@@ -900,6 +901,12 @@ class TelegramBot:
                 self._bot, message, paths.telegram_files_dir, paths.workspace
             )
         if not message.text:
+            return None
+        if (
+            is_group
+            and self._config.group_mention_only
+            and not is_message_addressed(message, self._bot_id, self._bot_username)
+        ):
             return None
         return strip_mention(message.text, self._bot_username)
 

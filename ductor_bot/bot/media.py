@@ -45,12 +45,16 @@ def has_media(message: Message) -> bool:
     )
 
 
-def is_media_addressed(
+def is_message_addressed(
     message: Message,
     bot_id: int | None,
     bot_username: str | None,
 ) -> bool:
-    """True if a media message in a group chat is addressed to the bot."""
+    """True if *message* in a group chat is addressed to the bot.
+
+    Works for both media (caption entities) and plain text (text entities).
+    Checks reply-to-bot and @botname mentions.
+    """
     if (
         message.reply_to_message
         and message.reply_to_message.from_user
@@ -58,13 +62,32 @@ def is_media_addressed(
         and message.reply_to_message.from_user.id == bot_id
     ):
         return True
+    # Check caption entities (media messages)
     if message.caption_entities and message.caption and bot_username:
-        return any(
+        if any(
             e.type == "mention"
             and message.caption[e.offset : e.offset + e.length].lower() == f"@{bot_username}"
             for e in message.caption_entities
-        )
+        ):
+            return True
+    # Check text entities (plain text messages)
+    if message.entities and message.text and bot_username:
+        if any(
+            e.type == "mention"
+            and message.text[e.offset : e.offset + e.length].lower() == f"@{bot_username}"
+            for e in message.entities
+        ):
+            return True
     return False
+
+
+def is_media_addressed(
+    message: Message,
+    bot_id: int | None,
+    bot_username: str | None,
+) -> bool:
+    """True if a media message in a group chat is addressed to the bot."""
+    return is_message_addressed(message, bot_id, bot_username)
 
 
 async def resolve_media_text(
