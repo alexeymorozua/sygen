@@ -201,6 +201,8 @@ class CronObserver:
             )
         except (CronSimError, StopIteration):
             logger.warning("Invalid cron expression for job %s: %s", job_id, schedule)
+        except Exception:
+            logger.exception("Failed to schedule job %s", job_id)
 
     async def _run_at(self, delay: float, scheduled_job: _ScheduledJob) -> None:
         """Wait for delay, execute the job, then reschedule for next occurrence."""

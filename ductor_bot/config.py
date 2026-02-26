@@ -13,6 +13,33 @@ logger = logging.getLogger(__name__)
 NULLISH_TEXT_VALUES: frozenset[str] = frozenset({"null", "none"})
 DEFAULT_EMPTY_GEMINI_API_KEY: str = "null"
 
+# Pre-build a safe UTC fallback.  On Windows without the ``tzdata`` package
+# (now a declared dependency), ``ZoneInfo("UTC")`` raises.  The fallback
+# is a minimal ``datetime.tzinfo`` subclass with a ``.key`` attribute so
+# callers that log ``tz.key`` keep working.
+try:
+    _SAFE_UTC: ZoneInfo = ZoneInfo("UTC")
+except (ZoneInfoNotFoundError, KeyError):
+    import datetime as _dt
+
+    class _UTCFallback(_dt.tzinfo):  # pragma: no cover
+        """Minimal UTC stand-in for systems without IANA timezone data."""
+
+        key: str = "UTC"
+        _ZERO = _dt.timedelta(0)
+
+        def utcoffset(self, dt: _dt.datetime | None) -> _dt.timedelta:
+            return self._ZERO
+
+        def tzname(self, dt: _dt.datetime | None) -> str:
+            return "UTC"
+
+        def dst(self, dt: _dt.datetime | None) -> _dt.timedelta:
+            return self._ZERO
+
+    _SAFE_UTC = _UTCFallback()  # type: ignore[assignment]
+    logger.warning("tzdata package missing — using built-in UTC fallback")
+
 
 class StreamingConfig(BaseModel):
     """Settings for streaming response output."""
@@ -227,7 +254,7 @@ def resolve_user_timezone(configured: str = "") -> ZoneInfo:
             pass
 
     detected = _detect_host_timezone() if sys.platform == "win32" else _detect_posix_timezone()
-    return detected or ZoneInfo("UTC")
+    return detected or _SAFE_UTC
 
 
 def _detect_host_timezone() -> ZoneInfo | None:
