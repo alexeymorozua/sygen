@@ -60,14 +60,15 @@ class BackgroundObserver:
             raise ValueError(msg)
 
         task_id = secrets.token_hex(4)
+        has_session_override = bool(sub.provider_override)
         bg_task = BackgroundTask(
             task_id=task_id,
             chat_id=sub.chat_id,
             prompt=sub.prompt,
             message_id=sub.message_id,
             thread_id=sub.thread_id,
-            provider=exec_config.provider,
-            model=exec_config.model,
+            provider=sub.provider_override if has_session_override else exec_config.provider,
+            model=sub.model_override if has_session_override else exec_config.model,
             submitted_at=time.monotonic(),
             session_name=sub.session_name,
             resume_session_id=sub.resume_session_id,
@@ -80,7 +81,7 @@ class BackgroundObserver:
             "Background task submitted id=%s chat=%d provider=%s session=%s",
             task_id,
             sub.chat_id,
-            exec_config.provider,
+            bg_task.provider,
             sub.session_name or "<stateless>",
         )
         return task_id
