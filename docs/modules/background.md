@@ -1,37 +1,35 @@
 # background/
 
-On-demand background task execution for `/bg` (fire-and-notify workflow).
+Named background session execution for `/session` (persistent sessions with follow-ups).
 
 ## Files
 
 - `background/observer.py`: `BackgroundObserver` task lifecycle, execution, cancel/shutdown, result callback
-- `background/models.py`: `BackgroundTask`, `BackgroundResult` dataclasses
+- `background/models.py`: `BackgroundSubmit`, `BackgroundTask`, `BackgroundResult` dataclasses
 
 ## Purpose
 
-Runs one-shot CLI tasks without blocking the chat flow:
+Runs CLI tasks without blocking the chat flow, with persistent session support:
 
-- user sends `/bg <prompt>`
-- task executes asynchronously in workspace context
-- bot sends a new completion/failure/cancel message when done
-
-This path is stateless (no main-session persistence).
+- user sends `/session <prompt>` (optionally `/session @provider <prompt>`)
+- a named session is created (e.g. `swift-fox`)
+- task executes asynchronously with session tracking
+- bot sends a tagged completion/failure/cancel message when done
+- follow-ups resume the same CLI session via `--resume`
 
 ## Execution model
 
-`BackgroundObserver.submit(...)`:
+`BackgroundObserver.submit(sub, exec_config)`:
 
 1. enforces per-chat concurrency cap (`MAX_TASKS_PER_CHAT = 5`)
-2. creates `BackgroundTask` metadata (`task_id`, chat/thread IDs, provider/model, prompt preview source)
+2. creates `BackgroundTask` metadata (`task_id`, chat/thread IDs, provider/model, prompt preview, session name)
 3. starts `asyncio.create_task(self._run(...))`
 4. auto-removes finished tasks from in-memory registry
 
-`_run(...)` delegates execution to `infra/task_runner.run_oneshot_task(...)`:
+Two execution paths:
 
-- command is built from resolved provider/model config
-- task runs in `paths.workspace`
-- timeout uses `config.cli_timeout`
-- status/result normalized into `BackgroundResult`
+- **Named session path** (`session_name` set): uses `CLIService.execute()` with `resume_session` for session persistence
+- **Legacy path** (no `session_name`): uses `run_oneshot_task()` for stateless one-shot execution
 
 ## Status mapping
 
@@ -41,28 +39,24 @@ Delivered `BackgroundResult.status` values include:
 - execution failures: `error:timeout`, `error:exit_<code>`, `error:cli_not_found`, `error:internal`
 - user abort path: `aborted`
 
-Note:
-
-- internal one-shot execution may emit provider-specific `error:cli_not_found_<provider>`
-- `BackgroundObserver` normalizes missing-binary outcomes to `error:cli_not_found`
-
 ## Wiring
 
 Orchestrator integration (`orchestrator/core.py`):
 
 - created in `Orchestrator.create(...)`
-- submission API: `submit_background_task(...)`
+- submission API: `submit_named_session(...)`, `submit_named_followup_bg(...)`
 - listing API: `active_background_tasks(...)`
 - shared abort: `abort(chat_id)` cancels both CLI subprocesses and active background tasks
 - shutdown: `_stop_observers()` calls `BackgroundObserver.shutdown()`
 
 Bot integration (`bot/app.py`):
 
-- `/bg` handler submits task and confirms start to user
-- result handler (`_on_bg_result`) sends completion/failure/cancel message as a new Telegram message
+- `/session` handler creates named session and confirms start to user
+- result handler (`_on_session_result`) sends tagged completion/failure/cancel message
+- `/sessions` shows interactive session management UI
 - `/status` shows active background tasks via orchestrator status builder
 
 ## Limitations
 
-- in-memory task registry only (no persistence across process restarts)
-- no retry queue; each `/bg` submission is a single execution
+- task registry is in-memory (lost on restart), but named sessions persist in JSON
+- no retry queue; each submission is a single execution

@@ -25,7 +25,7 @@ ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`)
 - `ductor_bot/files/`: shared file tag parsing, MIME detection/classification, storage naming, transport-agnostic media prompt builder.
 - `ductor_bot/orchestrator/`: command dispatch, directives/hooks, normal + heartbeat flows, observer/server wiring.
 - `ductor_bot/cli/`: Claude/Codex/Gemini wrappers, stream-event normalization, process registry, auth detection, model caches.
-- `ductor_bot/background/`: on-demand `/bg` task execution and async result delivery.
+- `ductor_bot/background/`: named background sessions (`/session`) with follow-ups and result delivery.
 - `ductor_bot/session/`: per-chat session lifecycle with provider-isolated buckets in `sessions.json`.
 - `ductor_bot/cron/`: in-process scheduler for `cron_jobs.json` with task overrides, quiet hours, dependency queue.
 - `ductor_bot/webhook/`: HTTP ingress (`/hooks/{hook_id}`) with `bearer`/`hmac`, `wake`/`cron_task`, and shared dependency queue.

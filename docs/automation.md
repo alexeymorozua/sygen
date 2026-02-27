@@ -4,25 +4,26 @@ ductor automation systems:
 
 | System | Trigger | Execution Context | Output |
 |---|---|---|---|
-| Background (`/bg`) | user command | workspace (one-shot) | Telegram notification |
+| Sessions (`/session`) | user command | named session (persistent) | Telegram notification |
 | Cron jobs | schedule | isolated task folder | Telegram result |
 | Webhooks | HTTP POST | wake or isolated `cron_task` | Telegram result |
 | Heartbeat | interval | active main session | Telegram alert (non-ACK only) |
 | Cleanup | daily hour | filesystem maintenance | no Telegram message |
 
-## Background tasks (`/bg`)
+## Named sessions (`/session`)
 
-`/bg <prompt>` runs a one-shot CLI task in the background. The chat is free immediately; a new Telegram message is sent when the task completes (triggering a push notification).
+`/session <prompt>` starts a named background session. The chat is free immediately; a Telegram message is sent when the task completes. Sessions persist and support follow-ups.
 
 Key properties:
 
-- uses the current provider/model (same as normal conversation)
-- one-shot execution via `build_cmd()` + `execute_one_shot()` (reuses cron execution infrastructure)
-- no session persistence -- each `/bg` task is stateless
-- result message replies to the original `/bg` message for context
-- `/stop` cancels all background tasks for the chat (via asyncio task cancellation)
-- max 5 concurrent tasks per chat
-- `/status` shows active background tasks
+- auto-generates memorable names (e.g. `swift-fox`, `tall-newt`)
+- supports provider isolation: `/session @codex <prompt>`
+- follow-up in foreground: `@session-name <message>`
+- follow-up in background: `/session @session-name <message>`
+- session management: `/sessions` (list, end, end all)
+- `/stop` cancels all sessions for the chat
+- max 5 concurrent tasks, max 10 sessions per chat
+- `/status` shows active sessions
 
 Status values: `success`, `error:timeout`, `error:exit_<code>`, `error:cli_not_found`, `error:internal`, `aborted`.
 
