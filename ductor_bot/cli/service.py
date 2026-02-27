@@ -132,13 +132,19 @@ class CLIService:
         """Switch Docker container (empty string = host execution)."""
         self._config = replace(self._config, docker_container=container)
 
+    def _resolve_model(self, request: AgentRequest) -> str:
+        """Resolve the effective model for logging and metadata."""
+        if request.provider_override:
+            return request.model_override or f"<{request.provider_override} default>"
+        return request.model_override or self._config.default_model
+
     async def execute(self, request: AgentRequest) -> AgentResponse:
         """Execute a CLI call."""
         cli = self._make_cli(request)
         logger.info(
             "CLI execute starting label=%s model=%s",
             request.process_label,
-            request.model_override or self._config.default_model,
+            self._resolve_model(request),
         )
 
         t0 = time.monotonic()
@@ -166,7 +172,7 @@ class CLIService:
         logger.info(
             "CLI streaming starting label=%s model=%s",
             request.process_label,
-            request.model_override or self._config.default_model,
+            self._resolve_model(request),
         )
 
         accumulated_text = ""
