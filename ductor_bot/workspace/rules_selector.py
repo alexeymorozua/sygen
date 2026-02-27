@@ -7,8 +7,6 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ductor_bot.cli.auth import AuthStatus, check_all_auth
-
 if TYPE_CHECKING:
     from ductor_bot.workspace.paths import DuctorPaths
 
@@ -37,6 +35,8 @@ class RulesSelector:
     """
 
     def __init__(self, paths: DuctorPaths) -> None:
+        from ductor_bot.cli.auth import AuthStatus, check_all_auth
+
         self._paths = paths
         # Cache auth status to avoid multiple checks
         auth = check_all_auth()
