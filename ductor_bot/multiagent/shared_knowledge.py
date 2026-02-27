@@ -13,16 +13,34 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_START_MARKER = "<!-- SHARED:START -->"
-_END_MARKER = "<!-- SHARED:END -->"
+_START_MARKER = "--- SHARED KNOWLEDGE START ---"
+_END_MARKER = "--- SHARED KNOWLEDGE END ---"
+
+# Legacy HTML markers for backward compatibility (read-only).
+_LEGACY_START = "<!-- SHARED:START -->"
+_LEGACY_END = "<!-- SHARED:END -->"
+
+
+def _find_markers(text: str) -> tuple[str, str] | None:
+    """Detect which marker pair is present in *text*. Returns (start, end) or None."""
+    if _START_MARKER in text:
+        return _START_MARKER, _END_MARKER
+    if _LEGACY_START in text:
+        return _LEGACY_START, _LEGACY_END
+    return None
 
 
 class SharedKnowledgeSync:
     """Watches ``SHAREDMEMORY.md`` and syncs its content into every agent's MAINMEMORY.md.
 
-    The shared content is wrapped in ``<!-- SHARED:START -->`` / ``<!-- SHARED:END -->``
-    markers.  Existing blocks are replaced in-place; if no markers exist yet the
-    block is appended.  Compatible with the legacy bash sync script.
+    The shared content is wrapped in Markdown-native markers::
+
+        --- SHARED KNOWLEDGE START ---
+        (content)
+        --- SHARED KNOWLEDGE END ---
+
+    Legacy HTML comment markers (``<!-- SHARED:START/END -->``) are detected
+    on read and automatically migrated to the new format on write.
     """
 
     def __init__(self, shared_path: Path, supervisor: AgentSupervisor) -> None:
@@ -64,14 +82,15 @@ class SharedKnowledgeSync:
 
         current = mainmemory_path.read_text(encoding="utf-8")
 
-        if _START_MARKER in current:
-            # Replace existing block
-            before = current.split(_START_MARKER, 1)[0]
-            after_parts = current.split(_END_MARKER, 1)
+        markers = _find_markers(current)
+        if markers:
+            start, end = markers
+            before = current.split(start, 1)[0]
+            after_parts = current.split(end, 1)
             after = after_parts[1] if len(after_parts) > 1 else ""
+            # Always write new-format markers (migrates legacy on first sync)
             new_content = f"{before}{inject_block}{after}"
         else:
-            # Append
             new_content = f"{current.rstrip()}\n\n{inject_block}\n"
 
         if new_content != current:
