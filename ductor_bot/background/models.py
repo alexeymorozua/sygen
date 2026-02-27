@@ -16,6 +16,8 @@ class BackgroundSubmit:
     thread_id: int | None
     session_name: str = ""
     resume_session_id: str = ""
+    provider_override: str = ""
+    model_override: str = ""
 
 
 @dataclass(slots=True)

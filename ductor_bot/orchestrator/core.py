@@ -618,6 +618,8 @@ class Orchestrator:
             message_id=message_id,
             thread_id=thread_id,
             session_name=ns.name,
+            provider_override=provider_name,
+            model_override=model_name,
         )
         task_id = self._bg_observer.submit(sub, exec_config)
         return task_id, ns.name
@@ -657,6 +659,8 @@ class Orchestrator:
             thread_id=thread_id,
             session_name=session_name,
             resume_session_id=ns.session_id,
+            provider_override=ns.provider,
+            model_override=ns.model,
         )
         return self._bg_observer.submit(sub, exec_config)
 
