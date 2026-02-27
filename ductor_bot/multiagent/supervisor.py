@@ -19,6 +19,7 @@ from ductor_bot.workspace.paths import resolve_paths
 if TYPE_CHECKING:
     from ductor_bot.multiagent.bus import InterAgentBus
     from ductor_bot.multiagent.internal_api import InternalAgentAPI
+    from ductor_bot.multiagent.shared_knowledge import SharedKnowledgeSync
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,10 @@ class AgentSupervisor:
         self._running = False
         self._main_done: asyncio.Event = asyncio.Event()
 
-        # Bus and internal API — created lazily in start()
+        # Bus, internal API, and shared knowledge — created lazily in start()
         self._bus: InterAgentBus | None = None
         self._internal_api: InternalAgentAPI | None = None
+        self._shared_knowledge: SharedKnowledgeSync | None = None
 
     @property
     def stacks(self) -> dict[str, AgentStack]:
@@ -91,10 +93,17 @@ class AgentSupervisor:
         # 2. Load and start sub-agents from agents.json
         await self._sync_sub_agents()
 
-        # 3. Start FileWatcher for agents.json
+        # 3. Start shared knowledge sync (SHAREDMEMORY.md → all agents)
+        from ductor_bot.multiagent.shared_knowledge import SharedKnowledgeSync
+
+        shared_path = self._main_paths.ductor_home / "SHAREDMEMORY.md"
+        self._shared_knowledge = SharedKnowledgeSync(shared_path, self)
+        await self._shared_knowledge.start()
+
+        # 4. Start FileWatcher for agents.json
         await self._watcher.start()
 
-        # 4. Wait for main agent to finish — it determines the exit code
+        # 5. Wait for main agent to finish — it determines the exit code
         await self._main_done.wait()
         main_task = self._tasks.get("main")
         exit_code = 0
@@ -261,6 +270,11 @@ class AgentSupervisor:
             self._supervised_run(name, stack),
             name=f"agent:{name}",
         )
+
+        # Sync shared knowledge into the new agent's MAINMEMORY.md
+        if self._shared_knowledge:
+            self._shared_knowledge.sync_agent(stack.paths.mainmemory_path)
+
         logger.info("Sub-agent '%s' started (home=%s)", name, agent_home)
 
     async def stop_agent(self, name: str) -> None:
@@ -356,6 +370,8 @@ class AgentSupervisor:
         """Shut down all agents and cleanup."""
         self._running = False
         await self._watcher.stop()
+        if self._shared_knowledge:
+            await self._shared_knowledge.stop()
 
         # Stop sub-agents first, then main
         sub_names = [n for n in list(self._stacks.keys()) if n != "main"]
