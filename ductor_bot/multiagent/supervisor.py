@@ -114,6 +114,9 @@ class AgentSupervisor:
         On clean exit: return the exit code.
         On restart request (exit code 42): rebuild stack and restart.
         """
+        from ductor_bot.log_context import set_log_context
+
+        set_log_context(agent_name=name)
         health = self._health[name]
         health.mark_starting()
         retry_count = 0
