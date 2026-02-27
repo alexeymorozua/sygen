@@ -60,7 +60,8 @@ def test_cron_add_creates_json_and_folder(tmp_path: Path) -> None:
     task_dir = tmp_path / "workspace" / "cron_tasks" / "my-job"
     assert task_dir.is_dir()
     assert (task_dir / "CLAUDE.md").exists()
-    assert (task_dir / "AGENTS.md").exists()
+    # By default only CLAUDE.md exists when no parent provider files are seeded.
+    assert not (task_dir / "AGENTS.md").exists()
     assert (task_dir / "TASK_DESCRIPTION.md").exists()
     assert (task_dir / "my-job_MEMORY.md").exists()
     assert (task_dir / "scripts").is_dir()
@@ -141,6 +142,11 @@ def test_cron_add_output_includes_action_required(tmp_path: Path) -> None:
 
 
 def test_cron_add_agents_md_mirrors_claude_md(tmp_path: Path) -> None:
+    cron_tasks_dir = tmp_path / "workspace" / "cron_tasks"
+    cron_tasks_dir.mkdir(parents=True, exist_ok=True)
+    (cron_tasks_dir / "CLAUDE.md").write_text("parent", encoding="utf-8")
+    (cron_tasks_dir / "AGENTS.md").write_text("parent", encoding="utf-8")
+
     result = _run_tool(tmp_path, _full_args("mirror-test"))
     assert result.returncode == 0
     task_dir = tmp_path / "workspace" / "cron_tasks" / "mirror-test"
