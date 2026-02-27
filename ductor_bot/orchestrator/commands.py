@@ -14,6 +14,7 @@ from ductor_bot.infra.version import check_pypi, get_current_version
 from ductor_bot.orchestrator.cron_selector import cron_selector_start
 from ductor_bot.orchestrator.model_selector import model_selector_start, switch_model
 from ductor_bot.orchestrator.registry import OrchestratorResult
+from ductor_bot.orchestrator.session_selector import session_selector_start
 from ductor_bot.text.response_format import SEP, fmt, new_session_text
 from ductor_bot.workspace.loader import read_mainmemory
 
@@ -75,6 +76,13 @@ async def cmd_memory(orch: Orchestrator, _chat_id: int, _text: str) -> Orchestra
             "*Tip: The agent reads and updates this automatically.*",
         ),
     )
+
+
+async def cmd_sessions(orch: Orchestrator, chat_id: int, _text: str) -> OrchestratorResult:
+    """Handle /sessions."""
+    logger.info("Sessions requested")
+    text, keyboard = await session_selector_start(orch, chat_id)
+    return OrchestratorResult(text=text, reply_markup=keyboard)
 
 
 async def cmd_cron(orch: Orchestrator, _chat_id: int, _text: str) -> OrchestratorResult:

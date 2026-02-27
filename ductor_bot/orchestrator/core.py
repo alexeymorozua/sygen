@@ -11,7 +11,12 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ductor_bot.background import BackgroundObserver, BackgroundResult, BackgroundTask
+from ductor_bot.background import (
+    BackgroundObserver,
+    BackgroundResult,
+    BackgroundSubmit,
+    BackgroundTask,
+)
 from ductor_bot.cleanup import CleanupObserver
 from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_cache_observer import CodexCacheObserver
@@ -26,6 +31,7 @@ from ductor_bot.config import (
     get_gemini_models,
     set_gemini_models,
 )
+from ductor_bot.config_reload import ConfigReloader
 from ductor_bot.cron.manager import CronManager
 from ductor_bot.cron.observer import CronObserver
 from ductor_bot.errors import (
@@ -45,12 +51,15 @@ from ductor_bot.orchestrator.commands import (
     cmd_memory,
     cmd_model,
     cmd_reset,
+    cmd_sessions,
     cmd_status,
     cmd_upgrade,
 )
 from ductor_bot.orchestrator.directives import parse_directives
 from ductor_bot.orchestrator.flows import (
     heartbeat_flow,
+    named_session_flow,
+    named_session_streaming,
     normal,
     normal_streaming,
 )
@@ -58,6 +67,7 @@ from ductor_bot.orchestrator.hooks import MAINMEMORY_REMINDER, MessageHookRegist
 from ductor_bot.orchestrator.registry import CommandRegistry, OrchestratorResult
 from ductor_bot.security import detect_suspicious_patterns
 from ductor_bot.session import SessionManager
+from ductor_bot.session.named import NamedSession, NamedSessionRegistry
 from ductor_bot.webhook.manager import WebhookManager
 from ductor_bot.webhook.models import WebhookResult
 from ductor_bot.webhook.observer import WebhookObserver
@@ -119,6 +129,7 @@ class Orchestrator:
         self._known_model_ids: frozenset[str] = frozenset()
         self._refresh_known_model_ids()
         self._sessions = SessionManager(paths.sessions_path, config)
+        self._named_sessions = NamedSessionRegistry(paths.named_sessions_path)
         self._process_registry = ProcessRegistry()
         self._available_providers: frozenset[str] = frozenset()
         self._cli_service = CLIService(
@@ -164,6 +175,7 @@ class Orchestrator:
         self._hook_registry.register(MAINMEMORY_REMINDER)
         self._command_registry = CommandRegistry()
         self._register_commands()
+        self._config_reloader: ConfigReloader | None = None
 
     @property
     def paths(self) -> DuctorPaths:
@@ -214,7 +226,9 @@ class Orchestrator:
 
         safe_codex_cache = await orch._init_model_caches(paths)
         orch._codex_cache = safe_codex_cache
-        orch._bg_observer = BackgroundObserver(paths, timeout_seconds=config.cli_timeout)
+        orch._bg_observer = BackgroundObserver(
+            paths, timeout_seconds=config.cli_timeout, cli_service=orch._cli_service
+        )
         orch._cron_observer = CronObserver(
             paths,
             orch._cron_manager,
@@ -242,6 +256,16 @@ class Orchestrator:
             watch_skill_sync(paths, docker_active=bool(docker_container))
         )
         logger.info("Skill sync watcher started")
+
+        orch._config_reloader = ConfigReloader(
+            paths.config_path,
+            config,
+            on_hot_reload=orch._on_config_hot_reload,
+            on_restart_needed=lambda fields: logger.warning(
+                "Config changed but requires restart: %s", ", ".join(fields)
+            ),
+        )
+        await orch._config_reloader.start()
 
         return orch
 
@@ -408,6 +432,24 @@ class Orchestrator:
 
         directives = parse_directives(dispatch.text, self._known_model_ids)
 
+        # Check if a leading @directive matches a named session
+        if directives.raw_directives:
+            first_key = next(iter(directives.raw_directives))
+            ns = self._named_sessions.get(dispatch.chat_id, first_key)
+            if ns is not None:
+                session_prompt = directives.cleaned or dispatch.text
+                if dispatch.streaming:
+                    return await named_session_streaming(
+                        self,
+                        dispatch.chat_id,
+                        first_key,
+                        session_prompt,
+                        on_text_delta=dispatch.on_text_delta,
+                        on_tool_activity=dispatch.on_tool_activity,
+                        on_system_status=dispatch.on_system_status,
+                    )
+                return await named_session_flow(self, dispatch.chat_id, first_key, session_prompt)
+
         if directives.is_directive_only and directives.has_model:
             return OrchestratorResult(
                 text=f"Next message will use: {directives.model}\n"
@@ -446,6 +488,7 @@ class Orchestrator:
         reg.register_async("/cron", cmd_cron)
         reg.register_async("/diagnose", cmd_diagnose)
         reg.register_async("/upgrade", cmd_upgrade)
+        reg.register_async("/sessions", cmd_sessions)
 
     async def reset_session(self, chat_id: int) -> None:
         """Reset the session for a given chat."""
@@ -474,6 +517,7 @@ class Orchestrator:
         killed = await self._process_registry.kill_all(chat_id)
         if self._bg_observer:
             killed += await self._bg_observer.cancel_all(chat_id)
+        self._named_sessions.end_all(chat_id)
         return killed
 
     def resolve_runtime_target(self, requested_model: str | None = None) -> tuple[str, str]:
@@ -539,7 +583,98 @@ class Orchestrator:
             msg = "Background observer not initialized"
             raise RuntimeError(msg)
         exec_config = resolve_cli_config(self._config, self._codex_cache)
-        return self._bg_observer.submit(chat_id, prompt, message_id, thread_id, exec_config)
+        sub = BackgroundSubmit(
+            chat_id=chat_id, prompt=prompt, message_id=message_id, thread_id=thread_id
+        )
+        return self._bg_observer.submit(sub, exec_config)
+
+    def submit_named_session(
+        self,
+        chat_id: int,
+        prompt: str,
+        message_id: int,
+        thread_id: int | None,
+        *,
+        provider_override: str | None = None,
+    ) -> tuple[str, str]:
+        """Submit a new named background session. Returns (task_id, session_name)."""
+        from ductor_bot.cli.param_resolver import resolve_cli_config
+
+        if self._bg_observer is None:
+            msg = "Background observer not initialized"
+            raise RuntimeError(msg)
+
+        model_name, provider_name = self.resolve_runtime_target(self._config.model)
+        if provider_override:
+            provider_name = provider_override
+            model_name = self._config.model
+
+        ns = self._named_sessions.create(chat_id, provider_name, model_name, prompt)
+        exec_config = resolve_cli_config(self._config, self._codex_cache)
+        sub = BackgroundSubmit(
+            chat_id=chat_id,
+            prompt=prompt,
+            message_id=message_id,
+            thread_id=thread_id,
+            session_name=ns.name,
+        )
+        task_id = self._bg_observer.submit(sub, exec_config)
+        return task_id, ns.name
+
+    def submit_named_followup_bg(
+        self,
+        chat_id: int,
+        session_name: str,
+        prompt: str,
+        message_id: int,
+        thread_id: int | None,
+    ) -> str:
+        """Submit a background follow-up to an existing named session. Returns task_id."""
+        from ductor_bot.cli.param_resolver import resolve_cli_config
+
+        if self._bg_observer is None:
+            msg = "Background observer not initialized"
+            raise RuntimeError(msg)
+
+        ns = self._named_sessions.get(chat_id, session_name)
+        if ns is None:
+            msg = f"Session '{session_name}' not found"
+            raise ValueError(msg)
+        if ns.status == "ended":
+            msg = f"Session '{session_name}' has ended"
+            raise ValueError(msg)
+        if ns.status == "running":
+            msg = f"Session '{session_name}' is still processing"
+            raise ValueError(msg)
+
+        ns.status = "running"
+        exec_config = resolve_cli_config(self._config, self._codex_cache)
+        sub = BackgroundSubmit(
+            chat_id=chat_id,
+            prompt=prompt,
+            message_id=message_id,
+            thread_id=thread_id,
+            session_name=session_name,
+            resume_session_id=ns.session_id,
+        )
+        return self._bg_observer.submit(sub, exec_config)
+
+    async def end_named_session(self, chat_id: int, name: str) -> bool:
+        """Kill process and end a named session."""
+        ns = self._named_sessions.get(chat_id, name)
+        if ns is None:
+            return False
+        await self._process_registry.kill_by_label(chat_id, f"ns:{name}")
+        self._process_registry.clear_label_abort(chat_id, f"ns:{name}")
+        return self._named_sessions.end_session(chat_id, name)
+
+    def get_named_session(self, chat_id: int, name: str) -> NamedSession | None:
+        """Look up a named session."""
+        return self._named_sessions.get(chat_id, name)
+
+    def list_named_sessions(self, chat_id: int) -> list[NamedSession]:
+        """List active named sessions for a chat."""
+        return self._named_sessions.list_active(chat_id)
 
     def active_background_tasks(self, chat_id: int | None = None) -> list[BackgroundTask]:
         """Return active background tasks, optionally filtered by chat_id."""
@@ -624,8 +759,46 @@ class Orchestrator:
 
         self._api_stop = server.stop
 
+    def _on_config_hot_reload(self, config: AgentConfig, hot: dict[str, object]) -> None:
+        """Apply hot-reloaded config fields to dependent services."""
+        if any(
+            k in hot
+            for k in (
+                "model",
+                "provider",
+                "max_turns",
+                "max_budget_usd",
+                "permission_mode",
+                "reasoning_effort",
+                "cli_parameters",
+            )
+        ):
+            self._cli_service.update_config(
+                CLIServiceConfig(
+                    working_dir=str(self._paths.workspace),
+                    default_model=config.model,
+                    provider=config.provider,
+                    max_turns=config.max_turns,
+                    max_budget_usd=config.max_budget_usd,
+                    permission_mode=config.permission_mode,
+                    reasoning_effort=config.reasoning_effort,
+                    gemini_api_key=config.gemini_api_key,
+                    docker_container=self._cli_service._config.docker_container,
+                    claude_cli_parameters=tuple(config.cli_parameters.claude),
+                    codex_cli_parameters=tuple(config.cli_parameters.codex),
+                    gemini_cli_parameters=tuple(config.cli_parameters.gemini),
+                )
+            )
+
+        if "model" in hot:
+            self._refresh_known_model_ids()
+
+        logger.info("Hot-reload applied to orchestrator services")
+
     async def _stop_observers(self) -> None:
         """Stop all background observers and caches."""
+        if self._config_reloader:
+            await self._config_reloader.stop()
         if self._bg_observer:
             await self._bg_observer.shutdown()
         await self._heartbeat.stop()

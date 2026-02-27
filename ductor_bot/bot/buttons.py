@@ -105,6 +105,26 @@ def extract_buttons(text: str) -> tuple[str, InlineKeyboardMarkup | None]:
     return cleaned, InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def extract_buttons_for_session(
+    text: str, session_name: str
+) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Extract buttons and prefix callback_data with ``ns:<session_name>:``.
+
+    Keeps buttons scoped to a specific named session so callback routing
+    can identify which session owns the button.
+    """
+    cleaned, markup = extract_buttons(text)
+    if markup is None:
+        return cleaned, None
+    for row in markup.inline_keyboard:
+        for btn in row:
+            if btn.callback_data:
+                btn.callback_data = _truncate_callback_data(
+                    f"ns:{session_name}:{btn.callback_data}"
+                )
+    return cleaned, markup
+
+
 def strip_button_syntax(text: str) -> str:
     """Remove ``[button:...]`` markers from *text*, preserving code blocks.
 

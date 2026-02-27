@@ -17,6 +17,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, FSInputFile, ReplyParameters
 
 from ductor_bot.background import BackgroundResult
+from ductor_bot.bot.buttons import extract_buttons_for_session
 from ductor_bot.bot.file_browser import (
     file_browser_start,
     handle_file_browser_callback,
@@ -108,7 +109,7 @@ _HELP_TEXT = fmt(
     SEP,
     f"Session\n{_help_line('new')}\n{_help_line('stop')}\n{_help_line('status')}",
     f"AI\n{_help_line('model')}\n{_help_line('memory')}",
-    f"Automation\n{_help_line('cron')}\n{_help_line('bg')}",
+    f"Automation\n{_help_line('cron')}\n{_help_line('bg')}\n{_help_line('sessions')}",
     "System\n"
     f"{_help_line('showfiles')}\n"
     f"{_help_line('info')}\n"
@@ -238,6 +239,8 @@ class TelegramBot:
         r.message(Command("restart"))(self._on_restart)
         r.message(Command("new"))(self._on_new)
         r.message(Command("bg"))(self._on_bg)
+        r.message(Command("session"))(self._on_bg)
+        r.message(Command("sessions"))(self._on_sessions)
         r.message(Command("showfiles"))(self._on_showfiles)
         for cmd in ("status", "memory", "model", "cron", "diagnose", "upgrade"):
             r.message(Command(cmd))(self._on_command)
@@ -402,6 +405,10 @@ class TelegramBot:
             await self._on_showfiles(message)
             return True
 
+        if text_lower.startswith("/sessions"):
+            await handle_command(self._orchestrator, self._bot, message)
+            return True
+
         if text_lower.startswith("/model"):
             if self._sequential.is_busy(chat_id) or self._orch.is_chat_busy(chat_id):
                 await send_rich(
@@ -434,7 +441,9 @@ class TelegramBot:
         await handle_new_session(self._orch, self._bot, message)
 
     async def _on_bg(self, message: Message) -> None:
-        """Handle /bg: submit a background task."""
+        """Handle /bg and /session: submit a named background session."""
+        import re
+
         text = (message.text or "").strip()
         parts = text.split(None, 1)
         chat_id = message.chat.id
@@ -445,12 +454,13 @@ class TelegramBot:
                 self._bot,
                 chat_id,
                 fmt(
-                    "**Background Task**",
+                    "**Background Session**",
                     SEP,
-                    "Usage: `/bg <prompt>`\n\n"
-                    "Runs the task in the background using the current model.\n"
-                    "You'll receive a notification when it completes.\n"
-                    "Use /stop to cancel running tasks.",
+                    "Usage: `/bg <prompt>` or `/bg @provider <prompt>`\n\n"
+                    "Starts a named background session.\n"
+                    "Follow up: `@session-name <message>`\n"
+                    "Manage: `/sessions`\n"
+                    "Cancel: `/stop`",
                 ),
                 reply_to=message,
                 thread_id=thread_id,
@@ -458,33 +468,68 @@ class TelegramBot:
             return
 
         prompt = parts[1].strip()
+
+        # Parse optional @provider or @session-name prefix
+        provider_override: str | None = None
+        session_followup: str | None = None
+        directive_match = re.match(r"@([a-zA-Z][a-zA-Z0-9_-]*)\s+", prompt)
+        if directive_match:
+            key = directive_match.group(1).lower()
+            rest = prompt[directive_match.end() :]
+            if key in ("claude", "codex", "gemini"):
+                provider_override = key
+                prompt = rest
+            elif self._orch.get_named_session(chat_id, key):
+                session_followup = key
+                prompt = rest
+
         try:
-            task_id = self._orch.submit_background_task(
-                chat_id=chat_id,
-                prompt=prompt,
-                message_id=message.message_id,
-                thread_id=thread_id,
-            )
+            if session_followup:
+                task_id = self._orch.submit_named_followup_bg(
+                    chat_id, session_followup, prompt, message.message_id, thread_id
+                )
+                await send_rich(
+                    self._bot,
+                    chat_id,
+                    fmt(
+                        f"**[{session_followup}] Follow-up sent**",
+                        SEP,
+                        f"Task `{task_id}` queued.",
+                    ),
+                    reply_to=message,
+                    thread_id=thread_id,
+                )
+            else:
+                task_id, session_name = self._orch.submit_named_session(
+                    chat_id,
+                    prompt,
+                    message.message_id,
+                    thread_id,
+                    provider_override=provider_override,
+                )
+                _model, provider = self._orch.resolve_runtime_target(self._orch._config.model)
+                if provider_override:
+                    provider = provider_override
+                provider_label = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}.get(
+                    provider, provider
+                )
+                await send_rich(
+                    self._bot,
+                    chat_id,
+                    fmt(
+                        f"**Session `{session_name}` started**",
+                        SEP,
+                        f"Running on {provider_label}.\nFollow up: `@{session_name} <message>`",
+                    ),
+                    reply_to=message,
+                    thread_id=thread_id,
+                )
         except ValueError as exc:
             await send_rich(self._bot, chat_id, str(exc), reply_to=message, thread_id=thread_id)
-            return
 
-        _model, provider = self._orch.resolve_runtime_target(self._orch._config.model)
-        provider_label = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}.get(
-            provider, provider
-        )
-        await send_rich(
-            self._bot,
-            chat_id,
-            fmt(
-                "**Background Task Started**",
-                SEP,
-                f"Task `{task_id}` running on {provider_label}.\n"
-                "You'll be notified when it finishes.",
-            ),
-            reply_to=message,
-            thread_id=thread_id,
-        )
+    async def _on_sessions(self, message: Message) -> None:
+        """Handle /sessions: show session management UI."""
+        await handle_command(self._orch, self._bot, message)
 
     async def _on_restart(self, message: Message) -> None:
         from ductor_bot.infra.restart import write_restart_sentinel
@@ -554,12 +599,7 @@ class TelegramBot:
         self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None
     ) -> bool:
         """Handle known callback namespaces. Returns True when handled."""
-        if data.startswith(MQ_PREFIX):
-            await self._handle_queue_cancel(chat_id, data)
-            return True
-
-        if data.startswith("upg:"):
-            await self._handle_upgrade_callback(chat_id, message_id, data, thread_id=thread_id)
+        if await self._route_prefix_callback(chat_id, message_id, data, thread_id=thread_id):
             return True
 
         from ductor_bot.orchestrator.model_selector import is_model_selector_callback
@@ -576,6 +616,30 @@ class TelegramBot:
 
         if is_file_browser_callback(data):
             await self._handle_file_browser(chat_id, message_id, data, thread_id=thread_id)
+            return True
+
+        return False
+
+    async def _route_prefix_callback(
+        self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None
+    ) -> bool:
+        """Handle prefix-based callback namespaces. Returns True when handled."""
+        if data.startswith(MQ_PREFIX):
+            await self._handle_queue_cancel(chat_id, data)
+            return True
+
+        if data.startswith("upg:"):
+            await self._handle_upgrade_callback(chat_id, message_id, data, thread_id=thread_id)
+            return True
+
+        from ductor_bot.orchestrator.session_selector import is_session_selector_callback
+
+        if is_session_selector_callback(data):
+            await self._handle_session_selector(chat_id, message_id, data)
+            return True
+
+        if data.startswith("ns:"):
+            await self._handle_ns_callback(chat_id, data, thread_id=thread_id)
             return True
 
         return False
@@ -612,6 +676,87 @@ class TelegramBot:
                 message_id=message_id,
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
+            )
+
+    async def _handle_session_selector(self, chat_id: int, message_id: int, data: str) -> None:
+        """Handle session selector wizard by editing the message in-place."""
+        from ductor_bot.orchestrator.session_selector import handle_session_callback
+
+        async with self._sequential.get_lock(chat_id):
+            text, keyboard = await handle_session_callback(self._orch, chat_id, data)
+        with contextlib.suppress(TelegramBadRequest):
+            await self._bot.edit_message_text(
+                text=markdown_to_telegram_html(text),
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
+            )
+
+    async def _handle_ns_callback(
+        self, chat_id: int, data: str, *, thread_id: int | None = None
+    ) -> None:
+        """Handle ``ns:<session_name>:<label>`` button callbacks from session results.
+
+        Routes the button label as a foreground follow-up to the named session.
+        """
+        # Parse: ns:<session_name>:<label>
+        rest = data[3:]  # strip "ns:"
+        colon = rest.find(":")
+        if colon < 0:
+            return
+        session_name = rest[:colon]
+        label = rest[colon + 1 :]
+        if not session_name or not label:
+            return
+
+        async with self._sequential.get_lock(chat_id):
+            if self._config.streaming.enabled:
+                await self._handle_streaming_ns(chat_id, session_name, label, thread_id=thread_id)
+            else:
+                await self._handle_non_streaming_ns(
+                    chat_id, session_name, label, thread_id=thread_id
+                )
+
+    async def _handle_streaming_ns(
+        self,
+        chat_id: int,
+        session_name: str,
+        text: str,
+        *,
+        thread_id: int | None = None,
+    ) -> None:
+        """Stream a named session follow-up from a button click."""
+        from ductor_bot.orchestrator.flows import named_session_streaming
+
+        result = await named_session_streaming(
+            self._orch,
+            chat_id,
+            session_name,
+            text,
+        )
+        if result.text:
+            roots = self._file_roots(self._orch.paths)
+            await send_rich(
+                self._bot, chat_id, result.text, allowed_roots=roots, thread_id=thread_id
+            )
+
+    async def _handle_non_streaming_ns(
+        self,
+        chat_id: int,
+        session_name: str,
+        text: str,
+        *,
+        thread_id: int | None = None,
+    ) -> None:
+        """Non-streaming named session follow-up from a button click."""
+        from ductor_bot.orchestrator.flows import named_session_flow
+
+        result = await named_session_flow(self._orch, chat_id, session_name, text)
+        if result.text:
+            roots = self._file_roots(self._orch.paths)
+            await send_rich(
+                self._bot, chat_id, result.text, allowed_roots=roots, thread_id=thread_id
             )
 
     async def _handle_file_browser(
@@ -761,6 +906,47 @@ class TelegramBot:
         """Send background task result as a NEW message (triggers notification)."""
         elapsed = f"{result.elapsed_seconds:.0f}s"
 
+        if result.session_name:
+            # Update named session registry
+            self._orch._named_sessions.update_after_response(
+                result.chat_id, result.session_name, result.session_id
+            )
+            await self._deliver_session_result(result, elapsed)
+        else:
+            await self._deliver_stateless_result(result, elapsed)
+
+    async def _deliver_session_result(self, result: BackgroundResult, elapsed: str) -> None:
+        """Deliver a named-session background result with session tag."""
+        name = result.session_name
+        if result.status == "aborted":
+            text = fmt(f"**[{name}] Cancelled**", SEP, f"_{result.prompt_preview}_")
+        elif result.status.startswith("error:"):
+            text = fmt(
+                f"**[{name}] Failed** ({elapsed})",
+                SEP,
+                result.result_text[:2000] if result.result_text else "_No output._",
+            )
+        else:
+            text = fmt(
+                f"**[{name}] Complete** ({elapsed})",
+                SEP,
+                result.result_text or "_No output._",
+            )
+
+        cleaned, markup = extract_buttons_for_session(text, name)
+        roots = self._file_roots(self._orch.paths)
+        await send_rich(
+            self._bot,
+            result.chat_id,
+            cleaned,
+            reply_to_message_id=result.message_id,
+            reply_markup=markup,
+            allowed_roots=roots,
+            thread_id=result.thread_id,
+        )
+
+    async def _deliver_stateless_result(self, result: BackgroundResult, elapsed: str) -> None:
+        """Deliver a legacy stateless background result."""
         if result.status == "aborted":
             text = fmt(
                 "**Background Task Cancelled**",

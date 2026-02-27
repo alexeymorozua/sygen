@@ -384,6 +384,104 @@ def _strip_ack_token(text: str, token: str) -> str:
     return stripped
 
 
+async def named_session_flow(
+    orch: Orchestrator,
+    chat_id: int,
+    session_name: str,
+    text: str,
+) -> OrchestratorResult:
+    """Handle a foreground follow-up to a named session (non-streaming)."""
+    ns = orch._named_sessions.get(chat_id, session_name)
+    if ns is None:
+        return OrchestratorResult(text=f"Session '{session_name}' not found.")
+    if ns.status == "ended":
+        return OrchestratorResult(
+            text=f"Session '{session_name}' has ended. Start a new one with /bg."
+        )
+    if ns.status == "running":
+        return OrchestratorResult(
+            text=f"Session '{session_name}' is still processing. Wait or use /stop to cancel."
+        )
+
+    ns.status = "running"
+    request = AgentRequest(
+        prompt=text,
+        model_override=ns.model,
+        provider_override=ns.provider,
+        chat_id=chat_id,
+        process_label=f"ns:{session_name}",
+        resume_session=ns.session_id or None,
+        timeout_seconds=orch._config.cli_timeout,
+    )
+    response = await orch._cli_service.execute(request)
+
+    if orch._process_registry.was_aborted(chat_id):
+        ns.status = "idle"
+        return OrchestratorResult(text="")
+    if response.is_error:
+        ns.status = "idle"
+        return OrchestratorResult(text=f"[{session_name}] Error: {response.result[:500]}")
+
+    orch._named_sessions.update_after_response(chat_id, session_name, response.session_id or "")
+    return OrchestratorResult(text=response.result)
+
+
+async def named_session_streaming(  # noqa: PLR0913
+    orch: Orchestrator,
+    chat_id: int,
+    session_name: str,
+    text: str,
+    *,
+    on_text_delta: Callable[[str], Awaitable[None]] | None = None,
+    on_tool_activity: Callable[[str], Awaitable[None]] | None = None,
+    on_system_status: Callable[[str | None], Awaitable[None]] | None = None,
+) -> OrchestratorResult:
+    """Handle a foreground streaming follow-up to a named session."""
+    ns = orch._named_sessions.get(chat_id, session_name)
+    if ns is None:
+        return OrchestratorResult(text=f"Session '{session_name}' not found.")
+    if ns.status == "ended":
+        return OrchestratorResult(
+            text=f"Session '{session_name}' has ended. Start a new one with /bg."
+        )
+    if ns.status == "running":
+        return OrchestratorResult(
+            text=f"Session '{session_name}' is still processing. Wait or use /stop to cancel."
+        )
+
+    ns.status = "running"
+    request = AgentRequest(
+        prompt=text,
+        model_override=ns.model,
+        provider_override=ns.provider,
+        chat_id=chat_id,
+        process_label=f"ns:{session_name}",
+        resume_session=ns.session_id or None,
+        timeout_seconds=orch._config.cli_timeout,
+    )
+    response = await orch._cli_service.execute_streaming(
+        request,
+        on_text_delta=on_text_delta,
+        on_tool_activity=on_tool_activity,
+        on_system_status=on_system_status,
+    )
+
+    if orch._process_registry.was_aborted(chat_id):
+        ns.status = "idle"
+        return OrchestratorResult(text="")
+    if response.is_error:
+        ns.status = "idle"
+        return OrchestratorResult(text=f"[{session_name}] Error: {response.result[:500]}")
+
+    orch._named_sessions.update_after_response(chat_id, session_name, response.session_id or "")
+    return OrchestratorResult(text=response.result)
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat flow
+# ---------------------------------------------------------------------------
+
+
 async def heartbeat_flow(orch: Orchestrator, chat_id: int) -> str | None:
     """Run a heartbeat turn in the existing session.
 

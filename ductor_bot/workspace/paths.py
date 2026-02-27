@@ -105,6 +105,10 @@ class DuctorPaths:
         return self.home_defaults / "workspace" / "skills"
 
     @property
+    def named_sessions_path(self) -> Path:
+        return self.ductor_home / "named_sessions.json"
+
+    @property
     def mainmemory_path(self) -> Path:
         return self.memory_system_dir / "MAINMEMORY.md"
 
