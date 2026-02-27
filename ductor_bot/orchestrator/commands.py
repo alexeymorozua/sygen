@@ -191,6 +191,31 @@ async def cmd_diagnose(orch: Orchestrator, _chat_id: int, _text: str) -> Orchest
         cache_lines.append("\n🔄 Codex Model Cache: Observer not initialized")
     cache_block = "\n".join(cache_lines)
 
+    # Multi-agent health
+    agent_block = ""
+    supervisor = getattr(orch, "_supervisor", None)
+    if supervisor is not None:
+        _STATUS_ICON = {
+            "running": "●",
+            "starting": "◐",
+            "crashed": "✖",
+            "stopped": "○",
+        }
+        agent_lines = ["\n**Multi-Agent Health:**"]
+        for name in sorted(supervisor.health.keys()):
+            h = supervisor.health[name]
+            icon = _STATUS_ICON.get(h.status, "?")
+            role = "main" if name == "main" else "sub"
+            line = f"  {icon} `{name}` [{role}] — {h.status}"
+            if h.status == "running" and h.uptime_human:
+                line += f" ({h.uptime_human})"
+            if h.restart_count > 0:
+                line += f" | restarts: {h.restart_count}"
+            if h.status == "crashed" and h.last_crash_error:
+                line += f"\n      `{h.last_crash_error[:100]}`"
+            agent_lines.append(line)
+        agent_block = "\n".join(agent_lines)
+
     log_path = orch.paths.logs_dir / "agent.log"
     log_tail = await _read_log_tail(log_path)
     if log_tail:
@@ -199,7 +224,7 @@ async def cmd_diagnose(orch: Orchestrator, _chat_id: int, _text: str) -> Orchest
         log_block = "No log file found."
 
     return OrchestratorResult(
-        text=fmt("**System Diagnostics**", SEP, info_block, cache_block, SEP, log_block),
+        text=fmt("**System Diagnostics**", SEP, info_block, cache_block, agent_block, SEP, log_block),
     )
 
 
