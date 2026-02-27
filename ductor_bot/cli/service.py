@@ -124,6 +124,10 @@ class CLIService:
         """Update the default reasoning effort after wizard selection."""
         self._config = replace(self._config, reasoning_effort=effort)
 
+    def update_config(self, config: CLIServiceConfig) -> None:
+        """Replace the full service config (used by config hot-reload)."""
+        self._config = config
+
     def update_docker_container(self, container: str) -> None:
         """Switch Docker container (empty string = host execution)."""
         self._config = replace(self._config, docker_container=container)

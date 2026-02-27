@@ -7,6 +7,18 @@ from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
+class BackgroundSubmit:
+    """Input for submitting a background task."""
+
+    chat_id: int
+    prompt: str
+    message_id: int
+    thread_id: int | None
+    session_name: str = ""
+    resume_session_id: str = ""
+
+
+@dataclass(slots=True)
 class BackgroundTask:
     """In-flight background task metadata."""
 
@@ -19,6 +31,8 @@ class BackgroundTask:
     model: str
     submitted_at: float
     asyncio_task: asyncio.Task[None] | None = field(default=None, repr=False)
+    session_name: str = ""
+    resume_session_id: str = ""
 
 
 @dataclass(slots=True)
@@ -35,3 +49,5 @@ class BackgroundResult:
     elapsed_seconds: float
     provider: str
     model: str
+    session_name: str = ""
+    session_id: str = ""

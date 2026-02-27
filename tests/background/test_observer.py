@@ -10,12 +10,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ductor_bot.background.models import BackgroundResult
+from ductor_bot.background.models import BackgroundResult, BackgroundSubmit
 from ductor_bot.background.observer import MAX_TASKS_PER_CHAT, BackgroundObserver
 from ductor_bot.cli.param_resolver import TaskExecutionConfig
 from ductor_bot.cron.execution import OneShotExecutionResult
 from ductor_bot.infra.task_runner import TaskResult
 from ductor_bot.workspace.paths import DuctorPaths
+
+
+def _sub(chat_id: int = 123, prompt: str = "", message_id: int = 1) -> BackgroundSubmit:
+    return BackgroundSubmit(chat_id=chat_id, prompt=prompt, message_id=message_id, thread_id=None)
 
 
 def _make_paths(tmp_path: Path) -> DuctorPaths:
@@ -100,7 +104,7 @@ class TestSubmit:
         ):
             handler = AsyncMock()
             observer.set_result_handler(handler)
-            task_id = observer.submit(123, "test prompt", 1, None, config)
+            task_id = observer.submit(_sub(prompt="test prompt"), config)
             assert isinstance(task_id, str)
             assert len(task_id) == 8
 
@@ -112,7 +116,7 @@ class TestSubmit:
             new=_blocking_run(event),
         ):
             observer.set_result_handler(AsyncMock())
-            observer.submit(123, "test", 1, None, config)
+            observer.submit(_sub(prompt="test"), config)
             await asyncio.sleep(0)
             assert len(observer.active_tasks(123)) == 1
             assert len(observer.active_tasks(999)) == 0
@@ -128,10 +132,10 @@ class TestSubmit:
         ):
             observer.set_result_handler(AsyncMock())
             for _ in range(MAX_TASKS_PER_CHAT):
-                observer.submit(123, "task", 1, None, config)
+                observer.submit(_sub(prompt="task"), config)
 
             with pytest.raises(ValueError, match="Too many"):
-                observer.submit(123, "one more", 1, None, config)
+                observer.submit(_sub(prompt="one more"), config)
 
             event.set()
             await asyncio.sleep(0.05)
@@ -145,7 +149,7 @@ class TestExecution:
 
         result = _success_task_result("Hello world")
         with patch("ductor_bot.background.observer.run_oneshot_task", return_value=result):
-            observer.submit(123, "say hello", 42, None, config)
+            observer.submit(_sub(prompt="say hello", message_id=42), config)
             await asyncio.sleep(0.05)
 
         handler.assert_awaited_once()
@@ -165,7 +169,7 @@ class TestExecution:
             "ductor_bot.background.observer.run_oneshot_task",
             return_value=_cli_not_found_task_result(),
         ):
-            observer.submit(123, "test", 1, None, config)
+            observer.submit(_sub(prompt="test"), config)
             await asyncio.sleep(0.05)
 
         handler.assert_awaited_once()
@@ -190,7 +194,7 @@ class TestExecution:
             ),
         )
         with patch("ductor_bot.background.observer.run_oneshot_task", return_value=result):
-            observer.submit(123, "slow task", 1, None, config)
+            observer.submit(_sub(prompt="slow task"), config)
             await asyncio.sleep(0.05)
 
         bg_result: BackgroundResult = handler.call_args[0][0]
@@ -208,8 +212,8 @@ class TestCancel:
             "ductor_bot.background.observer.run_oneshot_task",
             new=_blocking_run(event),
         ):
-            observer.submit(123, "task1", 1, None, config)
-            observer.submit(123, "task2", 2, None, config)
+            observer.submit(_sub(prompt="task1"), config)
+            observer.submit(_sub(prompt="task2", message_id=2), config)
             await asyncio.sleep(0)
 
             cancelled = await observer.cancel_all(123)
@@ -226,7 +230,7 @@ class TestCancel:
             "ductor_bot.background.observer.run_oneshot_task",
             new=_blocking_run(event),
         ):
-            observer.submit(123, "cancellable", 1, None, config)
+            observer.submit(_sub(prompt="cancellable"), config)
             await asyncio.sleep(0)
 
             await observer.cancel_all(123)
@@ -244,8 +248,8 @@ class TestCancel:
             new=_blocking_run(event),
         ):
             observer.set_result_handler(AsyncMock())
-            observer.submit(123, "t1", 1, None, config)
-            observer.submit(456, "t2", 2, None, config)
+            observer.submit(_sub(prompt="t1"), config)
+            observer.submit(_sub(chat_id=456, prompt="t2", message_id=2), config)
             await asyncio.sleep(0)
 
             await observer.shutdown()
@@ -260,7 +264,7 @@ class TestCleanup:
 
         result = _success_task_result("ok")
         with patch("ductor_bot.background.observer.run_oneshot_task", return_value=result):
-            observer.submit(123, "quick", 1, None, config)
+            observer.submit(_sub(prompt="quick"), config)
             await asyncio.sleep(0.05)
 
         assert len(observer.active_tasks(123)) == 0

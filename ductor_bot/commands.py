@@ -13,6 +13,8 @@ BOT_COMMANDS: list[tuple[str, str]] = [
     ("upgrade", "Check for updates"),
     ("restart", "Restart bot"),
     ("bg", "Run task in background"),
+    ("session", "Run task in named session"),
+    ("sessions", "View/manage background sessions"),
     ("showfiles", "Browse ductor files"),
     ("diagnose", "Show system diagnostics"),
     ("help", "Show all commands"),

@@ -31,6 +31,7 @@ class ProcessRegistry:
     def __init__(self) -> None:
         self._processes: dict[int, list[TrackedProcess]] = {}
         self._aborted: set[int] = set()
+        self._aborted_labels: set[tuple[int, str]] = set()
 
     def register(
         self, chat_id: int, process: asyncio.subprocess.Process, label: str
@@ -95,6 +96,28 @@ class ProcessRegistry:
         """Return True if *chat_id* has at least one running subprocess."""
         entries = self._processes.get(chat_id, [])
         return any(e.process.returncode is None for e in entries)
+
+    async def kill_by_label(self, chat_id: int, label: str) -> int:
+        """Kill processes matching *label* for *chat_id*. Returns count killed."""
+        self._aborted_labels.add((chat_id, label))
+        entries = self._processes.get(chat_id, [])
+        to_kill = [e for e in entries if e.label == label and e.process.returncode is None]
+        if not to_kill:
+            return 0
+        remaining = [e for e in entries if e not in to_kill]
+        if remaining:
+            self._processes[chat_id] = remaining
+        else:
+            self._processes.pop(chat_id, None)
+        return await _kill_processes(to_kill)
+
+    def was_label_aborted(self, chat_id: int, label: str) -> bool:
+        """Check whether a specific label was aborted."""
+        return (chat_id, label) in self._aborted_labels
+
+    def clear_label_abort(self, chat_id: int, label: str) -> None:
+        """Clear the abort flag for a specific label."""
+        self._aborted_labels.discard((chat_id, label))
 
     async def kill_stale(self, max_age_seconds: float) -> int:
         """Kill processes older than *max_age_seconds* (wall-clock). Returns count killed."""
