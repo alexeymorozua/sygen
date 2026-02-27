@@ -55,8 +55,6 @@ class SubAgentConfig(BaseModel):
     api: ApiConfig | None = None
     cli_parameters: CLIParametersConfig | None = None
     user_timezone: str | None = None
-    update_check: bool | None = None
-    group_mention_only: bool | None = None
 
 
 def merge_sub_agent_config(
