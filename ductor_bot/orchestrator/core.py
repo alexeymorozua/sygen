@@ -693,6 +693,21 @@ class Orchestrator:
             return ""
         return ""
 
+    def resolve_session_directive(self, key: str) -> tuple[str, str] | None:
+        """Resolve a ``@key`` directive to ``(provider, model)`` or ``None``.
+
+        Handles three cases:
+        - provider name (``@codex``) → (provider, default_model)
+        - known model   (``@opus``)  → (inferred_provider, model)
+        - unknown                     → None
+        """
+        if key in ("claude", "codex", "gemini"):
+            return key, self.default_model_for_provider(key)
+        if self.is_known_model(key):
+            provider = self._models.provider_for(key)
+            return provider, key
+        return None
+
     def get_named_session(self, chat_id: int, name: str) -> NamedSession | None:
         """Look up a named session."""
         return self._named_sessions.get(chat_id, name)

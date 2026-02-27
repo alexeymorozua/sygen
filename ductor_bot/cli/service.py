@@ -135,11 +135,10 @@ class CLIService:
     async def execute(self, request: AgentRequest) -> AgentResponse:
         """Execute a CLI call."""
         cli = self._make_cli(request)
-        model_name = request.model_override or self._config.default_model
         logger.info(
             "CLI execute starting label=%s model=%s",
             request.process_label,
-            model_name,
+            request.model_override or self._config.default_model,
         )
 
         t0 = time.monotonic()
@@ -164,11 +163,10 @@ class CLIService:
     ) -> AgentResponse:
         """Execute a streaming CLI call with automatic fallback to non-streaming."""
         cli = self._make_cli(request)
-        model_name = request.model_override or self._config.default_model
         logger.info(
             "CLI streaming starting label=%s model=%s",
             request.process_label,
-            model_name,
+            request.model_override or self._config.default_model,
         )
 
         accumulated_text = ""
@@ -272,14 +270,13 @@ class CLIService:
 
     def _make_cli(self, request: AgentRequest) -> BaseCLI:
         """Create a BaseCLI instance for the given request."""
-        model_name = request.model_override or self._config.default_model
-
         if request.provider_override:
-            model = model_name
+            # Cross-provider override: use explicit model or empty (let CLI default)
             provider = request.provider_override
+            model = request.model_override or ""
         else:
-            model = model_name
-            provider = self._models.provider_for(model_name)
+            model = request.model_override or self._config.default_model
+            provider = self._models.provider_for(model)
 
         return create_cli(
             CLIConfig(

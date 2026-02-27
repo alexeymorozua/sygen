@@ -441,6 +441,37 @@ class TelegramBot:
     async def _on_new(self, message: Message) -> None:
         await handle_new_session(self._orch, self._bot, message)
 
+    def _build_session_help(self) -> str:
+        """Build auth-aware /session usage text."""
+        providers = self._orch._available_providers
+        lines: list[str] = []
+
+        if len(providers) == 1:
+            p = next(iter(providers))
+            if p == "claude":
+                lines.append("`/session <prompt>` — runs on Claude")
+                lines.append("`/session @opus <prompt>` — specific model")
+            elif p == "codex":
+                lines.append("`/session <prompt>` — runs on Codex")
+            else:
+                lines.append("`/session <prompt>` — runs on Gemini")
+                lines.append("`/session @flash <prompt>` — specific model")
+        else:
+            lines.append("`/session <prompt>` — default provider")
+            if "claude" in providers:
+                lines.append("`/session @opus <prompt>` — Claude (opus)")
+            if "codex" in providers:
+                lines.append("`/session @codex <prompt>` — Codex")
+            if "gemini" in providers:
+                lines.append("`/session @flash <prompt>` — Gemini (flash)")
+            lines.append("`/session @provider model <prompt>` — explicit")
+
+        lines.append("")
+        lines.append("Follow up: `@session-name <message>`")
+        lines.append("Manage: `/sessions`  Cancel: `/stop`")
+
+        return fmt("**Background Session**", SEP, "\n".join(lines))
+
     async def _on_session(self, message: Message) -> None:
         """Handle /session: submit a named background session."""
         import re
@@ -454,15 +485,7 @@ class TelegramBot:
             await send_rich(
                 self._bot,
                 chat_id,
-                fmt(
-                    "**Background Session**",
-                    SEP,
-                    "Usage: `/session <prompt>` or `/session @provider <prompt>`\n\n"
-                    "Starts a named background session.\n"
-                    "Follow up: `@session-name <message>`\n"
-                    "Manage: `/sessions`\n"
-                    "Cancel: `/stop`",
-                ),
+                self._build_session_help(),
                 reply_to=message,
                 thread_id=thread_id,
             )
@@ -470,7 +493,10 @@ class TelegramBot:
 
         prompt = parts[1].strip()
 
-        # Parse optional @provider [@model], @session-name prefix
+        # Parse optional @directive prefix:
+        #   @provider [model] <prompt>    — e.g. @codex, @claude opus
+        #   @model <prompt>               — e.g. @opus (infers provider)
+        #   @session-name <prompt>        — follow-up to existing session
         provider_override: str | None = None
         model_override: str | None = None
         session_followup: str | None = None
@@ -478,16 +504,19 @@ class TelegramBot:
         if directive_match:
             key = directive_match.group(1).lower()
             rest = prompt[directive_match.end() :]
-            if key in ("claude", "codex", "gemini"):
-                provider_override = key
+
+            resolved = self._orch.resolve_session_directive(key)
+            if resolved:
+                provider_override, model_override = resolved[0], resolved[1] or None
                 prompt = rest
-                # Check for optional model after provider: @claude opus <prompt>
-                model_match = re.match(r"([a-zA-Z][a-zA-Z0-9_.-]*)\s+", prompt)
-                if model_match:
-                    candidate = model_match.group(1).lower()
-                    if self._orch.is_known_model(candidate):
-                        model_override = candidate
-                        prompt = prompt[model_match.end() :]
+                # If key was a provider name, check for optional model after it
+                if key in ("claude", "codex", "gemini"):
+                    model_match = re.match(r"([a-zA-Z][a-zA-Z0-9_.-]*)\s+", prompt)
+                    if model_match:
+                        candidate = model_match.group(1).lower()
+                        if self._orch.is_known_model(candidate):
+                            model_override = candidate
+                            prompt = prompt[model_match.end() :]
             elif self._orch.get_named_session(chat_id, key):
                 session_followup = key
                 prompt = rest
