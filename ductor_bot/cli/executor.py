@@ -34,11 +34,21 @@ def _build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
     agent identification variables.
     """
     import os
+    from pathlib import Path
 
     env = os.environ.copy()
     env["DUCTOR_AGENT_NAME"] = config.agent_name
     env["DUCTOR_INTERAGENT_PORT"] = str(config.interagent_port)
-    env["DUCTOR_HOME"] = str(config.working_dir).removesuffix("/workspace")
+    ductor_home = str(config.working_dir).removesuffix("/workspace")
+    env["DUCTOR_HOME"] = ductor_home
+    # Shared knowledge is always at the main agent's home level.
+    # For main: ductor_home itself. For sub-agents: ../../ from agents/<name>/.
+    if config.agent_name == "main":
+        env["DUCTOR_SHARED_MEMORY_PATH"] = f"{ductor_home}/SHAREDMEMORY.md"
+    else:
+        # Sub-agent home is <main_home>/agents/<name>/
+        main_home = str(Path(ductor_home).parent.parent)
+        env["DUCTOR_SHARED_MEMORY_PATH"] = f"{main_home}/SHAREDMEMORY.md"
     return env
 
 

@@ -10,6 +10,7 @@ You are the **main agent** and can create, manage, and communicate with sub-agen
 | `remove_agent.py` | Remove a sub-agent from the registry |
 | `list_agents.py` | List all sub-agents and their configuration |
 | `ask_agent.py` | Send a message to another agent and receive its response |
+| `edit_shared_knowledge.py` | View or edit SHAREDMEMORY.md (synced to all agents) |
 
 ## Creating Sub-Agents
 
@@ -41,6 +42,26 @@ python3 tools/agent_tools/ask_agent.py "agent-name" "Your question or request he
 
 The response is printed to stdout. The target agent processes the message
 in a one-shot CLI turn (no session state carried over).
+
+## Shared Knowledge
+
+`SHAREDMEMORY.md` contains knowledge shared across all agents. Changes are
+automatically synced into every agent's MAINMEMORY.md via the supervisor.
+
+```bash
+# View current shared knowledge
+python3 tools/agent_tools/edit_shared_knowledge.py --show
+
+# Append a fact
+python3 tools/agent_tools/edit_shared_knowledge.py --append "New shared fact"
+
+# Replace entire content
+python3 tools/agent_tools/edit_shared_knowledge.py --set "Full new content"
+```
+
+When you learn something that is relevant to ALL agents (server facts, user
+preferences, infrastructure changes), update shared knowledge instead of
+only your own MAINMEMORY.md.
 
 ## Removing Sub-Agents
 
