@@ -47,6 +47,17 @@ The onboarding wizard handles CLI checks, Telegram setup, timezone, optional Doc
 
 Detailed setup: [`docs/installation.md`](docs/installation.md)
 
+## Why ductor?
+
+ductor executes the real provider CLIs as subprocesses. No API proxying, no spoofing.
+
+Other projects manipulate SDKs or patch CLIs and risk violating provider terms of service. ductor simply runs the official CLI binaries as if you typed the command in your terminal. Nothing more.
+
+- Official CLIs only (`claude`, `codex`, `gemini`)
+- Rule files are plain Markdown (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
+- Memory is one Markdown file (`memory_system/MAINMEMORY.md`)
+- All state is JSON (`sessions.json`, `cron_jobs.json`, `webhooks.json`)
+
 ## Features
 
 ### Core
