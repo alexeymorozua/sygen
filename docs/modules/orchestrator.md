@@ -154,12 +154,13 @@ Callback namespace: `crn:`
 - supports paging, refresh, per-job toggle, bulk all-on/all-off
 - toggles persist in `CronManager` and call `CronObserver.reschedule_now()`
 
-## Background task wiring (`/bg`)
+## Session wiring (`/session`)
 
-- `submit_background_task(...)` resolves current execution config and submits to `BackgroundObserver`
+- `submit_named_session(...)` creates a named session and submits to `BackgroundObserver`
+- `submit_named_followup_bg(...)` submits a background follow-up to an existing session
 - `active_background_tasks(...)` powers `/status` visibility for running tasks
 - `abort(chat_id)` kills active CLI processes and cancels chat-scoped background tasks
-- result delivery is delegated via `set_bg_result_handler(...)` to bot layer callbacks
+- result delivery is delegated via `set_session_result_handler(...)` to bot layer callbacks
 
 ## Webhook wiring
 

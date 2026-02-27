@@ -561,7 +561,7 @@ class Orchestrator:
         if self._webhook_observer:
             self._webhook_observer.set_wake_handler(handler)
 
-    def set_bg_result_handler(
+    def set_session_result_handler(
         self,
         handler: Callable[[BackgroundResult], Awaitable[None]],
     ) -> None:

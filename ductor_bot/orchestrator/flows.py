@@ -396,13 +396,14 @@ async def named_session_flow(
         return OrchestratorResult(text=f"Session '{session_name}' not found.")
     if ns.status == "ended":
         return OrchestratorResult(
-            text=f"Session '{session_name}' has ended. Start a new one with /bg."
+            text=f"Session '{session_name}' has ended. Start a new one with /session."
         )
     if ns.status == "running":
         return OrchestratorResult(
             text=f"Session '{session_name}' is still processing. Wait or use /stop to cancel."
         )
 
+    tag = f"**[{session_name} | {ns.provider}]**\n"
     ns.status = "running"
     request = AgentRequest(
         prompt=text,
@@ -420,10 +421,10 @@ async def named_session_flow(
         return OrchestratorResult(text="")
     if response.is_error:
         ns.status = "idle"
-        return OrchestratorResult(text=f"[{session_name}] Error: {response.result[:500]}")
+        return OrchestratorResult(text=f"{tag}Error: {response.result[:500]}")
 
     orch._named_sessions.update_after_response(chat_id, session_name, response.session_id or "")
-    return OrchestratorResult(text=response.result)
+    return OrchestratorResult(text=f"{tag}{response.result}")
 
 
 async def named_session_streaming(  # noqa: PLR0913
@@ -442,13 +443,14 @@ async def named_session_streaming(  # noqa: PLR0913
         return OrchestratorResult(text=f"Session '{session_name}' not found.")
     if ns.status == "ended":
         return OrchestratorResult(
-            text=f"Session '{session_name}' has ended. Start a new one with /bg."
+            text=f"Session '{session_name}' has ended. Start a new one with /session."
         )
     if ns.status == "running":
         return OrchestratorResult(
             text=f"Session '{session_name}' is still processing. Wait or use /stop to cancel."
         )
 
+    tag = f"**[{session_name} | {ns.provider}]**\n"
     ns.status = "running"
     request = AgentRequest(
         prompt=text,
@@ -459,9 +461,20 @@ async def named_session_streaming(  # noqa: PLR0913
         resume_session=ns.session_id or None,
         timeout_seconds=orch._config.cli_timeout,
     )
+
+    tag_sent = False
+
+    async def _tagged_text_delta(chunk: str) -> None:
+        nonlocal tag_sent
+        if on_text_delta is not None:
+            if not tag_sent:
+                await on_text_delta(tag)
+                tag_sent = True
+            await on_text_delta(chunk)
+
     response = await orch._cli_service.execute_streaming(
         request,
-        on_text_delta=on_text_delta,
+        on_text_delta=_tagged_text_delta,
         on_tool_activity=on_tool_activity,
         on_system_status=on_system_status,
     )
@@ -471,10 +484,10 @@ async def named_session_streaming(  # noqa: PLR0913
         return OrchestratorResult(text="")
     if response.is_error:
         ns.status = "idle"
-        return OrchestratorResult(text=f"[{session_name}] Error: {response.result[:500]}")
+        return OrchestratorResult(text=f"{tag}Error: {response.result[:500]}")
 
     orch._named_sessions.update_after_response(chat_id, session_name, response.session_id or "")
-    return OrchestratorResult(text=response.result)
+    return OrchestratorResult(text=f"{tag}{response.result}")
 
 
 # ---------------------------------------------------------------------------

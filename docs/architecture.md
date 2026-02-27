@@ -11,7 +11,7 @@ Telegram Update
        - quick commands (/status /memory /cron /diagnose /model /showfiles): lock bypass
        - otherwise: dedupe + per-chat lock (+ queue tracking)
   -> TelegramBot handler
-       - /start /help /info /showfiles /stop /restart /new /bg
+       - /start /help /info /showfiles /stop /restart /new /session /sessions
        - normal text/media -> Orchestrator
        - callback routes (model selector, cron selector, file browser, upgrade, queue cancel)
   -> Orchestrator
@@ -35,7 +35,7 @@ Background systems:
 - `HeartbeatObserver`: periodic checks in existing sessions.
 - `WebhookObserver`: HTTP ingress for external triggers.
 - `CleanupObserver`: daily retention cleanup for workspace file directories.
-- `BackgroundObserver`: on-demand `/bg` task execution and result delivery.
+- `BackgroundObserver`: named session (`/session`) task execution and result delivery.
 - `GeminiCacheObserver`: periodic Gemini model-cache refresh (`~/.ductor/config/gemini_models.json`).
 - `CodexCacheObserver`: periodic Codex model-cache refresh (`~/.ductor/config/codex_models.json`).
 - `UpdateObserver`: periodic PyPI version check + Telegram notification (upgradeable installs only).
@@ -198,13 +198,15 @@ Lock usage is path-dependent (e.g., queue cancel and upgrade callbacks are handl
 
 ## Background Systems
 
-### Background (`/bg`) flow
+### Named sessions (`/session`) flow
 
-- `TelegramBot._on_bg(...)` submits one-shot work via `Orchestrator.submit_background_task(...)`.
+- `TelegramBot._on_session(...)` creates a named session via `Orchestrator.submit_named_session(...)`.
 - `BackgroundObserver` enforces max 5 active tasks per chat and runs tasks asynchronously.
-- Execution uses shared one-shot task runner (`infra/task_runner.py`) with current provider/model config.
-- Completion callback (`TelegramBot._on_bg_result`) sends a new Telegram message (notification-friendly).
-- `/stop` abort path cancels both active CLI subprocesses and active background tasks for the chat.
+- Named sessions use `CLIService.execute()` with `resume_session` for follow-up persistence.
+- Follow-ups: `@session-name <message>` (foreground streaming) or `/session @session-name <message>` (background).
+- Completion callback (`TelegramBot._on_session_result`) sends a tagged Telegram message with session name and provider.
+- `/stop` cancels all active CLI subprocesses and background tasks for the chat.
+- `/sessions` shows interactive management UI with end/refresh controls.
 
 ### Cron flow
 

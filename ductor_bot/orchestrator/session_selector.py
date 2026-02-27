@@ -75,7 +75,7 @@ def _build_page(
                 SEP,
                 body,
                 SEP,
-                "Start one with `/bg <prompt>` or `/session <prompt>`.",
+                "Start one with `/session <prompt>`.",
             ),
             None,
         )

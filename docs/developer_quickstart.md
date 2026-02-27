@@ -54,7 +54,7 @@ Telegram update or API message
 
 Background systems run in-process:
 
-- background task runner (`/bg`)
+- named session runner (`/session`)
 - cron
 - heartbeat
 - webhook

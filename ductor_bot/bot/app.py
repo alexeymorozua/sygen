@@ -109,7 +109,7 @@ _HELP_TEXT = fmt(
     SEP,
     f"Session\n{_help_line('new')}\n{_help_line('stop')}\n{_help_line('status')}",
     f"AI\n{_help_line('model')}\n{_help_line('memory')}",
-    f"Automation\n{_help_line('cron')}\n{_help_line('bg')}\n{_help_line('sessions')}",
+    f"Automation\n{_help_line('cron')}\n{_help_line('session')}\n{_help_line('sessions')}",
     "System\n"
     f"{_help_line('showfiles')}\n"
     f"{_help_line('info')}\n"
@@ -204,7 +204,7 @@ class TelegramBot:
         self._orchestrator.set_heartbeat_handler(self._on_heartbeat_result)
         self._orchestrator.set_webhook_result_handler(self._on_webhook_result)
         self._orchestrator.set_webhook_wake_handler(self._handle_webhook_wake)
-        self._orchestrator.set_bg_result_handler(self._on_bg_result)
+        self._orchestrator.set_session_result_handler(self._on_session_result)
 
         # Check for post-upgrade notification
         upgrade = await asyncio.to_thread(consume_upgrade_sentinel, self._orch.paths.ductor_home)
@@ -238,8 +238,7 @@ class TelegramBot:
         r.message(Command("stop"))(self._on_stop)
         r.message(Command("restart"))(self._on_restart)
         r.message(Command("new"))(self._on_new)
-        r.message(Command("bg"))(self._on_bg)
-        r.message(Command("session"))(self._on_bg)
+        r.message(Command("session"))(self._on_session)
         r.message(Command("sessions"))(self._on_sessions)
         r.message(Command("showfiles"))(self._on_showfiles)
         for cmd in ("status", "memory", "model", "cron", "diagnose", "upgrade"):
@@ -342,17 +341,19 @@ class TelegramBot:
             "**ductor.dev**",
             f"Version: `{version}`",
             SEP,
-            "Claude Code & OpenAI Codex as your Telegram agent.\n"
-            "Persistent memory, cron jobs, webhooks, live streaming.",
+            "AI coding agents (Claude, Codex, Gemini) on Telegram.\n"
+            "Named sessions, persistent memory, cron jobs, webhooks, live streaming.",
         )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="Website & Docs", url="https://ductor.dev")],
                 [
                     InlineKeyboardButton(
                         text="GitHub", url="https://github.com/PleasePrompto/ductor"
                     ),
-                    InlineKeyboardButton(text="Changelog", url="https://ductor.dev/en/changelog/"),
+                    InlineKeyboardButton(
+                        text="Changelog",
+                        url="https://github.com/PleasePrompto/ductor/releases",
+                    ),
                 ],
                 [InlineKeyboardButton(text="PyPI", url="https://pypi.org/project/ductor/")],
             ],
@@ -440,8 +441,8 @@ class TelegramBot:
     async def _on_new(self, message: Message) -> None:
         await handle_new_session(self._orch, self._bot, message)
 
-    async def _on_bg(self, message: Message) -> None:
-        """Handle /bg and /session: submit a named background session."""
+    async def _on_session(self, message: Message) -> None:
+        """Handle /session: submit a named background session."""
         import re
 
         text = (message.text or "").strip()
@@ -456,7 +457,7 @@ class TelegramBot:
                 fmt(
                     "**Background Session**",
                     SEP,
-                    "Usage: `/bg <prompt>` or `/bg @provider <prompt>`\n\n"
+                    "Usage: `/session <prompt>` or `/session @provider <prompt>`\n\n"
                     "Starts a named background session.\n"
                     "Follow up: `@session-name <message>`\n"
                     "Manage: `/sessions`\n"
@@ -902,7 +903,7 @@ class TelegramBot:
 
     # -- Background handlers ---------------------------------------------------
 
-    async def _on_bg_result(self, result: BackgroundResult) -> None:
+    async def _on_session_result(self, result: BackgroundResult) -> None:
         """Send background task result as a NEW message (triggers notification)."""
         elapsed = f"{result.elapsed_seconds:.0f}s"
 

@@ -33,7 +33,7 @@ You can:
 
 - chat from Telegram with Claude/Codex/Gemini,
 - stream responses live into edited Telegram messages,
-- offload one-off tasks via `/bg` and receive a final result when they finish,
+- run named background sessions via `/session` with follow-ups and provider isolation,
 - run cron jobs and webhooks,
 - let heartbeat checks proactively notify you,
 - isolate runtime with Docker.
@@ -78,7 +78,7 @@ ductor executes the real provider CLIs as subprocesses. It does not proxy or spo
 
 ### Automation
 
-- Background tasks (`/bg`): push one-off tasks from the main chat into async execution while the chat stays responsive; receive a final completion message when done
+- Named sessions (`/session`): persistent background sessions with follow-ups, provider isolation, and interactive management via `/sessions`
 - Cron jobs: in-process scheduler with timezone support, per-job overrides, quiet hours, dependency queue
 - Webhooks: `wake` (inject into active chat) and `cron_task` (isolated task run) modes
 - Heartbeat: proactive checks in active sessions with cooldown + quiet hours
@@ -183,7 +183,7 @@ You (Telegram)
 Background systems run in the same process:
 
 - periodic observers/watchers: `CronObserver`, `HeartbeatObserver`, `WebhookObserver`, `CleanupObserver`, `CodexCacheObserver`, `GeminiCacheObserver`, `UpdateObserver` (only for upgradeable installs), rule sync watcher, skill sync watcher
-- on-demand subsystem: `BackgroundObserver` (`/bg` task runner)
+- on-demand subsystem: `BackgroundObserver` (`/session` task runner)
 
 Session behavior (important):
 
@@ -253,7 +253,8 @@ Full schema: [`docs/config.md`](docs/config.md)
 | `/status` | Session/provider/auth status |
 | `/memory` | Show persistent memory file |
 | `/cron` | Interactive cron management |
-| `/bg` | Run task in background (notification on completion) |
+| `/session` | Run named background session with follow-ups |
+| `/sessions` | View/manage active background sessions |
 | `/showfiles` | Browse `~/.ductor/` |
 | `/diagnose` | Runtime diagnostics + cache/log info |
 | `/upgrade` | Check/apply update flow |
