@@ -40,7 +40,7 @@ class TestHandleSend:
     async def test_send_success(self, client: TestClient, bus: InterAgentBus) -> None:
         stack = MagicMock()
         stack.bot.orchestrator = MagicMock()
-        stack.bot.orchestrator.handle_interagent_message = AsyncMock(return_value="OK")
+        stack.bot.orchestrator.handle_interagent_message = AsyncMock(return_value=("OK", "ia-sender"))
         bus.register("target", stack)
 
         resp = await client.post(
@@ -86,7 +86,7 @@ class TestHandleSendAsync:
     async def test_send_async_success(self, client: TestClient, bus: InterAgentBus) -> None:
         stack = MagicMock()
         stack.bot.orchestrator = MagicMock()
-        stack.bot.orchestrator.handle_interagent_message = AsyncMock(return_value="OK")
+        stack.bot.orchestrator.handle_interagent_message = AsyncMock(return_value=("OK", "ia-sender"))
         bus.register("target", stack)
 
         resp = await client.post(

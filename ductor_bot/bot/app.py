@@ -1164,10 +1164,12 @@ class TelegramBot:
         set_log_context(operation="ia-async", chat_id=chat_id)
         roots = self._file_roots(self._orch.paths)
 
+        session_info = f"\nSession: `{result.session_name}`" if result.session_name else ""
+
         if not result.success:
             error_text = (
                 f"**Inter-Agent Request Failed**\n\n"
-                f"Agent: `{result.recipient}`\n"
+                f"Agent: `{result.recipient}`{session_info}\n"
                 f"Error: {result.error}\n"
                 f"Request: _{result.message_preview}_"
             )
@@ -1181,6 +1183,7 @@ class TelegramBot:
             recipient=result.recipient,
             task_id=result.task_id,
             chat_id=chat_id,
+            session_name=result.session_name,
         )
 
         if response_text:

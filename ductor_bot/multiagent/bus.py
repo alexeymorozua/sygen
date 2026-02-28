@@ -64,6 +64,7 @@ class AsyncInterAgentResult:
     success: bool = True
     error: str | None = None
     elapsed_seconds: float = 0.0
+    session_name: str = ""
 
 
 AsyncResultCallback = Callable[["AsyncInterAgentResult"], Awaitable[None]]
@@ -138,7 +139,7 @@ class InterAgentBus:
                     error=f"Agent '{recipient}' orchestrator not initialized",
                 )
 
-            result = await asyncio.wait_for(
+            result_text, _session_name = await asyncio.wait_for(
                 orch.handle_interagent_message(sender, message),
                 timeout=send_timeout,
             )
@@ -146,9 +147,9 @@ class InterAgentBus:
                 "Bus: %s -> %s completed (%d chars response)",
                 sender,
                 recipient,
-                len(result),
+                len(result_text),
             )
-            return InterAgentResponse(sender=recipient, text=result)
+            return InterAgentResponse(sender=recipient, text=result_text)
 
         except TimeoutError:
             logger.warning("Bus: %s -> %s timed out after %.0fs", sender, recipient, send_timeout)
@@ -245,15 +246,16 @@ class InterAgentBus:
             # Notify the recipient agent's Telegram chat about the incoming task
             await self._notify_recipient(task)
 
-            result_text = await asyncio.wait_for(
+            result_text, session_name = await asyncio.wait_for(
                 orch.handle_interagent_message(task.sender, task.message),
                 timeout=_ASYNC_TIMEOUT,
             )
             logger.info(
-                "Bus async: %s -> %s task=%s completed (%d chars, %.1fs)",
+                "Bus async: %s -> %s task=%s session=%s completed (%d chars, %.1fs)",
                 task.sender,
                 task.recipient,
                 task.task_id,
+                session_name,
                 len(result_text),
                 time.time() - t0,
             )
@@ -266,6 +268,7 @@ class InterAgentBus:
                     result_text=result_text,
                     success=True,
                     elapsed_seconds=time.time() - t0,
+                    session_name=session_name,
                 )
             )
 
@@ -322,9 +325,10 @@ class InterAgentBus:
 
             # Truncate long messages for the preview
             preview = task.message if len(task.message) <= 200 else task.message[:200] + "…"
+            session_name = f"ia-{task.sender}"
             text = (
                 f"📥 **Async task received** from `{task.sender}`\n"
-                f"Task ID: `{task.task_id}`\n\n"
+                f"Session: `{session_name}` · Task ID: `{task.task_id}`\n\n"
                 f"_{preview}_"
             )
 
