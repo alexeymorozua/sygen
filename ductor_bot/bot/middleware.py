@@ -57,10 +57,16 @@ def is_quick_command(text: str) -> bool:
 
 
 class AuthMiddleware(BaseMiddleware):
-    """Outer middleware: silently drop messages from unauthorized users."""
+    """Outer middleware: silently drop messages from unauthorized users.
 
-    def __init__(self, allowed_user_ids: set[int]) -> None:
+    When *group_mention_only* is True, messages in group/supergroup chats
+    bypass the user-ID check (the mention filter in ``_resolve_text``
+    already gates access).
+    """
+
+    def __init__(self, allowed_user_ids: set[int], *, group_mention_only: bool = False) -> None:
         self._allowed = allowed_user_ids
+        self._group_mention_only = group_mention_only
 
     async def __call__(
         self,
@@ -73,7 +79,17 @@ class AuthMiddleware(BaseMiddleware):
         else:
             return await handler(event, data)
 
-        if not user or user.id not in self._allowed:
+        if not user:
+            return None
+
+        # In group_mention_only mode, let group messages through regardless
+        # of allowed_user_ids — the mention filter handles access control.
+        if self._group_mention_only and isinstance(event, Message):
+            chat_type = event.chat.type if event.chat else None
+            if chat_type in ("group", "supergroup"):
+                return await handler(event, data)
+
+        if user.id not in self._allowed:
             return None
 
         return await handler(event, data)

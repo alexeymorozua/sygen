@@ -30,7 +30,7 @@ from ductor_bot.bot.handlers import (
     handle_new_session,
     strip_mention,
 )
-from ductor_bot.bot.media import has_media, is_media_addressed, resolve_media_text
+from ductor_bot.bot.media import has_media, is_media_addressed, is_message_addressed, resolve_media_text
 from ductor_bot.bot.message_dispatch import (
     NonStreamingDispatch,
     StreamingDispatch,
@@ -156,7 +156,8 @@ class TelegramBot:
         self._sequential.set_bot(self._bot)
         self._sequential.set_abort_handler(self._on_abort)
         self._sequential.set_quick_command_handler(self._on_quick_command)
-        self._router.message.outer_middleware(AuthMiddleware(allowed))
+        auth = AuthMiddleware(allowed, group_mention_only=config.group_mention_only)
+        self._router.message.outer_middleware(auth)
         self._router.message.outer_middleware(self._sequential)
         self._router.callback_query.outer_middleware(AuthMiddleware(allowed))
 
@@ -891,8 +892,9 @@ class TelegramBot:
 
     async def _resolve_text(self, message: Message) -> str | None:
         """Extract processable text from *message* (plain text or media prompt)."""
+        is_group = message.chat.type in ("group", "supergroup")
+
         if has_media(message):
-            is_group = message.chat.type in ("group", "supergroup")
             if is_group and not is_media_addressed(message, self._bot_id, self._bot_username):
                 return None
             paths = self._orch.paths
@@ -900,6 +902,12 @@ class TelegramBot:
                 self._bot, message, paths.telegram_files_dir, paths.workspace
             )
         if not message.text:
+            return None
+        if (
+            is_group
+            and self._config.group_mention_only
+            and not is_message_addressed(message, self._bot_id, self._bot_username)
+        ):
             return None
         return strip_mention(message.text, self._bot_username)
 
