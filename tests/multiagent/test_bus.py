@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 from ductor_bot.multiagent.bus import InterAgentBus
 
 
-def _make_stack(orch_result: str = "response") -> MagicMock:
+def _make_stack(orch_result: str = "response", session_name: str = "ia-sender") -> MagicMock:
     """Create a mock AgentStack with a working orchestrator."""
     stack = MagicMock()
     orch = MagicMock()
-    orch.handle_interagent_message = AsyncMock(return_value=orch_result)
+    orch.handle_interagent_message = AsyncMock(return_value=(orch_result, session_name))
     stack.bot.orchestrator = orch
     return stack
 
@@ -81,9 +81,9 @@ class TestBusSyncSend:
         bus = InterAgentBus()
         stack = _make_stack()
 
-        async def slow_handler(_sender: str, _msg: str) -> str:
+        async def slow_handler(_sender: str, _msg: str) -> tuple[str, str]:
             await asyncio.sleep(10)
-            return "too late"
+            return "too late", "ia-sender"
 
         stack.bot.orchestrator.handle_interagent_message = slow_handler
         bus.register("slow", stack)
@@ -168,9 +168,9 @@ class TestBusAsyncSend:
         bus = InterAgentBus()
         stack = _make_stack()
 
-        async def slow_handler(_sender: str, _msg: str) -> str:
+        async def slow_handler(_sender: str, _msg: str) -> tuple[str, str]:
             await asyncio.sleep(999)
-            return "never"
+            return "never", "ia-sender"
 
         stack.bot.orchestrator.handle_interagent_message = slow_handler
         bus.register("slow", stack)
@@ -193,9 +193,9 @@ class TestBusCancelAllAsync:
         bus = InterAgentBus()
         stack = _make_stack()
 
-        async def slow(_s: str, _m: str) -> str:
+        async def slow(_s: str, _m: str) -> tuple[str, str]:
             await asyncio.sleep(999)
-            return ""
+            return "", "ia-sender"
 
         stack.bot.orchestrator.handle_interagent_message = slow
         bus.register("target", stack)
