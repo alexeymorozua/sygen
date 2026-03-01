@@ -131,6 +131,7 @@ class InternalAgentAPI:
         recipient = data.get("to", "")
         message = data.get("message", "")
         new_session = bool(data.get("new_session", False))
+        summary = str(data.get("summary", ""))
 
         if not recipient or not message:
             return web.json_response(
@@ -150,6 +151,7 @@ class InternalAgentAPI:
             recipient=recipient,
             message=message,
             new_session=new_session,
+            summary=summary,
         )
         if task_id is None:
             return web.json_response(
