@@ -74,7 +74,11 @@ class TestHandleAbortAll:
 
         msg = _make_message(chat_id=42)
         result = await handle_abort_all(
-            orchestrator, bot, chat_id=42, message=msg, abort_all_callback=callback,
+            orchestrator,
+            bot,
+            chat_id=42,
+            message=msg,
+            abort_all_callback=callback,
         )
         assert result is True
         orchestrator.abort.assert_called_once_with(42)
@@ -90,7 +94,11 @@ class TestHandleAbortAll:
 
         msg = _make_message(chat_id=42)
         result = await handle_abort_all(
-            orchestrator, bot, chat_id=42, message=msg, abort_all_callback=None,
+            orchestrator,
+            bot,
+            chat_id=42,
+            message=msg,
+            abort_all_callback=None,
         )
         assert result is True
         orchestrator.abort.assert_called_once_with(42)
@@ -113,7 +121,11 @@ class TestHandleAbortAll:
 
         msg = _make_message(chat_id=42)
         result = await handle_abort_all(
-            orchestrator, bot, chat_id=42, message=msg, abort_all_callback=callback,
+            orchestrator,
+            bot,
+            chat_id=42,
+            message=msg,
+            abort_all_callback=callback,
         )
         assert result is True
 
