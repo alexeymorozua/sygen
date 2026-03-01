@@ -70,7 +70,7 @@ Other projects manipulate SDKs or patch CLIs and risk violating provider terms o
 
 ### Named sessions
 
-Run tasks in the background while you keep chatting. Each session gets a unique name and supports follow-ups:
+Start independent conversations with their own context — right inside your main chat. Each session runs separately and doesn't share context with the main conversation:
 
 ```text
 /session Fix the login bug              -> starts "firmowl" on default provider
@@ -86,24 +86,23 @@ Run tasks in the background while you keep chatting. Each session gets a unique 
 
 `@model` shortcuts resolve the provider automatically (`@opus` = Claude, `@flash` = Gemini, `@codex` = Codex).
 
-### Sessions vs. Subagents
+### Sessions vs. Sub-Agents
 
-ductor has two ways to run work in the background — they solve different problems:
-
-| | `/session` (Named Sessions) | `/agents` (Subagents) |
+| | `/session` (Named Sessions) | `/agents` (Sub-Agents) |
 |---|---|---|
-| **What it is** | Background task in **your** agent | A **separate** agent with its own Telegram bot |
-| **Workspace** | Same workspace as main chat | Own workspace, own memory |
+| **What it is** | Independent conversation with its own context | A separate agent that reports back to your main chat |
+| **Context** | **Own context** — separate from main chat | Result flows **into main chat context** |
+| **Workspace** | Same workspace as main agent | Own workspace, own memory |
 | **Provider** | Any provider/model per session | Own default provider/model |
-| **Communication** | Result appears as Telegram reply | Result flows back into your main chat context |
-| **Use case** | Quick parallel tasks you want to track | Dedicated specialist (e.g., Codex for code, Gemini for research) |
+| **Result** | Telegram reply (standalone) | Main agent processes result and responds to you |
+| **Use case** | Parallel side-conversations you manage yourself | Specialist workers the main agent orchestrates |
 | **Setup** | None — just `/session <prompt>` | `ductor agents add <name>` + BotFather token |
 
-**Rule of thumb:** Use `/session` when you want the same agent to do something on the side. Use subagents when you want a different agent (possibly a different provider) to handle an independent workload — your main agent delegates, receives the result with full context, and reports back to you.
+**Rule of thumb:** Use `/session` when you want a separate conversation on the side. Use sub-agents when you want the main agent to delegate work, receive the result with full context, and report back to you.
 
 ### Multi-agent system
 
-Run multiple CLIs as independent Telegram bots that can talk to each other. Each agent gets its own bot token, workspace, and memory — but they share knowledge through `SHAREDMEMORY.md`.
+Sub-agents are separate CLIs that work on behalf of your main agent. Each gets its own bot token, workspace, and memory — but results flow back into your main chat so the main agent stays in the loop. Agents also share knowledge through `SHAREDMEMORY.md`.
 
 **Setup:** Create a second bot via [@BotFather](https://t.me/BotFather), then:
 
