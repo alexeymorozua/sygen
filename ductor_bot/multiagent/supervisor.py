@@ -483,7 +483,8 @@ class AgentSupervisor:
             try:
                 k = await orch._process_registry.kill_all_active()
                 if orch._bg_observer:
-                    for cid in list(orch._bg_observer._tasks):
+                    chat_ids = {t.chat_id for t in orch._bg_observer._tasks.values()}
+                    for cid in chat_ids:
                         k += await orch._bg_observer.cancel_all(cid)
                 if k:
                     logger.info("Abort-all killed %d process(es) on agent '%s'", k, name)

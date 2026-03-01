@@ -105,7 +105,7 @@ class TestGetOrCreateInteragentSession:
         ns1, _, _ = orch_ia._get_or_create_interagent_session("main")
         ns1.status = "idle"
 
-        ns2, is_new, notice = orch_ia._get_or_create_interagent_session("main")
+        _ns2, is_new, notice = orch_ia._get_or_create_interagent_session("main")
         assert is_new is False
         assert notice == ""
 
