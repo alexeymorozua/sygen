@@ -90,19 +90,19 @@ Start independent conversations with their own context — right inside your mai
 
 | | `/session` (Named Sessions) | `/agents` (Sub-Agents) |
 |---|---|---|
-| **What it is** | Independent conversation with its own context | A separate agent that reports back to your main chat |
-| **Context** | **Own context** — separate from main chat | Result flows **into main chat context** |
+| **What it is** | Independent conversation with its own context | A full agent with its own Telegram chat, workspace, and memory |
+| **Context** | **Own context** — separate from main chat | **Own context** in its chat — but when the main agent delegates, results flow **into the main chat context** |
 | **Workspace** | Same workspace as main agent | Own workspace, own memory |
 | **Provider** | Any provider/model per session | Own default provider/model |
-| **Result** | Telegram reply (standalone) | Main agent processes result and responds to you |
-| **Use case** | Parallel side-conversations you manage yourself | Specialist workers the main agent orchestrates |
+| **Result** | Telegram reply (standalone) | Delegation: main agent processes result and responds to you. Direct chat: standalone, like any other agent. |
+| **Use case** | Parallel side-conversations you manage yourself | Use directly in its own chat, or let the main agent orchestrate it |
 | **Setup** | None — just `/session <prompt>` | `ductor agents add <name>` + BotFather token |
 
-**Rule of thumb:** Use `/session` when you want a separate conversation on the side. Use sub-agents when you want the main agent to delegate work, receive the result with full context, and report back to you.
+**Rule of thumb:** Use `/session` when you want a separate conversation on the side. Use sub-agents when you want a dedicated agent you can either talk to directly or let the main agent delegate to — delegated results flow back into the main chat with full context.
 
 ### Multi-agent system
 
-Sub-agents are separate CLIs that work on behalf of your main agent. Each gets its own bot token, workspace, and memory — but results flow back into your main chat so the main agent stays in the loop. Agents also share knowledge through `SHAREDMEMORY.md`.
+Each sub-agent is a full agent with its own Telegram chat — you can open it and talk to it directly, just like your main agent. But when the main agent delegates a task, the result flows back into your main conversation so the main agent stays in the loop. Agents share knowledge through `SHAREDMEMORY.md`.
 
 **Setup:** Create a second bot via [@BotFather](https://t.me/BotFather), then:
 
