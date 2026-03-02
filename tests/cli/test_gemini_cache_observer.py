@@ -29,7 +29,7 @@ class TestGeminiCacheObserver:
 
             await observer.start()
 
-            mock_load.assert_called_once_with(cache_path)
+            mock_load.assert_called_once_with(cache_path, force_refresh=True)
             assert observer.get_cache() is mock_cache
             assert observer._running is True
             assert observer._task is not None
