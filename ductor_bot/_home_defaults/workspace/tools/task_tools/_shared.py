@@ -7,6 +7,27 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+
+def detect_agent_name() -> str:
+    """Detect the agent name from script path or env var.
+
+    Sub-agent tools live at ``~/.ductor/agents/<name>/workspace/tools/task_tools/``.
+    Main agent tools live at ``~/.ductor/workspace/tools/task_tools/``.
+    The path is the most reliable source — env var is used as fallback.
+    """
+    # Derive from script path: .../agents/<name>/workspace/tools/task_tools/
+    # Avoid .resolve() — it follows symlinks which could point to _home_defaults.
+    script_dir = Path(os.path.abspath(__file__)).parent
+    # Walk up: task_tools -> tools -> workspace -> <agent_home>
+    workspace = script_dir.parent.parent
+    if workspace.name == "workspace":
+        agent_home = workspace.parent
+        if agent_home.parent.name == "agents":
+            return agent_home.name
+    # Fallback to env var
+    return os.environ.get("DUCTOR_AGENT_NAME", "main")
 
 
 def get_api_url(path: str) -> str:
