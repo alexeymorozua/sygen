@@ -11,18 +11,18 @@ import os
 import sys
 
 
-def _load_shared() -> tuple[object, object]:
+def _load_shared() -> tuple[object, object, object]:
     tools_dir = os.path.dirname(__file__)
     if tools_dir not in sys.path:
         sys.path.insert(0, tools_dir)
-    from _shared import get_api_url, get_json
+    from _shared import detect_agent_name, get_api_url, get_json
 
-    return get_api_url, get_json
+    return get_api_url, get_json, detect_agent_name
 
 
 def main() -> None:
-    get_api_url, get_json = _load_shared()
-    sender = os.environ.get("DUCTOR_AGENT_NAME", "")
+    get_api_url, get_json, detect_agent_name = _load_shared()
+    sender = detect_agent_name()
     path = f"/tasks/list?from={sender}" if sender else "/tasks/list"
     url = get_api_url(path)
     result = get_json(url)
