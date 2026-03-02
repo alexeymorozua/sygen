@@ -32,12 +32,18 @@ QuestionHandler = Callable[[str, str, str, int], Awaitable[None]]
 TASK_PROMPT_SUFFIX = """
 
 ---
-TASK RULES:
-- You are a background task agent. Work autonomously — do NOT talk to the user.
-- Questions? Use: python3 tools/task_tools/ask_parent.py "your question"
-  This returns immediately. Finish your work — the parent will resume you with the answer.
-- When done, update your task memory: {taskmemory_path}
-- Stay focused on this task only.
+TASK RULES (MANDATORY):
+You are a background task agent. You have NO direct user access.
+
+IMPORTANT — If you need ANY information to complete this task (missing details,
+clarifications, preferences), you MUST use this tool:
+```
+python3 tools/task_tools/ask_parent.py "your question here"
+```
+Do NOT include questions in your response text. The tool forwards your question
+to the parent agent who will resume you with the answer.
+
+After finishing, update your task memory: {taskmemory_path}
 """
 
 
