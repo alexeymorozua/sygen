@@ -36,7 +36,7 @@ class GeminiCacheObserver(BaseModelCacheObserver):
         return "Gemini"
 
     async def _load_cache(self, *, initial: bool) -> GeminiModelCache:
-        return await GeminiModelCache.load_or_refresh(self._cache_path)
+        return await GeminiModelCache.load_or_refresh(self._cache_path, force_refresh=initial)
 
     def _model_count(self) -> int:
         return len(self._cache.models) if self._cache else 0
