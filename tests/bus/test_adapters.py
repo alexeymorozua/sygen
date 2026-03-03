@@ -16,7 +16,6 @@ from ductor_bot.bus.adapters import (
 )
 from ductor_bot.bus.envelope import DeliveryMode, LockMode, Origin
 
-
 # -- Fake result types (avoid importing real models with heavy deps) -----------
 
 

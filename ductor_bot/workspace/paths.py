@@ -115,6 +115,10 @@ class DuctorPaths:
         return self.ductor_home / "tasks.json"
 
     @property
+    def chat_activity_path(self) -> Path:
+        return self.ductor_home / "chat_activity.json"
+
+    @property
     def named_sessions_path(self) -> Path:
         return self.ductor_home / "named_sessions.json"
 
