@@ -194,6 +194,56 @@ class TestAuthMiddleware:
         handler.assert_not_called()
         assert result is None
 
+    async def test_on_rejected_fires_for_blocked_group(self) -> None:
+        """on_rejected callback fires when a group message is rejected."""
+        from ductor_bot.bot.middleware import AuthMiddleware
+
+        calls: list[tuple[int, str, str]] = []
+        mw = AuthMiddleware(
+            allowed_user_ids={100},
+            allowed_group_ids={-1002},
+            on_rejected=lambda cid, ct, t: calls.append((cid, ct, t)),
+        )
+        handler = AsyncMock()
+        msg = _make_message(user_id=100, chat_type="group", chat_id=-1001)
+        msg.chat.title = "Bad Group"
+
+        await mw(handler, msg, {})
+        assert calls == [(-1001, "group", "Bad Group")]
+        handler.assert_not_called()
+
+    async def test_on_rejected_not_fired_for_allowed_group(self) -> None:
+        """on_rejected does NOT fire when the group is allowed."""
+        from ductor_bot.bot.middleware import AuthMiddleware
+
+        calls: list[tuple[int, str, str]] = []
+        mw = AuthMiddleware(
+            allowed_user_ids={100},
+            allowed_group_ids={-1001},
+            on_rejected=lambda cid, ct, t: calls.append((cid, ct, t)),
+        )
+        handler = AsyncMock(return_value="ok")
+        msg = _make_message(user_id=100, chat_type="group", chat_id=-1001)
+
+        await mw(handler, msg, {})
+        assert calls == []
+        handler.assert_called_once()
+
+    async def test_on_rejected_not_fired_for_private_chat(self) -> None:
+        """on_rejected does NOT fire for rejected private messages."""
+        from ductor_bot.bot.middleware import AuthMiddleware
+
+        calls: list[tuple[int, str, str]] = []
+        mw = AuthMiddleware(
+            allowed_user_ids={100},
+            on_rejected=lambda cid, ct, t: calls.append((cid, ct, t)),
+        )
+        handler = AsyncMock()
+        msg = _make_message(user_id=999, chat_type="private")
+
+        await mw(handler, msg, {})
+        assert calls == []
+
 
 class TestSequentialMiddleware:
     """Test dedup + per-chat sequential lock."""
@@ -438,6 +488,9 @@ class TestIsQuickCommand:
             ("/model sonnet", True),
             ("/status@my_bot", True),
             ("/model@my_bot gpt-5.3-codex", True),
+            ("/where", True),
+            ("/leave", True),
+            ("/leave -1001234567890", True),
             ("/new", False),
             ("/stop", False),
             ("/restart", False),

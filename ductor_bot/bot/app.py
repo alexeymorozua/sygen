@@ -14,7 +14,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, FSInputFile, ReplyParameters
+from aiogram.types import BotCommand, ChatMemberUpdated, FSInputFile, ReplyParameters
 
 from ductor_bot.background import BackgroundResult
 from ductor_bot.bot.callbacks import (
@@ -22,6 +22,7 @@ from ductor_bot.bot.callbacks import (
     mark_button_choice,
     parse_ns_callback,
 )
+from ductor_bot.bot.chat_tracker import ChatTracker
 from ductor_bot.bot.file_browser import (
     file_browser_start,
     handle_file_browser_callback,
@@ -107,7 +108,8 @@ _HELP_TEXT = fmt(
     f"{_help_line('model')}\n{_help_line('status')}\n{_help_line('memory')}",
     f"Automation\n{_help_line('session')}\n{_help_line('tasks')}\n{_help_line('cron')}",
     f"Multi-Agent\n{_help_line('agent_commands')}",
-    f"Browse & Info\n{_help_line('showfiles')}\n{_help_line('info')}\n{_help_line('help')}",
+    f"Browse & Info\n{_help_line('where')}\n{_help_line('leave')}\n"
+    f"{_help_line('showfiles')}\n{_help_line('info')}\n{_help_line('help')}",
     f"Maintenance\n{_help_line('diagnose')}\n{_help_line('upgrade')}\n{_help_line('restart')}",
     SEP,
     "Send any message to start working with your agent.",
@@ -147,6 +149,8 @@ class TelegramBot:
 
         allowed = set(config.allowed_user_ids)
         allowed_groups = set(config.allowed_group_ids)
+        self._allowed_groups = allowed_groups
+        self._chat_tracker: ChatTracker | None = None  # set in _on_startup
         self._lock_pool = LockPool()
         self._bus = MessageBus(lock_pool=self._lock_pool)
 
@@ -158,14 +162,16 @@ class TelegramBot:
         self._sequential.set_abort_handler(self._on_abort)
         self._sequential.set_abort_all_handler(self._on_abort_all)
         self._sequential.set_quick_command_handler(self._on_quick_command)
-        auth = AuthMiddleware(allowed, allowed_group_ids=allowed_groups)
+        on_rejected = self._on_group_rejected
+        auth = AuthMiddleware(allowed, allowed_group_ids=allowed_groups, on_rejected=on_rejected)
         self._router.message.outer_middleware(auth)
         self._router.message.outer_middleware(self._sequential)
         self._router.callback_query.outer_middleware(
-            AuthMiddleware(allowed, allowed_group_ids=allowed_groups)
+            AuthMiddleware(allowed, allowed_group_ids=allowed_groups, on_rejected=on_rejected)
         )
 
         self._register_handlers()
+        self._register_member_handlers()
         self._dp.include_router(self._router)
         self._dp.startup.register(self._on_startup)
 
@@ -245,6 +251,157 @@ class TelegramBot:
             r.message(Command(cmd, ignore_case=True))(self._on_command)
         r.message()(self._on_message)
         r.callback_query()(self._on_callback_query)
+
+    def _register_member_handlers(self) -> None:
+        """Register my_chat_member handlers on the dispatcher (not router).
+
+        ``ChatMemberUpdated`` events bypass message middleware, so they go
+        directly on the dispatcher.
+        """
+        from aiogram.filters import ChatMemberUpdatedFilter
+        from aiogram.filters.chat_member_updated import (
+            IS_MEMBER,
+            IS_NOT_MEMBER,
+        )
+
+        self._dp.my_chat_member.register(
+            self._on_bot_added,
+            ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER),
+        )
+        self._dp.my_chat_member.register(
+            self._on_bot_removed,
+            ChatMemberUpdatedFilter(IS_MEMBER >> IS_NOT_MEMBER),
+        )
+
+    # -- Chat tracker (my_chat_member + /where + /leave) ------------------------
+
+    def _on_group_rejected(self, chat_id: int, chat_type: str, title: str) -> None:
+        """Callback from AuthMiddleware when a group message is rejected."""
+        if self._chat_tracker:
+            self._chat_tracker.record_rejected(chat_id, chat_type, title)
+
+    async def _on_bot_added(self, event: ChatMemberUpdated) -> None:
+        """Bot was added to a group."""
+        chat = event.chat
+        allowed = chat.id in self._allowed_groups
+        if self._chat_tracker:
+            self._chat_tracker.record_join(
+                chat.id,
+                chat.type,
+                chat.title or "",
+                allowed=allowed,
+            )
+        if not allowed:
+            with contextlib.suppress(TelegramAPIError):
+                await self._bot.send_message(
+                    chat.id,
+                    "This bot is not authorized for this group.",
+                )
+            with contextlib.suppress(TelegramAPIError):
+                await self._bot.leave_chat(chat.id)
+            if self._chat_tracker:
+                self._chat_tracker.record_leave(chat.id, "auto_left")
+            logger.info("Auto-left unauthorized group chat_id=%d title=%s", chat.id, chat.title)
+
+    async def _on_bot_removed(self, event: ChatMemberUpdated) -> None:
+        """Bot was removed from a group."""
+        chat = event.chat
+        status = "kicked" if event.new_chat_member.status == "kicked" else "left"
+        if self._chat_tracker:
+            self._chat_tracker.record_leave(chat.id, status)
+        logger.info("Bot removed from group chat_id=%d status=%s", chat.id, status)
+
+    def _format_where(self) -> str:
+        """Build the /where response text."""
+        if not self._chat_tracker:
+            return fmt("**Where**", SEP, "Chat tracker not available.")
+        records = self._chat_tracker.get_all()
+        if not records:
+            return fmt("**Where**", SEP, "No chat activity recorded yet.")
+
+        sections: list[str] = []
+        active = [r for r in records if r.status == "active" and r.allowed]
+        rejected = [r for r in records if not r.allowed or r.status == "rejected"]
+        left = [r for r in records if r.status in ("left", "kicked", "auto_left")]
+
+        if active:
+            lines = []
+            for r in active:
+                label = r.title or str(r.chat_id)
+                lines.append(f"  {r.chat_type} | <code>{r.chat_id}</code> | {label}")
+            sections.append("**Active**\n" + "\n".join(lines))
+        if rejected:
+            lines = []
+            for r in rejected:
+                label = r.title or str(r.chat_id)
+                extra = f" ({r.rejected_count}x)" if r.rejected_count else ""
+                lines.append(f"  {r.chat_type} | <code>{r.chat_id}</code> | {label}{extra}")
+            sections.append("**Rejected**\n" + "\n".join(lines))
+        if left:
+            lines = []
+            for r in left:
+                label = r.title or str(r.chat_id)
+                lines.append(f"  {r.status} | <code>{r.chat_id}</code> | {label}")
+            sections.append("**Left**\n" + "\n".join(lines))
+
+        return fmt("**Where**", SEP, *sections)
+
+    async def _handle_where(self, chat_id: int, message: Message) -> None:
+        """Handle /where: show all tracked chats/groups."""
+        await send_rich(
+            self._bot,
+            chat_id,
+            self._format_where(),
+            SendRichOpts(
+                reply_to_message_id=message.message_id,
+                thread_id=get_thread_id(message),
+            ),
+        )
+
+    async def _handle_leave(self, chat_id: int, message: Message) -> None:
+        """Handle /leave <group_id>: manually leave a group."""
+        thread_id = get_thread_id(message)
+        parts = (message.text or "").strip().split(None, 1)
+        if len(parts) < 2:
+            await send_rich(
+                self._bot,
+                chat_id,
+                fmt("**Usage**", SEP, "`/leave <group_id>`"),
+                SendRichOpts(reply_to_message_id=message.message_id, thread_id=thread_id),
+            )
+            return
+
+        try:
+            group_id = int(parts[1].strip())
+        except ValueError:
+            await send_rich(
+                self._bot,
+                chat_id,
+                "Invalid group ID.",
+                SendRichOpts(reply_to_message_id=message.message_id, thread_id=thread_id),
+            )
+            return
+
+        try:
+            await self._bot.leave_chat(group_id)
+        except TelegramAPIError as exc:
+            await send_rich(
+                self._bot,
+                chat_id,
+                f"Failed to leave: {exc}",
+                SendRichOpts(reply_to_message_id=message.message_id, thread_id=thread_id),
+            )
+            return
+
+        if self._chat_tracker:
+            self._chat_tracker.record_leave(group_id, "left")
+
+        await send_rich(
+            self._bot,
+            chat_id,
+            f"Left group <code>{group_id}</code>.",
+            SendRichOpts(reply_to_message_id=message.message_id, thread_id=thread_id),
+        )
 
     # -- Welcome & help ---------------------------------------------------------
 
@@ -432,22 +589,39 @@ class TelegramBot:
             message=message,
         )
 
+    async def _dispatch_direct_command(
+        self,
+        chat_id: int,
+        message: Message,
+        text_lower: str,
+    ) -> bool | None:
+        """Handle commands that don't need the orchestrator. Returns True/None."""
+        if text_lower.startswith("/where"):
+            await self._handle_where(chat_id, message)
+            return True
+        if text_lower.startswith("/leave"):
+            await self._handle_leave(chat_id, message)
+            return True
+        if text_lower.startswith("/showfiles") and self._orchestrator is not None:
+            await self._on_showfiles(message)
+            return True
+        return None
+
     async def _on_quick_command(self, chat_id: int, message: Message) -> bool:
         """Handle a read-only command without the sequential lock.
 
         ``/model`` is special: when the chat is busy it returns an immediate
         "agent is working" message; otherwise it acquires the lock for an
         atomic model switch.
-
-        ``/showfiles`` is handled directly (no orchestrator needed).
         """
+        text_lower = (message.text or "").strip().lower()
+
+        direct = await self._dispatch_direct_command(chat_id, message, text_lower)
+        if direct is not None:
+            return direct
+
         if self._orchestrator is None:
             return False
-
-        text_lower = (message.text or "").strip().lower()
-        if text_lower.startswith("/showfiles"):
-            await self._on_showfiles(message)
-            return True
 
         if text_lower.startswith(("/sessions", "/tasks")):
             await handle_command(self._orchestrator, self._bot, message)

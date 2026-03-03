@@ -41,7 +41,18 @@ QuickCommandHandler = Callable[[int, "Message"], Awaitable[bool]]
 """Async callback for read-only commands that bypass the per-chat lock."""
 
 QUICK_COMMANDS: frozenset[str] = frozenset(
-    {"/status", "/memory", "/cron", "/diagnose", "/model", "/showfiles", "/sessions", "/tasks"}
+    {
+        "/status",
+        "/memory",
+        "/cron",
+        "/diagnose",
+        "/model",
+        "/showfiles",
+        "/sessions",
+        "/tasks",
+        "/where",
+        "/leave",
+    }
 )
 
 MQ_PREFIX = "mq:"
@@ -60,6 +71,10 @@ def is_quick_command(text: str) -> bool:
     return cmd in QUICK_COMMANDS
 
 
+RejectedCallback = Callable[[int, str, str], None]
+"""Sync callback for rejected group messages: (chat_id, chat_type, title)."""
+
+
 class AuthMiddleware(BaseMiddleware):
     """Outer middleware: silently drop messages from unauthorized users/groups.
 
@@ -73,9 +88,11 @@ class AuthMiddleware(BaseMiddleware):
         allowed_user_ids: set[int],
         *,
         allowed_group_ids: set[int] | None = None,
+        on_rejected: RejectedCallback | None = None,
     ) -> None:
         self._allowed_users = allowed_user_ids
         self._allowed_groups = allowed_group_ids or set()
+        self._on_rejected = on_rejected
 
     async def __call__(
         self,
@@ -103,6 +120,8 @@ class AuthMiddleware(BaseMiddleware):
         if chat_type in ("group", "supergroup"):
             group_id = chat.id if chat else None
             if group_id not in self._allowed_groups:
+                if self._on_rejected and chat:
+                    self._on_rejected(chat.id, chat_type, chat.title or "")
                 return None
             if user.id not in self._allowed_users:
                 return None

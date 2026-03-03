@@ -18,20 +18,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def run_startup(bot: TelegramBot) -> None:
-    """Execute full startup sequence: orchestrator, sentinels, recovery, update observer."""
-    from ductor_bot.orchestrator.core import Orchestrator
-
-    bot._orchestrator = await Orchestrator.create(
-        bot.config,
-        agent_name=bot._agent_name,
-    )
-
-    me = await bot.bot_instance.get_me()
-    bot._bot_id = me.id
-    bot._bot_username = (me.username or "").lower()
-    logger.info("Bot online: @%s (id=%d)", me.username, me.id)
-
+async def _handle_restart_sentinel(bot: TelegramBot) -> dict[str, object] | None:
+    """Consume and handle the restart sentinel file. Returns sentinel dict or None."""
     sentinel_path = bot._orch.paths.ductor_home / "restart-sentinel.json"
     sentinel = await asyncio.to_thread(consume_restart_sentinel, sentinel_path=sentinel_path)
     if sentinel:
@@ -42,10 +30,30 @@ async def run_startup(bot: TelegramBot) -> None:
                 bot.bot_instance,
                 chat_id,
                 msg,
-                SendRichOpts(
-                    allowed_roots=bot.file_roots(bot._orch.paths),
-                ),
+                SendRichOpts(allowed_roots=bot.file_roots(bot._orch.paths)),
             )
+    return sentinel
+
+
+async def run_startup(bot: TelegramBot) -> None:
+    """Execute full startup sequence: orchestrator, sentinels, recovery, update observer."""
+    from ductor_bot.orchestrator.core import Orchestrator
+
+    bot._orchestrator = await Orchestrator.create(
+        bot.config,
+        agent_name=bot._agent_name,
+    )
+
+    from ductor_bot.bot.chat_tracker import ChatTracker
+
+    bot._chat_tracker = ChatTracker(bot._orch.paths.chat_activity_path)
+
+    me = await bot.bot_instance.get_me()
+    bot._bot_id = me.id
+    bot._bot_username = (me.username or "").lower()
+    logger.info("Bot online: @%s (id=%d)", me.username, me.id)
+
+    sentinel = await _handle_restart_sentinel(bot)
 
     bot._orchestrator.set_cron_result_handler(bot._on_cron_result)
     bot._orchestrator.set_heartbeat_handler(bot._on_heartbeat_result)
