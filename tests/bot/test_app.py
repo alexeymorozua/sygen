@@ -987,13 +987,15 @@ class TestCommandHandlers:
 
 
 class TestWebhookWake:
-    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
-    async def test_calls_handle_message_and_sends_result(self, mock_send: AsyncMock) -> None:
+    async def test_calls_handle_message_and_sends_result(self) -> None:
+        import ductor_bot.bus.telegram_transport as _tgt
+
         tg_bot, _ = _make_tg_bot()
         orch = _make_orchestrator(handle_message_text="Webhook reply")
         tg_bot._orchestrator = orch
 
-        result = await tg_bot._handle_webhook_wake(1, "Wake prompt")
+        with patch.object(_tgt, "send_rich", new_callable=AsyncMock) as mock_send:
+            result = await tg_bot._handle_webhook_wake(1, "Wake prompt")
 
         from ductor_bot.session.key import SessionKey
 
@@ -1002,8 +1004,9 @@ class TestWebhookWake:
         assert mock_send.call_args[0][2] == "Webhook reply"
         assert result == "Webhook reply"
 
-    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
-    async def test_acquires_per_chat_lock(self, mock_send: AsyncMock) -> None:
+    async def test_acquires_per_chat_lock(self) -> None:
+        import ductor_bot.bus.telegram_transport as _tgt
+
         tg_bot, _ = _make_tg_bot()
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
@@ -1020,12 +1023,14 @@ class TestWebhookWake:
 
         orch.handle_message = AsyncMock(side_effect=check_lock)
 
-        await tg_bot._handle_webhook_wake(1, "test")
+        with patch.object(_tgt, "send_rich", new_callable=AsyncMock):
+            await tg_bot._handle_webhook_wake(1, "test")
         assert lock_was_held
 
-    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
-    async def test_queues_behind_active_message(self, mock_send: AsyncMock) -> None:
+    async def test_queues_behind_active_message(self) -> None:
         """Webhook wake waits for active conversation turn to finish."""
+        import ductor_bot.bus.telegram_transport as _tgt
+
         tg_bot, _ = _make_tg_bot()
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
@@ -1033,19 +1038,20 @@ class TestWebhookWake:
         order: list[str] = []
         lock = tg_bot.sequential.get_lock(1)
 
-        async with lock:
-            # Start webhook wake while lock is held
-            async def slow_handle(*_a: object, **_k: object) -> MagicMock:
-                order.append("webhook")
-                return MagicMock(text="ok")
+        with patch.object(_tgt, "send_rich", new_callable=AsyncMock):
+            async with lock:
 
-            orch.handle_message = AsyncMock(side_effect=slow_handle)
-            task = asyncio.create_task(tg_bot._handle_webhook_wake(1, "test"))
+                async def slow_handle(*_a: object, **_k: object) -> MagicMock:
+                    order.append("webhook")
+                    return MagicMock(text="ok")
 
-            await asyncio.sleep(0.01)
-            order.append("user_done")
+                orch.handle_message = AsyncMock(side_effect=slow_handle)
+                task = asyncio.create_task(tg_bot._handle_webhook_wake(1, "test"))
 
-        await task
+                await asyncio.sleep(0.01)
+                order.append("user_done")
+
+            await task
         assert order == ["user_done", "webhook"]
 
     async def test_on_webhook_result_skips_wake_mode(self) -> None:
@@ -1165,12 +1171,14 @@ class TestOnCronResult:
 
 
 class TestOnHeartbeatResult:
-    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
-    async def test_sends_alert_to_user(self, mock_send: AsyncMock) -> None:
+    async def test_sends_alert_to_user(self) -> None:
+        import ductor_bot.bus.telegram_transport as _tgt
+
         tg_bot, _bot_instance = _make_tg_bot()
         tg_bot._orchestrator = _make_orchestrator()
 
-        await tg_bot._on_heartbeat_result(42, "Something interesting happened")
+        with patch.object(_tgt, "send_rich", new_callable=AsyncMock) as mock_send:
+            await tg_bot._on_heartbeat_result(42, "Something interesting happened")
 
         mock_send.assert_called_once()
         assert mock_send.call_args[0][1] == 42

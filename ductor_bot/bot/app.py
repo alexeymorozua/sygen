@@ -59,6 +59,8 @@ from ductor_bot.bot.welcome import (
     is_welcome_callback,
     resolve_welcome_callback,
 )
+from ductor_bot.bus.bus import MessageBus
+from ductor_bot.bus.lock_pool import LockPool
 from ductor_bot.commands import BOT_COMMANDS as _COMMAND_DEFS
 from ductor_bot.commands import MULTIAGENT_SUB_COMMANDS as _MA_SUB_DEFS
 from ductor_bot.config import AgentConfig
@@ -145,7 +147,13 @@ class TelegramBot:
 
         allowed = set(config.allowed_user_ids)
         allowed_groups = set(config.allowed_group_ids)
-        self._sequential = SequentialMiddleware()
+        self._lock_pool = LockPool()
+        self._bus = MessageBus(lock_pool=self._lock_pool)
+
+        from ductor_bot.bus.telegram_transport import TelegramTransport
+
+        self._bus.register_transport(TelegramTransport(self))
+        self._sequential = SequentialMiddleware(lock_pool=self._lock_pool)
         self._sequential.set_bot(self._bot)
         self._sequential.set_abort_handler(self._on_abort)
         self._sequential.set_abort_all_handler(self._on_abort_all)
@@ -196,6 +204,11 @@ class TelegramBot:
     def sequential(self) -> SequentialMiddleware:
         """Public read-only access to the sequential middleware."""
         return self._sequential
+
+    @property
+    def lock_pool(self) -> LockPool:
+        """Shared lock pool (used by middleware, bus, and API server)."""
+        return self._lock_pool
 
     def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
         """Allowed root directories for ``<file:...>`` tag sends."""
@@ -945,34 +958,46 @@ class TelegramBot:
     # -- Background handlers ---------------------------------------------------
 
     async def _on_session_result(self, result: BackgroundResult) -> None:
-        """Send background task result as a NEW message (triggers notification)."""
-        from ductor_bot.bot.result_delivery import deliver_session_result
+        """Send background task result via the message bus."""
+        from ductor_bot.bus.adapters import from_background_result
 
-        await deliver_session_result(self, result)
+        await self._bus.submit(from_background_result(result))
 
     async def _on_cron_result(self, title: str, result: str, status: str) -> None:
-        """Send cron job result to all allowed users."""
-        from ductor_bot.bot.result_delivery import deliver_cron_result
+        """Send cron job result via the message bus."""
+        from ductor_bot.bus.adapters import from_cron_result
 
-        await deliver_cron_result(self, title, result, status)
+        await self._bus.submit(from_cron_result(title, result, status))
 
     async def _on_heartbeat_result(self, chat_id: int, text: str) -> None:
-        """Send heartbeat alert to the user."""
-        from ductor_bot.bot.result_delivery import deliver_heartbeat_result
+        """Send heartbeat alert via the message bus."""
+        from ductor_bot.bus.adapters import from_heartbeat
 
-        await deliver_heartbeat_result(self, chat_id, text)
+        await self._bus.submit(from_heartbeat(chat_id, text))
 
     async def on_async_interagent_result(self, result: AsyncInterAgentResult) -> None:
-        """Handle async inter-agent result: inject into active main session."""
-        from ductor_bot.bot.result_delivery import deliver_interagent_result
+        """Handle async inter-agent result via the message bus."""
+        from ductor_bot.bus.adapters import from_interagent_result
 
-        await deliver_interagent_result(self, result)
+        chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
+        if not chat_id:
+            logger.warning("No chat_id available for async interagent result delivery")
+            return
+        set_log_context(operation="ia-async", chat_id=chat_id)
+        await self._bus.submit(from_interagent_result(result, chat_id))
 
     async def on_task_result(self, result: TaskResult) -> None:
-        """Handle background task result: notify user and inject into active session."""
-        from ductor_bot.bot.result_delivery import deliver_task_result
+        """Handle background task result via the message bus."""
+        from ductor_bot.bus.adapters import from_task_result
 
-        await deliver_task_result(self, result)
+        chat_id = result.chat_id
+        if not chat_id:
+            chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
+        if not chat_id:
+            logger.warning("No chat_id for task result delivery (task=%s)", result.task_id)
+            return
+        set_log_context(operation="task", chat_id=chat_id)
+        await self._bus.submit(from_task_result(result))
 
     async def on_task_question(
         self,
@@ -981,22 +1006,46 @@ class TelegramBot:
         prompt_preview: str,
         chat_id: int,
     ) -> None:
-        """Deliver a background task question to the main agent's Telegram chat."""
-        from ductor_bot.bot.result_delivery import handle_task_question
+        """Deliver a background task question via the message bus."""
+        from ductor_bot.bus.adapters import from_task_question
 
-        await handle_task_question(self, task_id, question, prompt_preview, chat_id)
+        if not chat_id:
+            chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
+        if not chat_id:
+            logger.warning("No chat_id for task question delivery (task=%s)", task_id)
+            return
+        set_log_context(operation="task", chat_id=chat_id)
+        await self._bus.submit(from_task_question(task_id, question, prompt_preview, chat_id))
 
     async def _handle_webhook_wake(self, chat_id: int, prompt: str) -> str | None:
-        """Process webhook wake prompt through the normal message pipeline."""
-        from ductor_bot.bot.result_delivery import handle_webhook_wake
+        """Process webhook wake prompt via the message bus."""
+        from ductor_bot.bus.envelope import LockMode
 
-        return await handle_webhook_wake(self, chat_id, prompt)
+        set_log_context(operation="wh", chat_id=chat_id)
+        key = SessionKey(chat_id=chat_id)
+        lock = self._lock_pool.get(key.lock_key)
+        async with lock:
+            result = await self._orch.handle_message(key, prompt)
+
+        # Deliver result — lock already released, skip bus lock
+        from ductor_bot.bus.adapters import from_webhook_wake
+
+        env = from_webhook_wake(chat_id, prompt)
+        env.result_text = result.text
+        env.lock_mode = LockMode.NONE  # Lock already held above
+        await self._bus.submit(env)
+        return result.text
 
     async def _on_webhook_result(self, result: object) -> None:
-        """Send webhook cron_task result to all allowed users."""
-        from ductor_bot.bot.result_delivery import deliver_webhook_result
+        """Send webhook cron_task result via the message bus."""
+        from ductor_bot.bus.adapters import from_webhook_cron_result
+        from ductor_bot.webhook.models import WebhookResult
 
-        await deliver_webhook_result(self, result)
+        if not isinstance(result, WebhookResult):
+            return
+        if result.mode == "wake":
+            return
+        await self._bus.submit(from_webhook_cron_result(result))
 
     # -- Update notifications --------------------------------------------------
 

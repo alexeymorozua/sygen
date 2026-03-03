@@ -949,6 +949,12 @@ class Orchestrator:
 
         return await _handle_question(self, task_id, question, task_preview, chat_id)
 
+    async def inject_prompt(self, prompt: str, chat_id: int, label: str) -> str:
+        """Execute *prompt* in the active session (fulfils ``SessionInjector`` protocol)."""
+        from ductor_bot.orchestrator.injection import _inject_prompt
+
+        return await _inject_prompt(self, prompt, chat_id, label)
+
     async def shutdown(self) -> None:
         """Cleanup on bot shutdown."""
         killed = await self._process_registry.kill_all_active()
