@@ -23,6 +23,7 @@ from aiogram.types import (
 from ductor_bot.bot.abort import is_abort_all_message, is_abort_message
 from ductor_bot.bot.dedup import DedupeCache, build_dedup_key
 from ductor_bot.bot.topic import get_session_key, get_thread_id
+from ductor_bot.bus.lock_pool import LockPool
 from ductor_bot.log_context import set_log_context
 
 if TYPE_CHECKING:
@@ -111,9 +112,6 @@ class AuthMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
-_MAX_LOCKS = 1000
-
-
 @dataclass(slots=True)
 class _QueueEntry:
     """A message waiting behind the per-chat lock."""
@@ -133,8 +131,8 @@ class SequentialMiddleware(BaseMiddleware):
     (via inline keyboard) or bulk-discarded on ``/stop``.
     """
 
-    def __init__(self) -> None:
-        self._locks: dict[tuple[int, int | None], asyncio.Lock] = {}
+    def __init__(self, lock_pool: LockPool | None = None) -> None:
+        self._lock_pool = lock_pool if lock_pool is not None else LockPool()
         self._dedup = DedupeCache()
         self._abort_handler: AbortHandler | None = None
         self._abort_all_handler: AbortAllHandler | None = None
@@ -142,6 +140,11 @@ class SequentialMiddleware(BaseMiddleware):
         self._pending: dict[int, list[_QueueEntry]] = {}
         self._entry_counter = 0
         self._bot: Bot | None = None
+
+    @property
+    def lock_pool(self) -> LockPool:
+        """The underlying lock pool (shared with the message bus)."""
+        return self._lock_pool
 
     def set_bot(self, bot: Bot) -> None:
         """Inject the Bot instance used to send/edit queue indicator messages."""
@@ -168,15 +171,7 @@ class SequentialMiddleware(BaseMiddleware):
 
         Used by webhook wake dispatch to queue behind active conversations.
         """
-        key: tuple[int, int | None] = lock_key if isinstance(lock_key, tuple) else (lock_key, None)
-        if key not in self._locks:
-            if len(self._locks) >= _MAX_LOCKS:
-                idle = [k for k, v in self._locks.items() if not v.locked()]
-                to_remove = max(1, len(idle) // 2) if idle else 0
-                for k in idle[:to_remove]:
-                    del self._locks[k]
-            self._locks[key] = asyncio.Lock()
-        return self._locks[key]
+        return self._lock_pool.get(lock_key)
 
     # -- Queue inspection & manipulation ---------------------------------------
 
@@ -189,10 +184,7 @@ class SequentialMiddleware(BaseMiddleware):
 
         Checks all topic-scoped locks for the given chat.
         """
-        for (cid, _tid), lock in self._locks.items():
-            if cid == chat_id and lock.locked():
-                return True
-        return self.has_pending(chat_id)
+        return self._lock_pool.any_locked_for_chat(chat_id) or self.has_pending(chat_id)
 
     async def cancel_entry(self, chat_id: int, entry_id: int) -> bool:
         """Cancel a single queued message and edit its indicator.

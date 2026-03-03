@@ -42,6 +42,7 @@ import aiohttp
 from aiohttp import BodyPartReader, WSMsgType, web
 
 from ductor_bot.api.crypto import E2ESession
+from ductor_bot.bus.lock_pool import LockPool
 from ductor_bot.files.prompt import MediaInfo, build_media_prompt
 from ductor_bot.files.storage import prepare_destination, sanitize_filename
 from ductor_bot.files.tags import (
@@ -168,13 +169,19 @@ class ApiServer:
     has zero imports from the orchestrator (no coupling).
     """
 
-    def __init__(self, config: ApiConfig, *, default_chat_id: int = 0) -> None:
+    def __init__(
+        self,
+        config: ApiConfig,
+        *,
+        default_chat_id: int = 0,
+        lock_pool: LockPool | None = None,
+    ) -> None:
         self._config = config
         self._default_chat_id = default_chat_id
         self._handle_message: StreamingMessageHandler | None = None
         self._handle_abort: AbortHandler | None = None
         self._runner: web.AppRunner | None = None
-        self._locks: dict[tuple[int, int | None], asyncio.Lock] = {}
+        self._lock_pool = lock_pool if lock_pool is not None else LockPool()
         self._active_ws: set[web.WebSocketResponse] = set()
         # File context (set via set_file_context)
         self._allowed_roots: Sequence[Path] | None = None
@@ -477,7 +484,7 @@ class ApiServer:
         key: SessionKey,
     ) -> None:
         """Read encrypted messages from the client and dispatch them sequentially."""
-        lock = self._locks.setdefault(key.lock_key, asyncio.Lock())
+        lock = self._lock_pool.get(key.lock_key)
         set_log_context(operation="api", chat_id=key.chat_id)
 
         async for raw in channel.ws:

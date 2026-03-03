@@ -52,6 +52,7 @@ async def run_startup(bot: TelegramBot) -> None:
     bot._orchestrator.set_webhook_result_handler(bot._on_webhook_result)
     bot._orchestrator.set_webhook_wake_handler(bot._handle_webhook_wake)
     bot._orchestrator.set_session_result_handler(bot._on_session_result)
+    bot._bus.set_injector(bot._orch)
 
     # Check for post-upgrade notification
     upgrade = await asyncio.to_thread(consume_upgrade_sentinel, bot._orch.paths.ductor_home)
