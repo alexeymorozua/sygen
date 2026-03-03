@@ -126,6 +126,13 @@ class MessageBus:
 
     async def _deliver(self, envelope: Envelope) -> None:
         """Fan out to all registered transports."""
+        if not self._transports:
+            logger.warning(
+                "No transports registered — envelope lost: origin=%s chat=%d",
+                envelope.origin.value,
+                envelope.chat_id,
+            )
+            return
         for transport in self._transports:
             try:
                 if envelope.delivery == DeliveryMode.BROADCAST:

@@ -450,22 +450,17 @@ async def test_handle_heartbeat_returns_none_on_ack(orch: Orchestrator) -> None:
 
 
 # ---------------------------------------------------------------------------
-# set_cron_result_handler / set_heartbeat_handler
+# wire_observers_to_bus
 # ---------------------------------------------------------------------------
 
 
-def test_set_cron_result_handler(orch: Orchestrator) -> None:
-    orch._observers.cron = MagicMock()
-    handler = AsyncMock()
-    orch.set_cron_result_handler(handler)
-    orch._observers.cron.set_result_handler.assert_called_once_with(handler)
-
-
-def test_set_heartbeat_handler(orch: Orchestrator) -> None:
-    orch._observers.heartbeat = MagicMock()
-    handler = AsyncMock()
-    orch.set_heartbeat_handler(handler)
-    orch._observers.heartbeat.set_result_handler.assert_called_once_with(handler)
+def test_wire_observers_to_bus_delegates_and_sets_injector(orch: Orchestrator) -> None:
+    orch._observers = MagicMock()
+    bus = MagicMock()
+    wake = AsyncMock()
+    orch.wire_observers_to_bus(bus, wake_handler=wake)
+    orch._observers.wire_to_bus.assert_called_once_with(bus, wake_handler=wake)
+    bus.set_injector.assert_called_once_with(orch)
 
 
 # ---------------------------------------------------------------------------

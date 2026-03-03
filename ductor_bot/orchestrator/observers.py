@@ -11,8 +11,12 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from ductor_bot.background import BackgroundObserver, BackgroundResult
+
+if TYPE_CHECKING:
+    from ductor_bot.bus.bus import MessageBus
 from ductor_bot.cleanup import CleanupObserver
 from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_cache_observer import CodexCacheObserver
@@ -161,29 +165,50 @@ class ObserverManager:
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-    # -- Handler setters (delegate to individual observers) -------------------
+    # -- Bus wiring (single entry point) --------------------------------------
 
-    def set_cron_result_handler(self, handler: Callable[[str, str, str], Awaitable[None]]) -> None:
+    def wire_to_bus(
+        self,
+        bus: MessageBus,
+        *,
+        wake_handler: Callable[[int, str], Awaitable[str | None]] | None = None,
+    ) -> None:
+        """Wire all observer result callbacks to the message bus.
+
+        Replaces the five individual setter methods with a single call.
+        """
+        from ductor_bot.bus.adapters import (
+            from_background_result,
+            from_cron_result,
+            from_heartbeat,
+            from_webhook_cron_result,
+        )
+
         if self.cron:
-            self.cron.set_result_handler(handler)
 
-    def set_heartbeat_result_handler(self, handler: Callable[[int, str], Awaitable[None]]) -> None:
-        self.heartbeat.set_result_handler(handler)
+            async def _on_cron(title: str, result: str, status: str) -> None:
+                await bus.submit(from_cron_result(title, result, status))
 
-    def set_webhook_result_handler(
-        self, handler: Callable[[WebhookResult], Awaitable[None]]
-    ) -> None:
-        if self.webhook:
-            self.webhook.set_result_handler(handler)
+            self.cron.set_result_handler(_on_cron)
 
-    def set_webhook_wake_handler(
-        self, handler: Callable[[int, str], Awaitable[str | None]]
-    ) -> None:
-        if self.webhook:
-            self.webhook.set_wake_handler(handler)
+        async def _on_heartbeat(chat_id: int, text: str) -> None:
+            await bus.submit(from_heartbeat(chat_id, text))
 
-    def set_session_result_handler(
-        self, handler: Callable[[BackgroundResult], Awaitable[None]]
-    ) -> None:
+        self.heartbeat.set_result_handler(_on_heartbeat)
+
         if self.background:
-            self.background.set_result_handler(handler)
+
+            async def _on_bg(result: BackgroundResult) -> None:
+                await bus.submit(from_background_result(result))
+
+            self.background.set_result_handler(_on_bg)
+
+        if self.webhook:
+
+            async def _on_webhook(result: WebhookResult) -> None:
+                if result.mode != "wake":
+                    await bus.submit(from_webhook_cron_result(result))
+
+            self.webhook.set_result_handler(_on_webhook)
+            if wake_handler:
+                self.webhook.set_wake_handler(wake_handler)

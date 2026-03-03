@@ -16,7 +16,6 @@ from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, ChatMemberUpdated, FSInputFile, ReplyParameters
 
-from ductor_bot.background import BackgroundResult
 from ductor_bot.bot.callbacks import (
     edit_selector_result,
     mark_button_choice,
@@ -1186,24 +1185,6 @@ class TelegramBot:
 
     # -- Background handlers ---------------------------------------------------
 
-    async def _on_session_result(self, result: BackgroundResult) -> None:
-        """Send background task result via the message bus."""
-        from ductor_bot.bus.adapters import from_background_result
-
-        await self._bus.submit(from_background_result(result))
-
-    async def _on_cron_result(self, title: str, result: str, status: str) -> None:
-        """Send cron job result via the message bus."""
-        from ductor_bot.bus.adapters import from_cron_result
-
-        await self._bus.submit(from_cron_result(title, result, status))
-
-    async def _on_heartbeat_result(self, chat_id: int, text: str) -> None:
-        """Send heartbeat alert via the message bus."""
-        from ductor_bot.bus.adapters import from_heartbeat
-
-        await self._bus.submit(from_heartbeat(chat_id, text))
-
     async def on_async_interagent_result(self, result: AsyncInterAgentResult) -> None:
         """Handle async inter-agent result via the message bus."""
         from ductor_bot.bus.adapters import from_interagent_result
@@ -1264,17 +1245,6 @@ class TelegramBot:
         env.lock_mode = LockMode.NONE  # Lock already held above
         await self._bus.submit(env)
         return result.text
-
-    async def _on_webhook_result(self, result: object) -> None:
-        """Send webhook cron_task result via the message bus."""
-        from ductor_bot.bus.adapters import from_webhook_cron_result
-        from ductor_bot.webhook.models import WebhookResult
-
-        if not isinstance(result, WebhookResult):
-            return
-        if result.mode == "wake":
-            return
-        await self._bus.submit(from_webhook_cron_result(result))
 
     # -- Update notifications --------------------------------------------------
 
