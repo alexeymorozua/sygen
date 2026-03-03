@@ -223,7 +223,7 @@ Sub-agents each have their own `allowed_user_ids` and `allowed_group_ids` in `ag
 
 ### Group management
 
-When the bot is added to a group that is **not** in `allowed_group_ids`, it sends a warning and auto-leaves. All group activity (joins, leaves, rejections) is tracked.
+When the bot is added to a group that is **not** in `allowed_group_ids`, it sends a warning and auto-leaves. If a group is removed from `allowed_group_ids` later, the bot leaves automatically — on config hot-reload, on every restart, and via a periodic 24h audit.
 
 **Getting a group ID:** Add the bot to the group — it will auto-leave but record the ID. Then use `/where` from any private chat to see it.
 
