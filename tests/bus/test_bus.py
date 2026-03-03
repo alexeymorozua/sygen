@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 from ductor_bot.bus.bus import MessageBus
 from ductor_bot.bus.envelope import DeliveryMode, Envelope, LockMode, Origin
 from ductor_bot.bus.lock_pool import LockPool
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _env(**kwargs: object) -> Envelope:
@@ -247,3 +251,15 @@ def test_lock_pool_property() -> None:
 def test_default_lock_pool() -> None:
     bus = MessageBus()
     assert isinstance(bus.lock_pool, LockPool)
+
+
+# -- No-transport warning --
+
+
+async def test_no_transports_logs_warning(caplog: pytest.LogCaptureFixture) -> None:
+    bus = MessageBus()
+    env = _env()
+    with caplog.at_level("WARNING", logger="ductor_bot.bus.bus"):
+        await bus.submit(env)
+    assert "No transports registered" in caplog.text
+    assert "envelope lost" in caplog.text

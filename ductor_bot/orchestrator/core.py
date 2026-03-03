@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ductor_bot.background import (
-    BackgroundResult,
     BackgroundSubmit,
     BackgroundTask,
 )
@@ -69,7 +68,6 @@ from ductor_bot.security import detect_suspicious_patterns
 from ductor_bot.session import SessionKey, SessionManager
 from ductor_bot.session.named import NamedSessionRegistry
 from ductor_bot.webhook.manager import WebhookManager
-from ductor_bot.webhook.models import WebhookResult
 from ductor_bot.workspace.init import inject_runtime_environment
 from ductor_bot.workspace.paths import DuctorPaths, resolve_paths
 from ductor_bot.workspace.skill_sync import (
@@ -80,6 +78,7 @@ from ductor_bot.workspace.skill_sync import (
 
 if TYPE_CHECKING:
     from ductor_bot.background import BackgroundObserver
+    from ductor_bot.bus.bus import MessageBus
     from ductor_bot.cli.auth import AuthResult, AuthStatus
     from ductor_bot.multiagent.bus import AsyncInterAgentResult
     from ductor_bot.multiagent.supervisor import AgentSupervisor
@@ -587,45 +586,20 @@ class Orchestrator:
         model_name = requested_model or self._config.model
         return model_name, self._models.provider_for(model_name)
 
-    def set_cron_result_handler(
+    def wire_observers_to_bus(
         self,
-        handler: Callable[[str, str, str], Awaitable[None]],
+        bus: MessageBus,
+        *,
+        wake_handler: Callable[[int, str], Awaitable[str | None]] | None = None,
     ) -> None:
-        """Forward cron job results to an external handler (e.g. Telegram)."""
-        self._observers.set_cron_result_handler(handler)
-
-    def set_heartbeat_handler(
-        self,
-        handler: Callable[[int, str], Awaitable[None]],
-    ) -> None:
-        """Forward heartbeat alert messages to an external handler (e.g. Telegram)."""
-        self._observers.set_heartbeat_result_handler(handler)
+        """Wire all observer result callbacks to the message bus."""
+        self._observers.wire_to_bus(bus, wake_handler=wake_handler)
+        bus.set_injector(self)
 
     async def handle_heartbeat(self, key: SessionKey) -> str | None:
         """Run a heartbeat turn in the main session. Returns alert text or None."""
         logger.debug("Heartbeat flow starting")
         return await heartbeat_flow(self, key)
-
-    def set_webhook_result_handler(
-        self,
-        handler: Callable[[WebhookResult], Awaitable[None]],
-    ) -> None:
-        """Forward webhook results to an external handler (e.g. Telegram)."""
-        self._observers.set_webhook_result_handler(handler)
-
-    def set_webhook_wake_handler(
-        self,
-        handler: Callable[[int, str], Awaitable[str | None]],
-    ) -> None:
-        """Set the webhook wake handler (provided by the bot layer)."""
-        self._observers.set_webhook_wake_handler(handler)
-
-    def set_session_result_handler(
-        self,
-        handler: Callable[[BackgroundResult], Awaitable[None]],
-    ) -> None:
-        """Forward background task results to an external handler (e.g. Telegram)."""
-        self._observers.set_session_result_handler(handler)
 
     def submit_background_task(
         self,
