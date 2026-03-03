@@ -146,6 +146,7 @@ class TelegramBot:
         self._restart_watcher: asyncio.Task[None] | None = None
         self._update_observer: UpdateObserver | None = None
         self._upgrade_lock = asyncio.Lock()
+        self._group_audit_task: asyncio.Task[None] | None = None
 
         allowed = set(config.allowed_user_ids)
         allowed_groups = set(config.allowed_group_ids)
@@ -284,6 +285,7 @@ class TelegramBot:
             self._allowed_groups.clear()
             self._allowed_groups.update(config.allowed_group_ids)
             logger.info("Auth hot-reloaded: allowed_group_ids (%d)", len(self._allowed_groups))
+            self._group_audit_task = asyncio.create_task(self._fire_audit())
 
     # -- Chat tracker (my_chat_member + /where + /leave) ------------------------
 
@@ -322,6 +324,48 @@ class TelegramBot:
         if self._chat_tracker:
             self._chat_tracker.record_leave(chat.id, status)
         logger.info("Bot removed from group chat_id=%d status=%s", chat.id, status)
+
+    _GROUP_AUDIT_INTERVAL = 86400  # 24 hours
+
+    async def _fire_audit(self) -> None:
+        """Fire-and-forget wrapper for ``audit_groups``."""
+        await self.audit_groups()
+
+    async def _run_group_audit_loop(self) -> None:
+        """Run ``audit_groups`` every 24 hours."""
+        while True:
+            await asyncio.sleep(self._GROUP_AUDIT_INTERVAL)
+            try:
+                left = await self.audit_groups()
+                if left:
+                    logger.info("Periodic group audit: left %d group(s)", left)
+            except Exception:
+                logger.debug("Periodic group audit error", exc_info=True)
+
+    async def audit_groups(self) -> int:
+        """Leave groups where the bot is still a member but no longer allowed.
+
+        Checks tracked active groups against ``allowed_group_ids`` and calls
+        ``leave_chat`` for any that lost authorization.  Returns the number
+        of groups left.
+        """
+        if not self._chat_tracker:
+            return 0
+        left = 0
+        for rec in self._chat_tracker.get_all():
+            if rec.status != "active":
+                continue
+            if rec.chat_id in self._allowed_groups:
+                continue
+            # Not allowed — try to leave.
+            try:
+                await self._bot.leave_chat(rec.chat_id)
+            except TelegramAPIError:
+                logger.debug("audit_groups: leave_chat failed for %d", rec.chat_id, exc_info=True)
+            self._chat_tracker.record_leave(rec.chat_id, "auto_left")
+            logger.info("Audit: auto-left group %d (%s)", rec.chat_id, rec.title)
+            left += 1
+        return left
 
     @staticmethod
     def _where_line(r: ChatRecord) -> str:
@@ -1320,6 +1364,7 @@ class TelegramBot:
 
     async def shutdown(self) -> None:
         await _cancel_task(self._restart_watcher)
+        await _cancel_task(self._group_audit_task)
         if self._update_observer:
             await self._update_observer.stop()
         if self._orchestrator:
