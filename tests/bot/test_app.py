@@ -490,7 +490,7 @@ class TestOnMessage:
     @patch("ductor_bot.bot.app.strip_mention", return_value="clean text")
     async def test_strips_mention_from_text(self, mock_strip: MagicMock) -> None:
         tg_bot, _ = _make_tg_bot()
-        tg_bot._bot_username = "testbot"
+        tg_bot.bot_instance_username = "testbot"
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
 
@@ -510,7 +510,7 @@ class TestOnMessage:
 class TestResolveText:
     async def test_plain_text_message(self) -> None:
         tg_bot, _ = _make_tg_bot()
-        tg_bot._bot_username = "mybot"
+        tg_bot.bot_instance_username = "mybot"
         tg_bot._orchestrator = _make_orchestrator()
         msg = _make_message(text="Hello")
         result = await tg_bot._resolve_text(msg)
@@ -914,7 +914,7 @@ class TestCommandHandlers:
 
         await tg_bot._on_command(msg)
 
-        mock_cmd.assert_called_once_with(orch, tg_bot._bot, msg)
+        mock_cmd.assert_called_once_with(orch, tg_bot.bot_instance, msg)
 
     @patch("ductor_bot.bot.app.handle_new_session", new_callable=AsyncMock)
     async def test_on_new_calls_handle_new_session(self, mock_new: AsyncMock) -> None:
@@ -925,7 +925,7 @@ class TestCommandHandlers:
 
         await tg_bot._on_new(msg)
 
-        mock_new.assert_called_once_with(orch, tg_bot._bot, msg)
+        mock_new.assert_called_once_with(orch, tg_bot.bot_instance, msg)
 
     @patch("ductor_bot.bot.app.handle_abort", new_callable=AsyncMock, return_value=True)
     async def test_on_abort_returns_handled(self, mock_abort: AsyncMock) -> None:
@@ -965,7 +965,7 @@ class TestCommandHandlers:
 
 
 class TestWebhookWake:
-    @patch("ductor_bot.bot.app.send_rich", new_callable=AsyncMock)
+    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
     async def test_calls_handle_message_and_sends_result(self, mock_send: AsyncMock) -> None:
         tg_bot, _ = _make_tg_bot()
         orch = _make_orchestrator(handle_message_text="Webhook reply")
@@ -978,13 +978,13 @@ class TestWebhookWake:
         assert mock_send.call_args[0][2] == "Webhook reply"
         assert result == "Webhook reply"
 
-    @patch("ductor_bot.bot.app.send_rich", new_callable=AsyncMock)
+    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
     async def test_acquires_per_chat_lock(self, mock_send: AsyncMock) -> None:
         tg_bot, _ = _make_tg_bot()
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
 
-        lock = tg_bot._sequential.get_lock(1)
+        lock = tg_bot.sequential.get_lock(1)
         lock_was_held = False
 
         original_handle = orch.handle_message
@@ -999,7 +999,7 @@ class TestWebhookWake:
         await tg_bot._handle_webhook_wake(1, "test")
         assert lock_was_held
 
-    @patch("ductor_bot.bot.app.send_rich", new_callable=AsyncMock)
+    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
     async def test_queues_behind_active_message(self, mock_send: AsyncMock) -> None:
         """Webhook wake waits for active conversation turn to finish."""
         tg_bot, _ = _make_tg_bot()
@@ -1007,7 +1007,7 @@ class TestWebhookWake:
         tg_bot._orchestrator = orch
 
         order: list[str] = []
-        lock = tg_bot._sequential.get_lock(1)
+        lock = tg_bot.sequential.get_lock(1)
 
         async with lock:
             # Start webhook wake while lock is held
@@ -1141,7 +1141,7 @@ class TestOnCronResult:
 
 
 class TestOnHeartbeatResult:
-    @patch("ductor_bot.bot.app.send_rich", new_callable=AsyncMock)
+    @patch("ductor_bot.bot.result_delivery.send_rich", new_callable=AsyncMock)
     async def test_sends_alert_to_user(self, mock_send: AsyncMock) -> None:
         tg_bot, _bot_instance = _make_tg_bot()
         tg_bot._orchestrator = _make_orchestrator()
@@ -1279,14 +1279,14 @@ class TestFileRoots:
         config.file_access = "all"
         tg_bot, _ = _make_tg_bot(config)
         tg_bot._orchestrator = _make_orchestrator()
-        assert tg_bot._file_roots(tg_bot._orch.paths) is None
+        assert tg_bot.file_roots(tg_bot._orch.paths) is None
 
     def test_home_mode_returns_home_dir(self) -> None:
         config = _make_config()
         config.file_access = "home"
         tg_bot, _ = _make_tg_bot(config)
         tg_bot._orchestrator = _make_orchestrator()
-        roots = tg_bot._file_roots(tg_bot._orch.paths)
+        roots = tg_bot.file_roots(tg_bot._orch.paths)
         assert roots == [Path.home()]
 
     def test_workspace_mode_returns_workspace(self) -> None:
@@ -1294,7 +1294,7 @@ class TestFileRoots:
         config.file_access = "workspace"
         tg_bot, _ = _make_tg_bot(config)
         tg_bot._orchestrator = _make_orchestrator()
-        roots = tg_bot._file_roots(tg_bot._orch.paths)
+        roots = tg_bot.file_roots(tg_bot._orch.paths)
         assert roots == [tg_bot._orch.paths.workspace]
 
     def test_unknown_mode_falls_back_to_workspace(self) -> None:
@@ -1302,7 +1302,7 @@ class TestFileRoots:
         config.file_access = "something_invalid"
         tg_bot, _ = _make_tg_bot(config)
         tg_bot._orchestrator = _make_orchestrator()
-        roots = tg_bot._file_roots(tg_bot._orch.paths)
+        roots = tg_bot.file_roots(tg_bot._orch.paths)
         assert roots == [tg_bot._orch.paths.workspace]
 
     def test_default_config_is_all(self) -> None:

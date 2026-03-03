@@ -376,10 +376,9 @@ def _write_config(
     else:
         merged["docker"] = {"enabled": docker_enabled}
 
-    config_path.write_text(
-        json.dumps(merged, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    from ductor_bot.infra.json_store import atomic_json_save
+
+    atomic_json_save(config_path, merged)
 
     init_workspace(paths)
     return config_path
@@ -527,9 +526,9 @@ def run_smart_reset(ductor_home: Path) -> None:
     if not confirmed:
         _abort()
 
-    from ductor_bot.__main__ import _robust_rmtree
+    from ductor_bot.infra.fs import robust_rmtree
 
-    _robust_rmtree(ductor_home)
+    robust_rmtree(ductor_home)
     if ductor_home.exists():
         console.print(
             f"[yellow]Warning: Could not fully delete {ductor_home}. Remove manually.[/yellow]\n"

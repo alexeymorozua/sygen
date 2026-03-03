@@ -8,8 +8,9 @@ import secrets
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from ductor_bot.cli.param_resolver import TaskOverrides, resolve_cli_config
+from ductor_bot.cli.param_resolver import TaskOverrides
 from ductor_bot.cron.execution import enrich_instruction, indent
+from ductor_bot.infra.base_task_observer import BaseTaskObserver
 from ductor_bot.infra.file_watcher import FileWatcher
 from ductor_bot.infra.task_runner import check_folder, run_oneshot_task
 from ductor_bot.utils.quiet_hours import check_quiet_hour
@@ -18,7 +19,6 @@ from ductor_bot.webhook.server import WebhookServer
 
 if TYPE_CHECKING:
     from ductor_bot.cli.codex_cache import CodexModelCache
-    from ductor_bot.cli.param_resolver import TaskExecutionConfig
     from ductor_bot.config import AgentConfig
     from ductor_bot.webhook.manager import WebhookManager
     from ductor_bot.workspace.paths import DuctorPaths
@@ -35,7 +35,7 @@ WebhookResultCallback = Callable[[WebhookResult], Awaitable[None]]
 WakeHandler = Callable[[int, str], Awaitable[str | None]]
 
 
-class WebhookObserver:
+class WebhookObserver(BaseTaskObserver):
     """Manages webhook server lifecycle and dispatches incoming hooks.
 
     Watches ``webhooks.json`` mtime for changes (like CronObserver).
@@ -50,10 +50,8 @@ class WebhookObserver:
         config: AgentConfig,
         codex_cache: CodexModelCache,
     ) -> None:
-        self._paths = paths
+        super().__init__(paths, config, codex_cache)
         self._manager = manager
-        self._config = config
-        self._codex_cache = codex_cache
         self._server: WebhookServer | None = None
         self._on_result: WebhookResultCallback | None = None
         self._handle_wake: WakeHandler | None = None
@@ -237,17 +235,6 @@ class WebhookObserver:
             status=status,
         )
 
-    def _resolve_execution_config(
-        self,
-        task_overrides: TaskOverrides,
-    ) -> TaskExecutionConfig:
-        """Use param_resolver to get final config for this webhook task."""
-        return resolve_cli_config(
-            self._config,
-            self._codex_cache,
-            task_overrides=task_overrides,
-        )
-
     async def _dispatch_cron_task(
         self,
         hook_id: str,
@@ -316,7 +303,7 @@ class WebhookObserver:
                     status="error:folder_missing",
                 )
 
-            exec_config = self._resolve_execution_config(overrides)
+            exec_config = self.resolve_execution_config(overrides)
             enriched = enrich_instruction(prompt, task_folder)
 
             timeout = self._config.cli_timeout
@@ -349,15 +336,7 @@ class WebhookObserver:
                     status=result.status,
                 )
 
-            if result.execution.timed_out:
-                logger.warning("Webhook cron_task %s timed out after %.0fs", hook_id, timeout)
-
-            if result.execution.stderr:
-                logger.debug(
-                    "Webhook stderr (%s): %s",
-                    hook_id,
-                    result.execution.stderr.decode(errors="replace")[:500],
-                )
+            self.log_execution_result(result, "Webhook cron_task", hook_id)
 
             logger.info(
                 "--- WEBHOOK CRON_TASK DONE ---\n"

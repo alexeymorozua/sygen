@@ -58,7 +58,7 @@ def test_resolve_execution_config_no_overrides(
     # Webhook with no overrides
     overrides = TaskOverrides()
 
-    exec_config = observer._resolve_execution_config(overrides)
+    exec_config = observer.resolve_execution_config(overrides)
 
     assert exec_config.provider == "claude"
     assert exec_config.model == "sonnet"
@@ -87,7 +87,7 @@ def test_resolve_execution_config_with_overrides(
         cli_parameters=["--webhook-flag", "value"],
     )
 
-    exec_config = observer._resolve_execution_config(overrides)
+    exec_config = observer.resolve_execution_config(overrides)
 
     assert exec_config.provider == "codex"
     assert exec_config.model == "gpt-4o"
@@ -130,7 +130,7 @@ def test_dispatch_with_cli_parameters(
         cli_parameters=hook.cli_parameters,
     )
 
-    exec_config = observer._resolve_execution_config(overrides)
+    exec_config = observer.resolve_execution_config(overrides)
 
     # Verify the resolved config has the webhook params
     assert exec_config.provider == "codex"

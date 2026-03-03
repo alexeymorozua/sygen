@@ -45,12 +45,10 @@ class AgentRegistry:
 
     def save(self, agents: list[SubAgentConfig]) -> None:
         """Write sub-agent definitions to agents.json."""
+        from ductor_bot.infra.json_store import atomic_json_save
+
         data = [a.model_dump(exclude_none=True) for a in agents]
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        atomic_json_save(self._path, data)
         logger.info("Saved %d sub-agents to %s", len(agents), self._path)
 
     def add(self, agent: SubAgentConfig) -> None:
@@ -105,8 +103,7 @@ def update_agent_fields(agents_path: Path, agent_name: str, **fields: object) ->
     else:
         return
 
-    agents_path.write_text(
-        json.dumps(raw, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    from ductor_bot.infra.json_store import atomic_json_save
+
+    atomic_json_save(agents_path, raw)
     logger.info("Updated agent '%s' in agents.json: %s", agent_name, list(fields))

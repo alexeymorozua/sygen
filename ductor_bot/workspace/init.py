@@ -231,7 +231,9 @@ def _smart_merge_config(paths: DuctorPaths) -> None:
         return
 
     if not paths.config_path.exists():
-        _write_atomic(paths.config_path, json.dumps(defaults, indent=2, ensure_ascii=False))
+        from ductor_bot.infra.json_store import atomic_json_save
+
+        atomic_json_save(paths.config_path, defaults)
         return
 
     try:
@@ -242,7 +244,9 @@ def _smart_merge_config(paths: DuctorPaths) -> None:
     merged = {**defaults, **existing}
 
     if merged != existing:
-        _write_atomic(paths.config_path, json.dumps(merged, indent=2, ensure_ascii=False))
+        from ductor_bot.infra.json_store import atomic_json_save
+
+        atomic_json_save(paths.config_path, merged)
 
 
 # ---------------------------------------------------------------------------

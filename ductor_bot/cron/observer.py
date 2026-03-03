@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING
 
 from cronsim import CronSim, CronSimError
 
-from ductor_bot.cli.param_resolver import TaskOverrides, resolve_cli_config
+from ductor_bot.cli.param_resolver import TaskOverrides
 from ductor_bot.config import resolve_user_timezone
 from ductor_bot.cron.execution import enrich_instruction
 from ductor_bot.cron.manager import CronManager
+from ductor_bot.infra.base_task_observer import BaseTaskObserver
 from ductor_bot.infra.file_watcher import FileWatcher
 from ductor_bot.infra.task_runner import check_folder, run_oneshot_task
 from ductor_bot.log_context import set_log_context
@@ -23,7 +24,6 @@ from ductor_bot.utils.quiet_hours import check_quiet_hour
 
 if TYPE_CHECKING:
     from ductor_bot.cli.codex_cache import CodexModelCache
-    from ductor_bot.cli.param_resolver import TaskExecutionConfig
     from ductor_bot.config import AgentConfig
     from ductor_bot.cron.manager import CronJob
     from ductor_bot.workspace.paths import DuctorPaths
@@ -45,7 +45,7 @@ class _ScheduledJob:
     timezone: str
 
 
-class CronObserver:
+class CronObserver(BaseTaskObserver):
     """Watches cron_jobs.json and schedules jobs in-process.
 
     On start: reads all jobs, calculates next run times via cronsim,
@@ -61,10 +61,8 @@ class CronObserver:
         config: AgentConfig,
         codex_cache: CodexModelCache,
     ) -> None:
-        self._paths = paths
+        super().__init__(paths, config, codex_cache)
         self._manager = manager
-        self._config = config
-        self._codex_cache = codex_cache
         self._on_result: CronResultCallback | None = None
         self._scheduled: dict[str, asyncio.Task[None]] = {}
         self._reschedule_lock = asyncio.Lock()
@@ -256,17 +254,6 @@ class CronObserver:
 
     # -- Execution --
 
-    def _resolve_execution_config(
-        self,
-        task_overrides: TaskOverrides,
-    ) -> TaskExecutionConfig:
-        """Use param_resolver to get final config for this task."""
-        return resolve_cli_config(
-            self._config,
-            self._codex_cache,
-            task_overrides=task_overrides,
-        )
-
     async def _deliver_result(
         self, job_id: str, job_title: str, result_text: str, status: str
     ) -> None:
@@ -318,7 +305,7 @@ class CronObserver:
                 reasoning_effort=job.reasoning_effort if job else None,
                 cli_parameters=job.cli_parameters if job else [],
             )
-            exec_config = self._resolve_execution_config(overrides)
+            exec_config = self.resolve_execution_config(overrides)
             enriched = enrich_instruction(instruction, task_folder)
 
             logger.debug(
@@ -355,19 +342,7 @@ class CronObserver:
                 self._manager.update_run_status(job_id, status=result.status)
                 return
 
-            if result.execution.timed_out:
-                logger.warning(
-                    "Cron job %s timed out after %.0fs, killing process",
-                    job_id,
-                    self._config.cli_timeout,
-                )
-
-            if result.execution.stderr:
-                logger.debug(
-                    "Cron stderr (%s): %s",
-                    job_id,
-                    result.execution.stderr.decode(errors="replace")[:500],
-                )
+            self.log_execution_result(result, "Cron job", job_id)
 
             elapsed_ms = (time.monotonic() - t0) * 1000
             logger.info(

@@ -75,7 +75,7 @@ class TestResolveExecutionConfig:
         """Falls back to global config when no task overrides."""
         overrides = TaskOverrides()
 
-        with patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve:
+        with patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve:
             mock_resolve.return_value = TaskExecutionConfig(
                 provider="claude",
                 model="opus",
@@ -86,7 +86,7 @@ class TestResolveExecutionConfig:
                 file_access="all",
             )
 
-            exec_config = observer._resolve_execution_config(overrides)
+            exec_config = observer.resolve_execution_config(overrides)
 
         # Should call resolve_cli_config with config and cache
         mock_resolve.assert_called_once()
@@ -112,7 +112,7 @@ class TestResolveExecutionConfig:
             cli_parameters=["--fast"],
         )
 
-        with patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve:
+        with patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve:
             mock_resolve.return_value = TaskExecutionConfig(
                 provider="codex",
                 model="gpt-5.2-codex",
@@ -123,7 +123,7 @@ class TestResolveExecutionConfig:
                 file_access="all",
             )
 
-            exec_config = observer._resolve_execution_config(overrides)
+            exec_config = observer.resolve_execution_config(overrides)
 
         # Should pass overrides to resolver
         call_args = mock_resolve.call_args
@@ -168,7 +168,7 @@ class TestExecuteJobWithOverrides:
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
             patch("ductor_bot.cron.execution.build_cmd") as mock_build,
-            patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
+            patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
             # Setup resolve to return config with override
@@ -224,7 +224,7 @@ class TestExecuteJobWithOverrides:
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
             patch("ductor_bot.cron.execution.build_cmd") as mock_build,
-            patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
+            patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
             # Setup resolve to return config with CLI params
@@ -284,7 +284,7 @@ class TestExecuteJobWithOverrides:
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
             patch("ductor_bot.cron.execution.build_cmd") as mock_build,
-            patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
+            patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
             # Setup resolve to return Codex config with reasoning effort
@@ -344,7 +344,7 @@ class TestExecuteJobWithOverrides:
         with (
             time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)),
             patch("ductor_bot.cron.execution.build_cmd") as mock_build,
-            patch("ductor_bot.cron.observer.resolve_cli_config") as mock_resolve,
+            patch("ductor_bot.infra.base_task_observer.resolve_cli_config") as mock_resolve,
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess,
         ):
             # Setup resolve to return full config

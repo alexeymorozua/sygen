@@ -10,10 +10,15 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from aiogram import Bot
+
 if TYPE_CHECKING:
+    from ductor_bot.bot.sender import SendRichOpts
     from ductor_bot.multiagent.stack import AgentStack
 
 logger = logging.getLogger(__name__)
+
+NotifyCallback = Callable[[Bot, int, str, "SendRichOpts | None"], Awaitable[None]]
 
 _DEFAULT_TIMEOUT = 300.0  # 5 minutes — for synchronous sends
 _ASYNC_TIMEOUT = 3600.0  # 1 hour — async tasks may run complex multi-step work
@@ -85,6 +90,11 @@ class InterAgentBus:
         self._message_log: list[InterAgentMessage] = []
         self._async_tasks: dict[str, AsyncInterAgentTask] = {}
         self._async_result_handlers: dict[str, AsyncResultCallback] = {}
+        self._notify_sender: NotifyCallback | None = None
+
+    def set_notification_sender(self, callback: NotifyCallback) -> None:
+        """Set callback for sending Telegram notifications to recipients."""
+        self._notify_sender = callback
 
     def register(self, name: str, stack: AgentStack) -> None:
         """Register an agent on the bus."""
@@ -338,11 +348,12 @@ class InterAgentBus:
         Best-effort: failures are logged but never block execution.
         """
         try:
+            if self._notify_sender is None:
+                return
             target = self._agents.get(task.recipient)
             if target is None:
                 return
-            config = target.bot._config
-            chat_id = config.allowed_user_ids[0] if config.allowed_user_ids else 0
+            chat_id = target.config.allowed_user_ids[0] if target.config.allowed_user_ids else 0
             if not chat_id:
                 return
 
@@ -355,9 +366,7 @@ class InterAgentBus:
                 f"_{preview}_"
             )
 
-            from ductor_bot.bot.sender import SendRichOpts, send_rich
-
-            await send_rich(target.bot._bot, chat_id, text, SendRichOpts())
+            await self._notify_sender(target.bot.bot_instance, chat_id, text, None)
         except Exception:
             logger.debug(
                 "Failed to notify recipient '%s' about async task %s (non-critical)",

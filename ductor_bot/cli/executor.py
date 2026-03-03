@@ -14,7 +14,6 @@ from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 
 from ductor_bot.cli.base import (
-    _CREATION_FLAGS,
     _IS_WINDOWS,
     CLIConfig,
     _win_feed_stdin,
@@ -22,6 +21,7 @@ from ductor_bot.cli.base import (
 from ductor_bot.cli.stream_events import ResultEvent, StreamEvent
 from ductor_bot.cli.timeout_controller import TimeoutController
 from ductor_bot.cli.types import CLIResponse
+from ductor_bot.infra.platform import CREATION_FLAGS as _CREATION_FLAGS
 from ductor_bot.infra.process_tree import force_kill_process_tree
 
 logger = logging.getLogger(__name__)

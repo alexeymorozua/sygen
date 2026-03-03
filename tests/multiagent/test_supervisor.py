@@ -511,8 +511,8 @@ class TestAbortAllAgents:
         main_registry = MagicMock()
         main_registry.kill_all_active = AsyncMock(return_value=2)
         main_orch = MagicMock()
-        main_orch._process_registry = main_registry
-        main_orch._bg_observer = None
+        main_orch.process_registry = main_registry
+        main_orch.bg_observer = None
         main_bot = MagicMock()
         main_bot.orchestrator = main_orch
         main_stack = MagicMock()
@@ -521,8 +521,8 @@ class TestAbortAllAgents:
         sub_registry = MagicMock()
         sub_registry.kill_all_active = AsyncMock(return_value=1)
         sub_orch = MagicMock()
-        sub_orch._process_registry = sub_registry
-        sub_orch._bg_observer = None
+        sub_orch.process_registry = sub_registry
+        sub_orch.bg_observer = None
         sub_bot = MagicMock()
         sub_bot.orchestrator = sub_orch
         sub_stack = MagicMock()

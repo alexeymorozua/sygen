@@ -26,7 +26,7 @@ _STATUS_EMOJI = {
 
 async def cmd_agents(orch: Orchestrator, _chat_id: int, _text: str) -> OrchestratorResult:
     """Handle /agents: list all agents with status."""
-    supervisor = orch._supervisor
+    supervisor = orch.supervisor
     if supervisor is None:
         return OrchestratorResult(text="Multi-agent mode is not active.")
 
@@ -60,7 +60,7 @@ async def cmd_agents(orch: Orchestrator, _chat_id: int, _text: str) -> Orchestra
 
 async def cmd_agent_stop(orch: Orchestrator, _chat_id: int, text: str) -> OrchestratorResult:
     """Handle /agent_stop <name>: stop a sub-agent."""
-    supervisor = orch._supervisor
+    supervisor = orch.supervisor
     if supervisor is None:
         return OrchestratorResult(text="Multi-agent mode is not active.")
 
@@ -81,7 +81,7 @@ async def cmd_agent_stop(orch: Orchestrator, _chat_id: int, text: str) -> Orches
 
 async def cmd_agent_start(orch: Orchestrator, _chat_id: int, text: str) -> OrchestratorResult:
     """Handle /agent_start <name>: start a sub-agent from the registry."""
-    supervisor = orch._supervisor
+    supervisor = orch.supervisor
     if supervisor is None:
         return OrchestratorResult(text="Multi-agent mode is not active.")
 
@@ -96,7 +96,7 @@ async def cmd_agent_start(orch: Orchestrator, _chat_id: int, text: str) -> Orche
 
 async def cmd_agent_restart(orch: Orchestrator, _chat_id: int, text: str) -> OrchestratorResult:
     """Handle /agent_restart <name>: restart a sub-agent."""
-    supervisor = orch._supervisor
+    supervisor = orch.supervisor
     if supervisor is None:
         return OrchestratorResult(text="Multi-agent mode is not active.")
 

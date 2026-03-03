@@ -17,7 +17,7 @@ from ductor_bot.multiagent.stack import AgentStack
 from ductor_bot.workspace.paths import resolve_paths
 
 if TYPE_CHECKING:
-    from ductor_bot.multiagent.bus import InterAgentBus
+    from ductor_bot.multiagent.bus import InterAgentBus, NotifyCallback
     from ductor_bot.multiagent.internal_api import InternalAgentAPI
     from ductor_bot.multiagent.shared_knowledge import SharedKnowledgeSync
     from ductor_bot.tasks.hub import TaskHub
@@ -55,6 +55,13 @@ class AgentSupervisor:
         self._internal_api: InternalAgentAPI | None = None
         self._shared_knowledge: SharedKnowledgeSync | None = None
         self._task_hub: TaskHub | None = None
+        self._notify_sender: NotifyCallback | None = None
+
+    def set_notification_sender(self, callback: NotifyCallback) -> None:
+        """Set callback for sending Telegram notifications (called after bot wiring)."""
+        self._notify_sender = callback
+        if self._bus is not None:
+            self._bus.set_notification_sender(callback)
 
     @property
     def stacks(self) -> dict[str, AgentStack]:
@@ -77,6 +84,8 @@ class AgentSupervisor:
         from ductor_bot.multiagent.internal_api import InternalAgentAPI
 
         self._bus = InterAgentBus()
+        if self._notify_sender is not None:
+            self._bus.set_notification_sender(self._notify_sender)
         self._internal_api = InternalAgentAPI(
             self._bus, docker_mode=self._main_config.docker.enabled
         )
@@ -311,7 +320,7 @@ class AgentSupervisor:
             orch = stack.bot.orchestrator
             if orch is None:
                 return
-            orch._supervisor = supervisor
+            orch.supervisor = supervisor
             if stack.is_main:
                 orch.register_multiagent_commands()
                 stack.bot.set_abort_all_callback(supervisor.abort_all_agents)
@@ -345,7 +354,7 @@ class AgentSupervisor:
         orch.set_task_hub(hub)
 
         # Register this agent's CLI service and workspace paths for task execution
-        hub.set_cli_service(name, orch._cli_service)
+        hub.set_cli_service(name, orch.cli_service)
         hub.set_agent_paths(name, stack.paths)
 
         hub.set_result_handler(name, stack.bot.on_task_result)
@@ -516,14 +525,15 @@ class AgentSupervisor:
 
     async def _notify_main_agent(self, message: str) -> None:
         """Send a system notification to the main agent's Telegram users."""
+        if self._notify_sender is None:
+            return
         main = self._stacks.get("main")
         if main is None:
             return
         try:
-            from ductor_bot.bot.sender import send_rich
-
+            bot_instance = main.bot.bot_instance
             for uid in main.config.allowed_user_ids:
-                await send_rich(main.bot.bot_instance, uid, f"**[Supervisor]** {message}")
+                await self._notify_sender(bot_instance, uid, f"**[Supervisor]** {message}", None)
         except Exception:
             logger.exception("Failed to notify main agent")
 
@@ -541,11 +551,11 @@ class AgentSupervisor:
             if orch is None:
                 continue
             try:
-                k = await orch._process_registry.kill_all_active()
-                if orch._bg_observer:
-                    chat_ids = {t.chat_id for t in orch._bg_observer._tasks.values()}
+                k = await orch.process_registry.kill_all_active()
+                if orch.bg_observer:
+                    chat_ids = {t.chat_id for t in orch.bg_observer._tasks.values()}
                     for cid in chat_ids:
-                        k += await orch._bg_observer.cancel_all(cid)
+                        k += await orch.bg_observer.cancel_all(cid)
                 if k:
                     logger.info("Abort-all killed %d process(es) on agent '%s'", k, name)
                 killed += k
