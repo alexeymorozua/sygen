@@ -18,7 +18,6 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, FSInputFile, ReplyParameters
 
 from ductor_bot.background import BackgroundResult
-from ductor_bot.bot.buttons import extract_buttons_for_session
 from ductor_bot.bot.file_browser import (
     file_browser_start,
     handle_file_browser_callback,
@@ -60,13 +59,8 @@ from ductor_bot.commands import BOT_COMMANDS as _COMMAND_DEFS
 from ductor_bot.commands import MULTIAGENT_SUB_COMMANDS as _MA_SUB_DEFS
 from ductor_bot.config import AgentConfig
 from ductor_bot.files.allowed_roots import resolve_allowed_roots
-from ductor_bot.infra.restart import EXIT_RESTART, consume_restart_marker, consume_restart_sentinel
-from ductor_bot.infra.updater import (
-    UpdateObserver,
-    consume_upgrade_sentinel,
-    perform_upgrade_pipeline,
-    write_upgrade_sentinel,
-)
+from ductor_bot.infra.restart import EXIT_RESTART, consume_restart_marker
+from ductor_bot.infra.updater import UpdateObserver
 from ductor_bot.infra.version import VersionInfo, get_current_version
 from ductor_bot.log_context import set_log_context
 from ductor_bot.multiagent.bus import AsyncInterAgentResult
@@ -83,7 +77,6 @@ logger = logging.getLogger(__name__)
 
 _WELCOME_IMAGE = Path(__file__).resolve().parent / "ductor_images" / "welcome.png"
 _CAPTION_LIMIT = 1024
-_CRON_ACK_MARKERS = ("message sent successfully", "delivered to telegram")
 
 # Backward-compatible patch points used by tests.
 TypingContext = _TypingContext
@@ -98,20 +91,6 @@ def _help_line(command: str) -> str:
     """Return one command line for the help panel."""
     description = _CMD_DESC.get(command, "")
     return f"/{command} -- {description}" if description else f"/{command}"
-
-
-def _is_cron_transport_ack_line(line: str) -> bool:
-    """Return True for known transport confirmation lines from task tools."""
-    normalized = " ".join(line.lower().split())
-    return all(marker in normalized for marker in _CRON_ACK_MARKERS)
-
-
-def _sanitize_cron_result_text(result: str) -> str:
-    """Strip tool transport confirmations from cron result text."""
-    if not result:
-        return ""
-    lines = [line for line in result.splitlines() if not _is_cron_transport_ack_line(line)]
-    return "\n".join(lines).strip()
 
 
 _HELP_TEXT = fmt(
@@ -200,121 +179,29 @@ class TelegramBot:
         """Public read-only access to the aiogram Bot instance."""
         return self._bot
 
-    def _file_roots(self, paths: DuctorPaths) -> list[Path] | None:
+    @property
+    def config(self) -> AgentConfig:
+        """Public read-only access to the agent configuration."""
+        return self._config
+
+    @property
+    def sequential(self) -> SequentialMiddleware:
+        """Public read-only access to the sequential middleware."""
+        return self._sequential
+
+    def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
         """Allowed root directories for ``<file:...>`` tag sends."""
         return resolve_allowed_roots(self._config.file_access, paths.workspace)
 
-    async def _broadcast(self, text: str, opts: SendRichOpts | None = None) -> None:
+    async def broadcast(self, text: str, opts: SendRichOpts | None = None) -> None:
         """Send a message to all allowed users."""
         for uid in self._config.allowed_user_ids:
             await send_rich(self._bot, uid, text, opts)
 
     async def _on_startup(self) -> None:
-        from ductor_bot.orchestrator.core import Orchestrator
+        from ductor_bot.bot.startup import run_startup
 
-        self._orchestrator = await Orchestrator.create(
-            self._config,
-            agent_name=self._agent_name,
-        )
-
-        me = await self._bot.get_me()
-        self._bot_id = me.id
-        self._bot_username = (me.username or "").lower()
-        logger.info("Bot online: @%s (id=%d)", me.username, me.id)
-
-        sentinel_path = self._orch.paths.ductor_home / "restart-sentinel.json"
-        sentinel = await asyncio.to_thread(consume_restart_sentinel, sentinel_path=sentinel_path)
-        if sentinel:
-            chat_id = int(sentinel.get("chat_id", 0))
-            msg = str(sentinel.get("message", "Restart completed."))
-            if chat_id:
-                await send_rich(
-                    self._bot,
-                    chat_id,
-                    msg,
-                    SendRichOpts(
-                        allowed_roots=self._file_roots(self._orch.paths),
-                    ),
-                )
-
-        self._orchestrator.set_cron_result_handler(self._on_cron_result)
-        self._orchestrator.set_heartbeat_handler(self._on_heartbeat_result)
-        self._orchestrator.set_webhook_result_handler(self._on_webhook_result)
-        self._orchestrator.set_webhook_wake_handler(self._handle_webhook_wake)
-        self._orchestrator.set_session_result_handler(self._on_session_result)
-
-        # Check for post-upgrade notification
-        upgrade = await asyncio.to_thread(consume_upgrade_sentinel, self._orch.paths.ductor_home)
-        if upgrade:
-            uid = int(upgrade.get("chat_id", 0))
-            old_v = upgrade.get("old_version", "?")
-            new_v = upgrade.get("new_version", get_current_version())
-            if uid:
-                await send_rich(
-                    self._bot,
-                    uid,
-                    f"**Upgrade complete** `{old_v}` -> `{new_v}`",
-                    SendRichOpts(
-                        allowed_roots=self._file_roots(self._orch.paths),
-                    ),
-                )
-
-        # -- Startup lifecycle detection --
-        from ductor_bot.infra.startup_state import detect_startup_kind, save_startup_state
-        from ductor_bot.text.response_format import startup_notification_text
-
-        startup_info = await asyncio.to_thread(
-            detect_startup_kind, self._orch.paths.startup_state_path
-        )
-        await asyncio.to_thread(
-            save_startup_state, self._orch.paths.startup_state_path, startup_info
-        )
-        if sentinel is None and startup_info.kind.value != "service_restart":
-            note = startup_notification_text(startup_info.kind.value)
-            if note:
-                await self._broadcast(
-                    note, SendRichOpts(allowed_roots=self._file_roots(self._orch.paths))
-                )
-
-        # -- Auto-recovery of interrupted work --
-        from ductor_bot.infra.recovery import RecoveryPlanner
-        from ductor_bot.text.response_format import recovery_notification_text
-
-        planner = RecoveryPlanner(
-            inflight=self._orch._inflight_tracker,
-            named_sessions=self._orch._named_sessions.pop_recovered_running(),
-            max_age_seconds=self._config.timeouts.normal * 2,
-        )
-        for action in planner.plan():
-            note = recovery_notification_text(
-                action.kind, action.prompt_preview, action.session_name
-            )
-            await send_rich(
-                self._bot,
-                action.chat_id,
-                note,
-                SendRichOpts(allowed_roots=self._file_roots(self._orch.paths)),
-            )
-            if action.kind == "named_session" and action.session_name:
-                with contextlib.suppress(Exception):
-                    self._orch.submit_named_followup_bg(
-                        action.chat_id,
-                        action.session_name,
-                        action.prompt_preview,
-                        message_id=0,
-                        thread_id=None,
-                    )
-        self._orch._inflight_tracker.clear()
-
-        # Start background version checker (skip for dev/source installs)
-        from ductor_bot.infra.install import is_upgradeable
-
-        if is_upgradeable():
-            self._update_observer = UpdateObserver(notify=self._on_update_available)
-            self._update_observer.start()
-
-        await self._sync_commands()
-        self._restart_watcher = asyncio.create_task(self._watch_restart_marker())
+        await run_startup(self)
 
     def _register_handlers(self) -> None:
         r = self._router
@@ -588,7 +475,7 @@ class TelegramBot:
 
     def _build_session_help(self) -> str:
         """Build the /session hub: explain the system + show commands."""
-        providers = self._orch._available_providers
+        providers = self._orch.available_providers
         lines: list[str] = [
             "Background sessions run tasks in parallel without blocking "
             "the main chat. Each session gets a unique name and runs "
@@ -707,7 +594,7 @@ class TelegramBot:
                     ns_request,
                 )
                 ns = self._orch.get_named_session(chat_id, session_name)
-                provider = ns.provider if ns else (provider_override or self._orch._config.provider)
+                provider = ns.provider if ns else (provider_override or self._orch.config.provider)
                 model = ns.model if ns else ""
                 provider_label = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}.get(
                     provider, provider
@@ -966,7 +853,7 @@ class TelegramBot:
             text,
         )
         if result.text:
-            roots = self._file_roots(self._orch.paths)
+            roots = self.file_roots(self._orch.paths)
             await send_rich(
                 self._bot,
                 chat_id,
@@ -987,7 +874,7 @@ class TelegramBot:
 
         result = await named_session_flow(self._orch, chat_id, session_name, text)
         if result.text:
-            roots = self._file_roots(self._orch.paths)
+            roots = self.file_roots(self._orch.paths)
             await send_rich(
                 self._bot,
                 chat_id,
@@ -1117,7 +1004,7 @@ class TelegramBot:
                 chat_id=chat_id,
                 text=text,
                 streaming_cfg=self._config.streaming,
-                allowed_roots=self._file_roots(self._orch.paths),
+                allowed_roots=self.file_roots(self._orch.paths),
                 thread_id=thread_id,
             ),
         )
@@ -1137,7 +1024,7 @@ class TelegramBot:
                 orchestrator=self._orch,
                 chat_id=chat_id,
                 text=text,
-                allowed_roots=self._file_roots(self._orch.paths),
+                allowed_roots=self.file_roots(self._orch.paths),
                 reply_to=reply_to,
                 thread_id=thread_id,
             ),
@@ -1147,217 +1034,33 @@ class TelegramBot:
 
     async def _on_session_result(self, result: BackgroundResult) -> None:
         """Send background task result as a NEW message (triggers notification)."""
-        elapsed = f"{result.elapsed_seconds:.0f}s"
+        from ductor_bot.bot.result_delivery import deliver_session_result
 
-        if result.session_name:
-            # Update named session registry
-            self._orch._named_sessions.update_after_response(
-                result.chat_id, result.session_name, result.session_id
-            )
-            await self._deliver_session_result(result, elapsed)
-        else:
-            await self._deliver_stateless_result(result, elapsed)
-
-    async def _deliver_session_result(self, result: BackgroundResult, elapsed: str) -> None:
-        """Deliver a named-session background result with session tag."""
-        name = result.session_name
-        if result.status == "aborted":
-            text = fmt(f"**[{name}] Cancelled**", SEP, f"_{result.prompt_preview}_")
-        elif result.status.startswith("error:"):
-            text = fmt(
-                f"**[{name}] Failed** ({elapsed})",
-                SEP,
-                result.result_text[:2000] if result.result_text else "_No output._",
-            )
-        else:
-            text = fmt(
-                f"**[{name}] Complete** ({elapsed})",
-                SEP,
-                result.result_text or "_No output._",
-            )
-
-        cleaned, markup = extract_buttons_for_session(text, name)
-        roots = self._file_roots(self._orch.paths)
-        await send_rich(
-            self._bot,
-            result.chat_id,
-            cleaned,
-            SendRichOpts(
-                reply_to_message_id=result.message_id,
-                reply_markup=markup,
-                allowed_roots=roots,
-                thread_id=result.thread_id,
-            ),
-        )
-
-    async def _deliver_stateless_result(self, result: BackgroundResult, elapsed: str) -> None:
-        """Deliver a legacy stateless background result."""
-        if result.status == "aborted":
-            text = fmt(
-                "**Background Task Cancelled**",
-                SEP,
-                f"Task `{result.task_id}` was cancelled.\nPrompt: _{result.prompt_preview}_",
-            )
-        elif result.status.startswith("error:"):
-            text = fmt(
-                f"**Background Task Failed** ({elapsed})",
-                SEP,
-                f"Task `{result.task_id}` failed ({result.status}).\n"
-                f"Prompt: _{result.prompt_preview}_\n\n"
-                + (result.result_text[:2000] if result.result_text else "_No output._"),
-            )
-        else:
-            text = fmt(
-                f"**Background Task Complete** ({elapsed})",
-                SEP,
-                result.result_text or "_No output._",
-            )
-
-        roots = self._file_roots(self._orch.paths)
-        await send_rich(
-            self._bot,
-            result.chat_id,
-            text,
-            SendRichOpts(
-                reply_to_message_id=result.message_id,
-                allowed_roots=roots,
-                thread_id=result.thread_id,
-            ),
-        )
+        await deliver_session_result(self, result)
 
     async def _on_cron_result(self, title: str, result: str, status: str) -> None:
         """Send cron job result to all allowed users."""
-        clean_result = _sanitize_cron_result_text(result)
-        if result and not clean_result and status == "success":
-            logger.debug(
-                "Cron result only had transport confirmations; skipping broadcast task=%s", title
-            )
-            return
-        text = (
-            f"**TASK: {title}**\n\n{clean_result}"
-            if clean_result
-            else f"**TASK: {title}**\n\n_{status}_"
-        )
-        await self._broadcast(text, SendRichOpts(allowed_roots=self._file_roots(self._orch.paths)))
+        from ductor_bot.bot.result_delivery import deliver_cron_result
+
+        await deliver_cron_result(self, title, result, status)
 
     async def _on_heartbeat_result(self, chat_id: int, text: str) -> None:
         """Send heartbeat alert to the user."""
-        logger.debug("Heartbeat delivery chars=%d", len(text))
-        await send_rich(
-            self._bot, chat_id, text, SendRichOpts(allowed_roots=self._file_roots(self._orch.paths))
-        )
-        logger.info("Heartbeat delivered")
+        from ductor_bot.bot.result_delivery import deliver_heartbeat_result
 
-    async def on_async_interagent_result(
-        self,
-        result: AsyncInterAgentResult,
-    ) -> None:
-        """Handle async inter-agent result: inject into active main session.
+        await deliver_heartbeat_result(self, chat_id, text)
 
-        On error: sends the error notification to the primary user.
-        On success: acquires the chat lock, resumes the current active session
-        with a self-contained prompt (original task + result), and sends the
-        orchestrator's response to Telegram.
-        """
-        chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
-        if not chat_id:
-            logger.warning("No chat_id available for async interagent result delivery")
-            return
+    async def on_async_interagent_result(self, result: AsyncInterAgentResult) -> None:
+        """Handle async inter-agent result: inject into active main session."""
+        from ductor_bot.bot.result_delivery import deliver_interagent_result
 
-        set_log_context(operation="ia-async", chat_id=chat_id)
-        roots = self._file_roots(self._orch.paths)
-
-        logger.debug(
-            "Async inter-agent result received: task=%s from=%s success=%s len=%d",
-            result.task_id,
-            result.recipient,
-            result.success,
-            len(result.result_text),
-        )
-
-        session_info = f"\nSession: `{result.session_name}`" if result.session_name else ""
-
-        if not result.success:
-            error_text = (
-                f"**Inter-Agent Request Failed**\n\n"
-                f"Agent: `{result.recipient}`{session_info}\n"
-                f"Error: {result.error}\n"
-                f"Request: _{result.message_preview}_"
-            )
-            await send_rich(self._bot, chat_id, error_text, SendRichOpts(allowed_roots=roots))
-            return
-
-        # Notify user about provider switch before processing the result
-        if result.provider_switch_notice:
-            await send_rich(
-                self._bot,
-                chat_id,
-                f"**Provider Switch Detected**\n\n{result.provider_switch_notice}",
-                SendRichOpts(allowed_roots=roots),
-            )
-
-        # Acquire the chat lock so we safely resume the current active session
-        # (no concurrent CLI access). Queues behind any active user conversation.
-        lock = self._sequential.get_lock(chat_id)
-        logger.debug("Async inter-agent result: waiting for chat lock (chat_id=%d)", chat_id)
-        async with lock, _TypingContext(self._bot, chat_id):
-            logger.debug("Async inter-agent result: lock acquired, injecting into main session")
-            response_text = await self._orch.handle_async_interagent_result(
-                result,
-                chat_id=chat_id,
-            )
-
-        if response_text:
-            await send_rich(self._bot, chat_id, response_text, SendRichOpts(allowed_roots=roots))
+        await deliver_interagent_result(self, result)
 
     async def on_task_result(self, result: TaskResult) -> None:
-        """Handle background task result: notify user and inject into active session.
+        """Handle background task result: notify user and inject into active session."""
+        from ductor_bot.bot.result_delivery import deliver_task_result
 
-        On success/failure: sends a Telegram notification, acquires the chat
-        lock, resumes the current active session with the result, and sends
-        the orchestrator's response.
-        """
-        chat_id = result.chat_id
-        if not chat_id:
-            chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
-        if not chat_id:
-            logger.warning("No chat_id for task result delivery (task=%s)", result.task_id)
-            return
-
-        set_log_context(operation="task", chat_id=chat_id)
-        roots = self._file_roots(self._orch.paths)
-
-        logger.debug(
-            "Task result: id=%s name='%s' status=%s",
-            result.task_id,
-            result.name,
-            result.status,
-        )
-
-        # 1. Send Telegram notification (skip "waiting" — question already shown)
-        if result.status == "done":
-            duration = f"{result.elapsed_seconds:.0f}s"
-            target = f"{result.provider}/{result.model}" if result.provider else ""
-            detail = f"{duration}, {target}" if target else duration
-            note = f"**Task `{result.name}` completed** ({detail})"
-        elif result.status == "cancelled":
-            note = f"**Task `{result.name}` cancelled**"
-        elif result.status == "waiting":
-            note = ""  # Question already delivered via on_task_question
-        else:
-            note = f"**Task `{result.name}` failed**\nReason: {result.error}"
-        if note:
-            await send_rich(self._bot, chat_id, note, SendRichOpts(allowed_roots=roots))
-
-        # 2. Inject into parent agent's session (for done/failed — not cancelled/waiting)
-        if result.status in ("done", "failed"):
-            lock = self._sequential.get_lock(chat_id)
-            async with lock, _TypingContext(self._bot, chat_id):
-                response_text = await self._orch.handle_task_result(result, chat_id=chat_id)
-            if response_text:
-                await send_rich(
-                    self._bot, chat_id, response_text, SendRichOpts(allowed_roots=roots)
-                )
+        await deliver_task_result(self, result)
 
     async def on_task_question(
         self,
@@ -1366,244 +1069,46 @@ class TelegramBot:
         prompt_preview: str,
         chat_id: int,
     ) -> None:
-        """Deliver a background task question to the main agent's Telegram chat.
+        """Deliver a background task question to the main agent's Telegram chat."""
+        from ductor_bot.bot.result_delivery import handle_task_question
 
-        Sends a notification, then injects the question into the main agent's
-        session. The agent decides: answer directly (via resume_task.py) or
-        ask the user first, then resume.
-        """
-        if not chat_id:
-            chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
-        if not chat_id:
-            logger.warning("No chat_id for task question delivery (task=%s)", task_id)
-            return
-
-        set_log_context(operation="task", chat_id=chat_id)
-        roots = self._file_roots(self._orch.paths)
-
-        logger.debug("Task question: id=%s question='%s'", task_id, question[:60])
-
-        # 1. Notify user about the question
-        note = f"**Task `{task_id}` has a question:**\n{question}"
-        await send_rich(self._bot, chat_id, note, SendRichOpts(allowed_roots=roots))
-
-        # 2. Inject into main agent's session so it can handle it
-        lock = self._sequential.get_lock(chat_id)
-        async with lock, _TypingContext(self._bot, chat_id):
-            response = await self._orch.handle_task_question(
-                task_id, question, prompt_preview, chat_id
-            )
-
-        # 3. Send agent's decision to Telegram
-        if response:
-            await send_rich(self._bot, chat_id, response, SendRichOpts(allowed_roots=roots))
+        await handle_task_question(self, task_id, question, prompt_preview, chat_id)
 
     async def _handle_webhook_wake(self, chat_id: int, prompt: str) -> str | None:
-        """Process webhook wake prompt through the normal message pipeline.
+        """Process webhook wake prompt through the normal message pipeline."""
+        from ductor_bot.bot.result_delivery import handle_webhook_wake
 
-        Acquires the per-chat lock (queues behind active conversations),
-        processes the prompt through the standard orchestrator path, and
-        sends the response to Telegram like a normal message.
-        """
-        set_log_context(operation="wh", chat_id=chat_id)
-        lock = self._sequential.get_lock(chat_id)
-        async with lock:
-            result = await self._orch.handle_message(chat_id, prompt)
-        roots = self._file_roots(self._orch.paths)
-        await send_rich(self._bot, chat_id, result.text, SendRichOpts(allowed_roots=roots))
-        return result.text
+        return await handle_webhook_wake(self, chat_id, prompt)
 
     async def _on_webhook_result(self, result: object) -> None:
-        """Send webhook cron_task result to all allowed users.
+        """Send webhook cron_task result to all allowed users."""
+        from ductor_bot.bot.result_delivery import deliver_webhook_result
 
-        Wake mode results are already sent to Telegram by ``_handle_webhook_wake``.
-        """
-        from ductor_bot.webhook.models import WebhookResult
-
-        if not isinstance(result, WebhookResult):
-            return
-        if result.mode == "wake":
-            return
-        if result.result_text:
-            text = f"**WEBHOOK (CRON TASK): {result.hook_title}**\n\n{result.result_text}"
-        else:
-            text = f"**WEBHOOK (CRON TASK): {result.hook_title}**\n\n_{result.status}_"
-        await self._broadcast(text, SendRichOpts(allowed_roots=self._file_roots(self._orch.paths)))
+        await deliver_webhook_result(self, result)
 
     # -- Update notifications --------------------------------------------------
 
     async def _on_update_available(self, info: VersionInfo) -> None:
         """Notify all users about a new version via Telegram."""
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+        from ductor_bot.bot.upgrade_handler import on_update_available
 
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=f"Changelog v{info.latest}",
-                        callback_data=f"upg:cl:{info.latest}",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="Upgrade now",
-                        callback_data=f"upg:yes:{info.latest}",
-                    ),
-                    InlineKeyboardButton(text="Later", callback_data="upg:no"),
-                ],
-            ],
-        )
-        text = fmt(
-            "**Update Available**",
-            SEP,
-            f"Installed: `{info.current}`\nNew:       `{info.latest}`",
-        )
-        await self._broadcast(text, SendRichOpts(reply_markup=keyboard))
+        await on_update_available(self, info)
 
     async def _handle_upgrade_callback(
         self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None
     ) -> None:
         """Handle ``upg:yes:<version>``, ``upg:no``, and ``upg:cl:<version>`` callbacks."""
-        if data.startswith("upg:cl:"):
-            await self._handle_changelog_callback(chat_id, message_id, data, thread_id=thread_id)
-            return
+        from ductor_bot.bot.upgrade_handler import handle_upgrade_callback
 
-        with contextlib.suppress(TelegramBadRequest):
-            await self._bot.edit_message_reply_markup(
-                chat_id=chat_id, message_id=message_id, reply_markup=None
-            )
-
-        if data == "upg:no":
-            with contextlib.suppress(TelegramBadRequest):
-                await self._bot.edit_message_text(
-                    text="Upgrade skipped.",
-                    chat_id=chat_id,
-                    message_id=message_id,
-                )
-            return
-
-        # upg:yes:<version>
-        target_version = data.split(":", 2)[2] if data.count(":") >= 2 else "latest"
-        current_version = get_current_version()
-
-        if self._upgrade_lock.locked():
-            await self._bot.send_message(
-                chat_id,
-                "Upgrade already in progress. Please wait.",
-                parse_mode=None,
-                message_thread_id=thread_id,
-            )
-            return
-
-        async with self._upgrade_lock:
-            await self._bot.send_message(
-                chat_id,
-                f"Upgrading to {target_version}...",
-                parse_mode=None,
-                message_thread_id=thread_id,
-            )
-
-            changed, installed_version, output = await perform_upgrade_pipeline(
-                current_version=current_version,
-                target_version=target_version,
-            )
-
-            if not changed:
-                logger.warning(
-                    "Upgrade did not change version after retry: current=%s installed=%s target=%s",
-                    current_version,
-                    installed_version,
-                    target_version,
-                )
-                tail = output[-300:] if output else ""
-                details = f"\n\n{tail}" if tail else ""
-                await self._bot.send_message(
-                    chat_id,
-                    (
-                        f"Upgrade could not verify a new installed version "
-                        f"(still {installed_version}) after automatic retry.{details}"
-                    ),
-                    parse_mode=None,
-                    message_thread_id=thread_id,
-                )
-                return
-
-            # Write sentinel for post-restart message (use actual installed version)
-            await asyncio.to_thread(
-                write_upgrade_sentinel,
-                self._orch.paths.ductor_home,
-                chat_id=chat_id,
-                old_version=current_version,
-                new_version=installed_version,
-            )
-
-            await self._bot.send_message(
-                chat_id,
-                "Bot is restarting...",
-                parse_mode=None,
-                message_thread_id=thread_id,
-            )
-            self._exit_code = EXIT_RESTART
-            await self._dp.stop_polling()
+        await handle_upgrade_callback(self, chat_id, message_id, data, thread_id=thread_id)
 
     async def _handle_changelog_callback(
         self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None
     ) -> None:
         """Fetch and display changelog for ``upg:cl:<version>``."""
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+        from ductor_bot.bot.upgrade_handler import handle_changelog_callback
 
-        from ductor_bot.infra.version import _parse_version, fetch_changelog
-
-        version = data.split(":", 2)[2] if data.count(":") >= 2 else ""
-        if not version:
-            return
-
-        # Only show upgrade buttons when the changelog version is newer than installed
-        current = get_current_version()
-        is_upgrade = _parse_version(version) > _parse_version(current)
-
-        if is_upgrade:
-            upgrade_keyboard: InlineKeyboardMarkup | None = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="Upgrade now",
-                            callback_data=f"upg:yes:{version}",
-                        ),
-                        InlineKeyboardButton(text="Later", callback_data="upg:no"),
-                    ],
-                ],
-            )
-        else:
-            upgrade_keyboard = None
-
-        # Update the original message: keep upgrade buttons if applicable, else remove all
-        with contextlib.suppress(TelegramBadRequest):
-            await self._bot.edit_message_reply_markup(
-                chat_id=chat_id, message_id=message_id, reply_markup=upgrade_keyboard
-            )
-
-        body = await fetch_changelog(version)
-        if not body:
-            await self._bot.send_message(
-                chat_id,
-                f"No changelog found for v{version}.",
-                parse_mode=None,
-                message_thread_id=thread_id,
-            )
-            return
-
-        roots = self._file_roots(self._orch.paths)
-        await send_rich(
-            self._bot,
-            chat_id,
-            f"**Changelog v{version}**\n\n{body}",
-            SendRichOpts(
-                allowed_roots=roots,
-                reply_markup=upgrade_keyboard,
-                thread_id=thread_id,
-            ),
-        )
+        await handle_changelog_callback(self, chat_id, message_id, data, thread_id=thread_id)
 
     async def _sync_commands(self) -> None:
         from aiogram.types import BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats

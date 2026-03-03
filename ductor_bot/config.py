@@ -195,12 +195,11 @@ def deep_merge_config(
 
 def update_config_file(config_path: Path, **updates: object) -> None:
     """Update specific keys in config.json without overwriting other user settings."""
+    from ductor_bot.infra.json_store import atomic_json_save
+
     data: dict[str, object] = json.loads(config_path.read_text(encoding="utf-8"))
     data.update(updates)
-    config_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    atomic_json_save(config_path, data)
     logger.info("Persisted config update: %s", ", ".join(f"{k}={v}" for k, v in updates.items()))
 
 

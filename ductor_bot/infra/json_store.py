@@ -17,7 +17,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def atomic_json_save(path: Path, data: dict[str, Any]) -> None:
+def atomic_json_save(path: Path, data: dict[str, Any] | list[Any]) -> None:
     """Write JSON atomically using temp file + rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
     content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"

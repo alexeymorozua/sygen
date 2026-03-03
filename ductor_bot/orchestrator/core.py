@@ -227,6 +227,50 @@ class Orchestrator:
         """Public access to the task hub (None when tasks are disabled)."""
         return self._task_hub
 
+    @property
+    def config(self) -> AgentConfig:
+        """Public access to the agent config."""
+        return self._config
+
+    @property
+    def inflight_tracker(self) -> InflightTracker:
+        """Public access to the inflight turn tracker."""
+        return self._inflight_tracker
+
+    @property
+    def named_sessions(self) -> NamedSessionRegistry:
+        """Public access to the named session registry."""
+        return self._named_sessions
+
+    @property
+    def available_providers(self) -> frozenset[str]:
+        """Public access to the set of authenticated providers."""
+        return self._available_providers
+
+    @property
+    def cli_service(self) -> CLIService:
+        """Public access to the CLI service."""
+        return self._cli_service
+
+    @property
+    def process_registry(self) -> ProcessRegistry:
+        """Public access to the process registry."""
+        return self._process_registry
+
+    @property
+    def bg_observer(self) -> BackgroundObserver | None:
+        """Public access to the background observer."""
+        return self._bg_observer
+
+    @property
+    def supervisor(self) -> AgentSupervisor | None:
+        """Public access to the agent supervisor."""
+        return self._supervisor
+
+    @supervisor.setter
+    def supervisor(self, value: AgentSupervisor | None) -> None:
+        self._supervisor = value
+
     def set_task_hub(self, hub: TaskHub) -> None:
         """Inject the task hub (called by supervisor or startup wiring)."""
         self._task_hub = hub

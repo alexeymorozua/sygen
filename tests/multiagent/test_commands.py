@@ -17,7 +17,7 @@ def _make_orch(*, with_supervisor: bool = True) -> MagicMock:
     """Create a mock Orchestrator with optional supervisor."""
     orch = MagicMock()
     if not with_supervisor:
-        orch._supervisor = None
+        orch.supervisor = None
     else:
         supervisor = MagicMock()
         supervisor.health = {}
@@ -25,7 +25,7 @@ def _make_orch(*, with_supervisor: bool = True) -> MagicMock:
         supervisor.stop_agent = AsyncMock()
         supervisor.start_agent_by_name = AsyncMock(return_value="Agent 'sub1' started.")
         supervisor.restart_agent = AsyncMock(return_value="Agent 'sub1' restarted.")
-        orch._supervisor = supervisor
+        orch.supervisor = supervisor
     return orch
 
 
@@ -46,10 +46,10 @@ class TestCmdAgents:
         orch = _make_orch()
         h = AgentHealth(name="main")
         h.mark_running()
-        orch._supervisor.health = {"main": h}
+        orch.supervisor.health = {"main": h}
         stack = MagicMock()
         stack.is_main = True
-        orch._supervisor.stacks = {"main": stack}
+        orch.supervisor.stacks = {"main": stack}
 
         result = await cmd_agents(orch, 1, "/agents")
         assert "main" in result.text
@@ -59,10 +59,10 @@ class TestCmdAgents:
         orch = _make_orch()
         h = AgentHealth(name="sub1")
         h.mark_crashed("Connection refused")
-        orch._supervisor.health = {"sub1": h}
+        orch.supervisor.health = {"sub1": h}
         stack = MagicMock()
         stack.is_main = False
-        orch._supervisor.stacks = {"sub1": stack}
+        orch.supervisor.stacks = {"sub1": stack}
 
         result = await cmd_agents(orch, 1, "/agents")
         assert "crashed" in result.text
@@ -73,10 +73,10 @@ class TestCmdAgents:
         h = AgentHealth(name="sub1")
         h.mark_crashed("err1")
         h.mark_crashed("err2")
-        orch._supervisor.health = {"sub1": h}
+        orch.supervisor.health = {"sub1": h}
         stack = MagicMock()
         stack.is_main = False
-        orch._supervisor.stacks = {"sub1": stack}
+        orch.supervisor.stacks = {"sub1": stack}
 
         result = await cmd_agents(orch, 1, "/agents")
         assert "restarts: 2" in result.text
@@ -85,10 +85,10 @@ class TestCmdAgents:
         orch = _make_orch()
         h = AgentHealth(name="main")
         h.mark_running()
-        orch._supervisor.health = {"main": h}
+        orch.supervisor.health = {"main": h}
         stack = MagicMock()
         stack.is_main = True
-        orch._supervisor.stacks = {"main": stack}
+        orch.supervisor.stacks = {"main": stack}
 
         result = await cmd_agents(orch, 1, "/agents")
         # Uptime is very short, so it shows seconds
@@ -100,8 +100,8 @@ class TestCmdAgents:
         h_main.mark_running()
         h_sub = AgentHealth(name="alpha")
         h_sub.mark_running()
-        orch._supervisor.health = {"main": h_main, "alpha": h_sub}
-        orch._supervisor.stacks = {
+        orch.supervisor.health = {"main": h_main, "alpha": h_sub}
+        orch.supervisor.stacks = {
             "main": MagicMock(is_main=True),
             "alpha": MagicMock(is_main=False),
         }
@@ -138,10 +138,10 @@ class TestCmdAgentStop:
 
     async def test_stop_success(self) -> None:
         orch = _make_orch()
-        orch._supervisor.stacks = {"sub1": MagicMock()}
+        orch.supervisor.stacks = {"sub1": MagicMock()}
         result = await cmd_agent_stop(orch, 1, "/agent_stop sub1")
         assert "stopped" in result.text
-        orch._supervisor.stop_agent.assert_called_once_with("sub1")
+        orch.supervisor.stop_agent.assert_called_once_with("sub1")
 
 
 class TestCmdAgentStart:
@@ -161,7 +161,7 @@ class TestCmdAgentStart:
         orch = _make_orch()
         result = await cmd_agent_start(orch, 1, "/agent_start sub1")
         assert "started" in result.text
-        orch._supervisor.start_agent_by_name.assert_called_once_with("sub1")
+        orch.supervisor.start_agent_by_name.assert_called_once_with("sub1")
 
 
 class TestCmdAgentRestart:
@@ -179,7 +179,7 @@ class TestCmdAgentRestart:
 
     async def test_cannot_restart_main(self) -> None:
         orch = _make_orch()
-        orch._supervisor.restart_agent = AsyncMock(
+        orch.supervisor.restart_agent = AsyncMock(
             return_value="Cannot restart main agent via this command. Use /restart instead."
         )
         result = await cmd_agent_restart(orch, 1, "/agent_restart main")
@@ -189,4 +189,4 @@ class TestCmdAgentRestart:
         orch = _make_orch()
         result = await cmd_agent_restart(orch, 1, "/agent_restart sub1")
         assert "restarted" in result.text
-        orch._supervisor.restart_agent.assert_called_once_with("sub1")
+        orch.supervisor.restart_agent.assert_called_once_with("sub1")

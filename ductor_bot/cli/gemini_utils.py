@@ -99,12 +99,11 @@ def trust_workspace(working_dir: Path) -> None:
                 logger.warning("Corrupt Gemini trust file, starting fresh")
 
         if workspace_path not in data:
+            from ductor_bot.infra.json_store import atomic_json_save
+
             data[workspace_path] = "TRUST_FOLDER"
             gemini_home.mkdir(parents=True, exist_ok=True)
-            trust_file.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            atomic_json_save(trust_file, data)
             logger.info("Trusted workspace in Gemini CLI: %s", workspace_path)
     except OSError:
         logger.warning("Failed to update Gemini trusted folders", exc_info=True)

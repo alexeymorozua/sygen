@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 
 from ductor_bot.cli.auth import gemini_api_key_mode_selected
 from ductor_bot.cli.base import (
-    _CREATION_FLAGS,
     BaseCLI,
     CLIConfig,
     _feed_stdin_and_close,
@@ -29,6 +28,7 @@ from ductor_bot.cli.gemini_utils import (
 from ductor_bot.cli.stream_events import ResultEvent, StreamEvent, SystemInitEvent
 from ductor_bot.cli.types import CLIResponse
 from ductor_bot.config import NULLISH_TEXT_VALUES
+from ductor_bot.infra.platform import CREATION_FLAGS as _CREATION_FLAGS
 from ductor_bot.infra.process_tree import force_kill_process_tree
 from ductor_bot.workspace.paths import resolve_paths
 

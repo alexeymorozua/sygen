@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import subprocess
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,14 +14,10 @@ from ductor_bot.cli.codex_events import parse_codex_jsonl
 from ductor_bot.cli.gemini_events import parse_gemini_json
 from ductor_bot.cli.gemini_utils import find_gemini_cli
 from ductor_bot.cli.param_resolver import TaskExecutionConfig
+from ductor_bot.infra.platform import CREATION_FLAGS as _CREATION_FLAGS
 from ductor_bot.infra.process_tree import force_kill_process_tree
 
 logger = logging.getLogger(__name__)
-
-_IS_WINDOWS = sys.platform == "win32"
-
-# 0x08000000 on Windows prevents a console window from appearing.
-_CREATION_FLAGS: int = getattr(subprocess, "CREATE_NO_WINDOW", 0) if _IS_WINDOWS else 0
 
 
 @dataclass(slots=True)
