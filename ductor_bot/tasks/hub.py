@@ -46,6 +46,15 @@ to the parent agent who will resume you with the answer.
 After finishing, update your task memory: {taskmemory_path}
 """
 
+_RESUME_REMINDER = """
+
+---
+REMINDER: You are a background task agent with NO direct user access.
+- Need more info? Use: python3 tools/task_tools/ask_parent.py "question"
+- Do NOT put questions in your response — the user cannot see them.
+- When done, write your final results to: {taskmemory_path}
+"""
+
 
 class TaskHub:
     """Central coordinator for background task delegation.
@@ -186,9 +195,11 @@ class TaskHub:
             last_question="",
         )
 
-        # Resume uses the follow-up prompt directly (no TASK_PROMPT_SUFFIX —
-        # the resumed session already has rules from the first run).
-        self._spawn(entry, follow_up, entry.thinking, resume_session=entry.session_id)
+        # Append a short system reminder so the task agent remembers how to
+        # communicate (ask_parent, TASKMEMORY, no direct user access).
+        taskmemory = self._registry.taskmemory_path(entry.task_id)
+        full_prompt = follow_up + _RESUME_REMINDER.format(taskmemory_path=taskmemory)
+        self._spawn(entry, full_prompt, entry.thinking, resume_session=entry.session_id)
 
         logger.info(
             "Task resumed id=%s name='%s' provider=%s",
@@ -417,6 +428,11 @@ class TaskHub:
             result_text = response.result or ""
             session_id = response.session_id or ""
 
+            # Append TASKMEMORY.md content so the parent gets the full picture
+            if status == "done":
+                taskmemory = self._registry.taskmemory_path(entry.task_id)
+                result_text = _append_taskmemory(result_text, taskmemory)
+
             # Append resume hint so the parent agent knows it can follow up
             if status == "done" and session_id:
                 result_text += (
@@ -522,3 +538,22 @@ class TaskHub:
 
 
 _RESULT_PREVIEW_LEN = 200
+_TASKMEMORY_MAX_LEN = 4000
+
+
+def _append_taskmemory(result_text: str, taskmemory_path: Path) -> str:
+    """Append TASKMEMORY.md content to the result so the parent gets the full context."""
+    try:
+        if not taskmemory_path.is_file():
+            return result_text
+        content = taskmemory_path.read_text(encoding="utf-8").strip()
+        if not content:
+            return result_text
+    except OSError:
+        logger.debug("Could not read TASKMEMORY.md at %s", taskmemory_path)
+        return result_text
+
+    if len(content) > _TASKMEMORY_MAX_LEN:
+        content = content[:_TASKMEMORY_MAX_LEN] + "\n[... truncated]"
+
+    return f"{result_text}\n\n---\nCONTENT FROM TASKMEMORY.MD ({taskmemory_path}):\n\n{content}"

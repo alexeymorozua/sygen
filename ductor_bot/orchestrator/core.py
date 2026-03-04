@@ -70,7 +70,6 @@ if TYPE_CHECKING:
     from ductor_bot.multiagent.supervisor import AgentSupervisor
     from ductor_bot.session.named import NamedSession
     from ductor_bot.tasks.hub import TaskHub
-    from ductor_bot.tasks.models import TaskResult
 
 logger = logging.getLogger(__name__)
 
@@ -678,20 +677,6 @@ class Orchestrator:
         )
 
         return await _handle_async_ia(self, result, chat_id=chat_id)
-
-    async def handle_task_result(
-        self,
-        result: TaskResult,
-        *,
-        chat_id: int = 0,
-        topic_id: int | None = None,
-    ) -> str:
-        """Inject a background task result into the current active session."""
-        from ductor_bot.orchestrator.injection import (
-            handle_task_result as _handle_task,
-        )
-
-        return await _handle_task(self, result, chat_id=chat_id, topic_id=topic_id)
 
     async def handle_task_question(
         self,

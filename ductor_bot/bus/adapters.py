@@ -163,11 +163,12 @@ def from_task_result(result: TaskResult) -> Envelope:
     cancelled/timeout: unicast notification only (no injection).
     """
     needs_inject = result.status in ("done", "failed")
+    prompt = _build_task_injection_prompt(result) if needs_inject else ""
     return Envelope(
         origin=Origin.TASK_RESULT,
         chat_id=result.chat_id,
         topic_id=result.thread_id,
-        prompt=result.original_prompt,
+        prompt=prompt,
         prompt_preview=result.prompt_preview,
         result_text=result.result_text,
         status=result.status,
@@ -186,6 +187,35 @@ def from_task_result(result: TaskResult) -> Envelope:
             "error": result.error,
             "task_folder": result.task_folder,
         },
+    )
+
+
+def _build_task_injection_prompt(result: TaskResult) -> str:
+    """Build the prompt injected into the parent agent's session."""
+    task_id = result.task_id
+    if result.status in ("failed", "timeout"):
+        return (
+            f"[BACKGROUND TASK FAILED: task_id='{task_id}' name='{result.name}']\n"
+            f"Error: {result.error}\n"
+            f"Provider: {result.provider}/{result.model} | "
+            f"Duration: {result.elapsed_seconds:.0f}s\n\n"
+            f"Original task: {result.original_prompt}\n\n"
+            f"Inform the user that the background task '{result.name}' failed "
+            f"and suggest next steps."
+        )
+    return (
+        f"[BACKGROUND TASK COMPLETED: task_id='{task_id}' name='{result.name}']\n"
+        f"Provider: {result.provider}/{result.model} | "
+        f"Duration: {result.elapsed_seconds:.0f}s\n\n"
+        f"{result.result_text}\n\n"
+        f"[END TASK RESULT]\n\n"
+        f"Original task: {result.original_prompt}\n\n"
+        f"Review this result critically:\n"
+        f"- Does it fully answer the original task?\n"
+        f"- Is anything missing, incomplete, or unclear?\n"
+        f"- If yes → resume the task with a follow-up "
+        f"(see resume_task.py command above)\n"
+        f"- If the result is complete → summarize findings for the user\n"
     )
 
 
