@@ -54,6 +54,7 @@ class AsyncInterAgentTask:
     recipient: str
     message: str
     new_session: bool = False
+    summary: str = ""
     timestamp: float = field(default_factory=time.time)
     asyncio_task: asyncio.Task[None] | None = field(default=None, repr=False)
 
@@ -203,6 +204,7 @@ class InterAgentBus:
         message: str,
         *,
         new_session: bool = False,
+        summary: str = "",
     ) -> str | None:
         """Send a message to another agent asynchronously.
 
@@ -212,6 +214,9 @@ class InterAgentBus:
 
         If *new_session* is True, the recipient agent will end any existing
         inter-agent session with this sender and start a fresh one.
+
+        If *summary* is provided, it is shown as the notification preview in
+        the recipient's Telegram chat instead of a truncated message excerpt.
         """
         if recipient not in self._agents:
             return None
@@ -223,6 +228,7 @@ class InterAgentBus:
             recipient=recipient,
             message=message,
             new_session=new_session,
+            summary=summary,
         )
         atask = asyncio.create_task(
             self._run_async(task),
@@ -357,8 +363,11 @@ class InterAgentBus:
             if not chat_id:
                 return
 
-            # Truncate long messages for the preview
-            preview = task.message if len(task.message) <= 200 else task.message[:200] + "…"
+            # Use explicit summary if provided, otherwise truncate message
+            if task.summary:
+                preview = task.summary
+            else:
+                preview = task.message if len(task.message) <= 200 else task.message[:200] + "…"
             session_name = f"ia-{task.sender}"
             text = (
                 f"📥 **Async task received** from `{task.sender}`\n"
