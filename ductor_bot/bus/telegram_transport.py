@@ -184,7 +184,7 @@ class TelegramTransport:
 
     async def _deliver_task_result(self, env: Envelope) -> None:
         """Deliver task result notification + injected response."""
-        roots = self._roots()
+        opts = self._opts(env)
         name = env.metadata.get("name", env.metadata.get("task_id", "?"))
 
         # 1. Notification (skip "waiting" — question already shown)
@@ -200,38 +200,24 @@ class TelegramTransport:
             note = f"**Task `{name}` failed**\nReason: {env.metadata.get('error', 'unknown')}"
 
         if note:
-            await send_rich(
-                self._bot.bot_instance, env.chat_id, note, SendRichOpts(allowed_roots=roots)
-            )
+            await send_rich(self._bot.bot_instance, env.chat_id, note, opts)
 
         # 2. Injected response (filled by bus injection for done/failed)
         if env.needs_injection and env.result_text:
-            await send_rich(
-                self._bot.bot_instance,
-                env.chat_id,
-                env.result_text,
-                SendRichOpts(allowed_roots=roots),
-            )
+            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
 
     async def _deliver_task_question(self, env: Envelope) -> None:
         """Deliver task question notification + injected agent response."""
-        roots = self._roots()
+        opts = self._opts(env)
         task_id = env.metadata.get("task_id", "?")
 
         # 1. Notification
         note = f"**Task `{task_id}` has a question:**\n{env.prompt}"
-        await send_rich(
-            self._bot.bot_instance, env.chat_id, note, SendRichOpts(allowed_roots=roots)
-        )
+        await send_rich(self._bot.bot_instance, env.chat_id, note, opts)
 
         # 2. Agent response (filled by bus injection)
         if env.result_text:
-            await send_rich(
-                self._bot.bot_instance,
-                env.chat_id,
-                env.result_text,
-                SendRichOpts(allowed_roots=roots),
-            )
+            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
 
     async def _deliver_webhook_wake(self, env: Envelope) -> None:
         """Deliver webhook wake result."""

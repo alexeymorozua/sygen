@@ -91,6 +91,7 @@ class CLIConfig:
     # Process tracking (shared across providers):
     process_registry: ProcessRegistry | None = None
     chat_id: int = 0
+    topic_id: int | None = None
     process_label: str = "main"
     # Gemini-specific auth fallback:
     gemini_api_key: str | None = None
@@ -160,6 +161,8 @@ def docker_wrap(
             "-e",
             "DUCTOR_INTERAGENT_HOST=host.docker.internal",
         ]
+        if config.topic_id:
+            env_flags += ["-e", f"DUCTOR_TOPIC_ID={config.topic_id}"]
         if extra_env:
             for key, value in extra_env.items():
                 env_flags += ["-e", f"{key}={value}"]

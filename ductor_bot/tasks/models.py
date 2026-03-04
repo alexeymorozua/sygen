@@ -47,9 +47,10 @@ class TaskEntry:
     original_prompt: str = ""
     thinking: str = ""
     tasks_dir: str = ""  # Agent's tasks directory (for per-agent folder resolution)
+    thread_id: int | None = None  # Forum topic ID (for routing results back to topic)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        d: dict[str, object] = {
             "task_id": self.task_id,
             "chat_id": self.chat_id,
             "parent_agent": self.parent_agent,
@@ -70,6 +71,9 @@ class TaskEntry:
             "thinking": self.thinking,
             "tasks_dir": self.tasks_dir,
         }
+        if self.thread_id is not None:
+            d["thread_id"] = self.thread_id
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> TaskEntry:
@@ -93,6 +97,7 @@ class TaskEntry:
             last_question=d.get("last_question", ""),
             thinking=d.get("thinking", ""),
             tasks_dir=d.get("tasks_dir", ""),
+            thread_id=d.get("thread_id"),
         )
 
 
@@ -123,3 +128,4 @@ class TaskResult:
     error: str = ""
     task_folder: str = ""
     original_prompt: str = ""
+    thread_id: int | None = None

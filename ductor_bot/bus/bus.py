@@ -34,7 +34,14 @@ class SessionInjector(Protocol):
     ``envelope.needs_injection`` is True.
     """
 
-    async def inject_prompt(self, prompt: str, chat_id: int, label: str) -> str:
+    async def inject_prompt(
+        self,
+        prompt: str,
+        chat_id: int,
+        label: str,
+        *,
+        topic_id: int | None = None,
+    ) -> str:
         """Execute *prompt* in the active session. Returns response text."""
         ...
 
@@ -106,7 +113,10 @@ class MessageBus:
             label = f"{envelope.origin.value}:{envelope.envelope_id}"
             try:
                 response = await self._injector.inject_prompt(
-                    envelope.prompt, envelope.chat_id, label
+                    envelope.prompt,
+                    envelope.chat_id,
+                    label,
+                    topic_id=envelope.topic_id,
                 )
                 envelope.result_text = response
             except Exception:

@@ -918,33 +918,41 @@ class Orchestrator:
         result: TaskResult,
         *,
         chat_id: int = 0,
+        topic_id: int | None = None,
     ) -> str:
         """Inject a background task result into the current active session."""
         from ductor_bot.orchestrator.injection import (
             handle_task_result as _handle_task,
         )
 
-        return await _handle_task(self, result, chat_id=chat_id)
+        return await _handle_task(self, result, chat_id=chat_id, topic_id=topic_id)
 
     async def handle_task_question(
         self,
         task_id: str,
         question: str,
         task_preview: str,
-        chat_id: int,
+        key: SessionKey,
     ) -> str:
         """Inject a task worker's question into the main agent's session."""
         from ductor_bot.orchestrator.injection import (
             handle_task_question as _handle_question,
         )
 
-        return await _handle_question(self, task_id, question, task_preview, chat_id)
+        return await _handle_question(self, task_id, question, task_preview, key)
 
-    async def inject_prompt(self, prompt: str, chat_id: int, label: str) -> str:
+    async def inject_prompt(
+        self,
+        prompt: str,
+        chat_id: int,
+        label: str,
+        *,
+        topic_id: int | None = None,
+    ) -> str:
         """Execute *prompt* in the active session (fulfils ``SessionInjector`` protocol)."""
         from ductor_bot.orchestrator.injection import _inject_prompt
 
-        return await _inject_prompt(self, prompt, chat_id, label)
+        return await _inject_prompt(self, prompt, chat_id, label, topic_id=topic_id)
 
     async def shutdown(self) -> None:
         """Cleanup on bot shutdown."""

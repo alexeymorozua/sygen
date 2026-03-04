@@ -57,6 +57,39 @@ class TestTaskEntry:
         d = entry.to_dict()
         assert "original_prompt" not in d
 
+    def test_thread_id_roundtrip(self) -> None:
+        entry = TaskEntry(
+            task_id="t1",
+            chat_id=100,
+            parent_agent="main",
+            name="topic-task",
+            prompt_preview="short",
+            provider="claude",
+            model="opus",
+            status="running",
+            thread_id=42,
+        )
+        d = entry.to_dict()
+        assert d["thread_id"] == 42
+        restored = TaskEntry.from_dict(d)
+        assert restored.thread_id == 42
+
+    def test_thread_id_none_omitted(self) -> None:
+        entry = TaskEntry(
+            task_id="t2",
+            chat_id=1,
+            parent_agent="main",
+            name="",
+            prompt_preview="",
+            provider="",
+            model="",
+            status="running",
+        )
+        d = entry.to_dict()
+        assert "thread_id" not in d
+        restored = TaskEntry.from_dict(d)
+        assert restored.thread_id is None
+
 
 class TestTaskSubmit:
     def test_default_fields(self) -> None:
@@ -88,3 +121,34 @@ class TestTaskResult:
         )
         assert result.status == "done"
         assert result.error == ""
+
+    def test_thread_id_default(self) -> None:
+        result = TaskResult(
+            task_id="x",
+            chat_id=1,
+            parent_agent="main",
+            name="t",
+            prompt_preview="p",
+            result_text="r",
+            status="done",
+            elapsed_seconds=0.0,
+            provider="c",
+            model="m",
+        )
+        assert result.thread_id is None
+
+    def test_thread_id_set(self) -> None:
+        result = TaskResult(
+            task_id="x",
+            chat_id=1,
+            parent_agent="main",
+            name="t",
+            prompt_preview="p",
+            result_text="r",
+            status="done",
+            elapsed_seconds=0.0,
+            provider="c",
+            model="m",
+            thread_id=99,
+        )
+        assert result.thread_id == 99

@@ -166,6 +166,7 @@ def from_task_result(result: TaskResult) -> Envelope:
     return Envelope(
         origin=Origin.TASK_RESULT,
         chat_id=result.chat_id,
+        topic_id=result.thread_id,
         prompt=result.original_prompt,
         prompt_preview=result.prompt_preview,
         result_text=result.result_text,
@@ -188,11 +189,19 @@ def from_task_result(result: TaskResult) -> Envelope:
     )
 
 
-def from_task_question(task_id: str, question: str, prompt_preview: str, chat_id: int) -> Envelope:
+def from_task_question(
+    task_id: str,
+    question: str,
+    prompt_preview: str,
+    chat_id: int,
+    *,
+    topic_id: int | None = None,
+) -> Envelope:
     """Convert a task question (worker asks parent agent)."""
     return Envelope(
         origin=Origin.TASK_QUESTION,
         chat_id=chat_id,
+        topic_id=topic_id,
         prompt=question,
         prompt_preview=prompt_preview,
         delivery=DeliveryMode.UNICAST,
