@@ -1,7 +1,9 @@
-"""Session injection: routes inter-agent messages and task results through CLIService.
+"""Session injection: routes inter-agent messages and task questions through CLIService.
 
 Extracts the common "build prompt → get active session → execute → update"
 pattern from the Orchestrator into reusable helpers.
+
+Note: task *results* are injected via the MessageBus (see ``bus.adapters``).
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ from ductor_bot.session.named import NamedSession
 if TYPE_CHECKING:
     from ductor_bot.multiagent.bus import AsyncInterAgentResult
     from ductor_bot.orchestrator.core import Orchestrator
-    from ductor_bot.tasks.models import TaskResult
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,7 @@ async def _inject_prompt(
 ) -> str:
     """Execute *prompt* in the current active session and update session state.
 
-    Shared by ``handle_async_interagent_result``, ``handle_task_result``,
-    and ``handle_task_question``.
+    Shared by ``handle_async_interagent_result`` and ``handle_task_question``.
     """
     key = SessionKey(chat_id=chat_id, topic_id=topic_id)
     active = await orch._sessions.get_active(key)
@@ -270,66 +270,6 @@ async def handle_async_interagent_result(
             recipient,
         )
         return f"Error processing async result from '{recipient}'"
-
-
-async def handle_task_result(
-    orch: Orchestrator,
-    result: TaskResult,
-    *,
-    chat_id: int = 0,
-    topic_id: int | None = None,
-) -> str:
-    """Inject a background task result into the current active session.
-
-    Follows the same pattern as ``handle_async_interagent_result``:
-    resumes the *current* active session so the agent has full context.
-    Works even after ``/new`` because the prompt is self-contained.
-
-    Caller must hold the per-chat lock.
-    """
-    task_id = result.task_id
-    is_error = result.status in ("failed", "timeout")
-
-    if is_error:
-        prompt = (
-            f"[BACKGROUND TASK FAILED: task_id='{task_id}' name='{result.name}']\n"
-            f"Error: {result.error}\n"
-            f"Provider: {result.provider}/{result.model} | "
-            f"Duration: {result.elapsed_seconds:.0f}s\n\n"
-            f"Original task: {result.original_prompt}\n\n"
-            f"Inform the user that the background task '{result.name}' failed "
-            f"and suggest next steps."
-        )
-    else:
-        prompt = (
-            f"[BACKGROUND TASK COMPLETED: task_id='{task_id}' name='{result.name}']\n"
-            f"Provider: {result.provider}/{result.model} | "
-            f"Duration: {result.elapsed_seconds:.0f}s\n\n"
-            f"{result.result_text}\n\n"
-            f"[END TASK RESULT]\n\n"
-            f"Original task: {result.original_prompt}\n\n"
-            f"Process this background task result and communicate the "
-            f"relevant findings to the user."
-        )
-
-    logger.debug(
-        "Injecting task result into session: task=%s name='%s' status=%s",
-        task_id,
-        result.name,
-        result.status,
-    )
-
-    try:
-        return await _inject_prompt(
-            orch,
-            prompt,
-            chat_id,
-            f"task-result:{task_id}",
-            topic_id=topic_id,
-        )
-    except Exception:
-        logger.exception("Task result handling failed (task=%s)", task_id)
-        return f"Error processing result from task '{result.name}'"
 
 
 async def handle_task_question(
