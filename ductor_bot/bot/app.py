@@ -17,7 +17,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, ChatMemberUpdated, FSInputFile, ReplyParameters
 
 from ductor_bot.bot.callbacks import (
-    edit_selector_result,
+    edit_selector_response,
     mark_button_choice,
     parse_ns_callback,
 )
@@ -975,13 +975,13 @@ class TelegramBot:
         if await self._route_prefix_callback(key, message_id, data, thread_id=thread_id):
             return True
 
-        from ductor_bot.orchestrator.model_selector import is_model_selector_callback
+        from ductor_bot.orchestrator.selectors.model_selector import is_model_selector_callback
 
         if is_model_selector_callback(data):
             await self._handle_model_selector(key, message_id, data)
             return True
 
-        from ductor_bot.orchestrator.cron_selector import is_cron_selector_callback
+        from ductor_bot.orchestrator.selectors.cron_selector import is_cron_selector_callback
 
         if is_cron_selector_callback(data):
             await self._handle_cron_selector(key.chat_id, message_id, data)
@@ -1006,8 +1006,8 @@ class TelegramBot:
             await self._handle_upgrade_callback(chat_id, message_id, data, thread_id=thread_id)
             return True
 
-        from ductor_bot.orchestrator.session_selector import is_session_selector_callback
-        from ductor_bot.orchestrator.task_selector import is_task_selector_callback
+        from ductor_bot.orchestrator.selectors.session_selector import is_session_selector_callback
+        from ductor_bot.orchestrator.selectors.task_selector import is_task_selector_callback
 
         if is_session_selector_callback(data):
             await self._handle_session_selector(chat_id, message_id, data)
@@ -1025,37 +1025,37 @@ class TelegramBot:
 
     async def _handle_model_selector(self, key: SessionKey, message_id: int, data: str) -> None:
         """Handle model selector wizard by editing the message in-place."""
-        from ductor_bot.orchestrator.model_selector import handle_model_callback
+        from ductor_bot.orchestrator.selectors.model_selector import handle_model_callback
 
         async with self._sequential.get_lock(key.lock_key):
-            text, keyboard = await handle_model_callback(self._orch, key, data)
-        await edit_selector_result(self._bot, key.chat_id, message_id, text, keyboard)
+            resp = await handle_model_callback(self._orch, key, data)
+        await edit_selector_response(self._bot, key.chat_id, message_id, resp)
 
     async def _handle_cron_selector(self, chat_id: int, message_id: int, data: str) -> None:
         """Handle cron selector wizard by editing the message in-place."""
-        from ductor_bot.orchestrator.cron_selector import handle_cron_callback
+        from ductor_bot.orchestrator.selectors.cron_selector import handle_cron_callback
 
         async with self._sequential.get_lock(chat_id):
-            text, keyboard = await handle_cron_callback(self._orch, data)
-        await edit_selector_result(self._bot, chat_id, message_id, text, keyboard)
+            resp = await handle_cron_callback(self._orch, data)
+        await edit_selector_response(self._bot, chat_id, message_id, resp)
 
     async def _handle_session_selector(self, chat_id: int, message_id: int, data: str) -> None:
         """Handle session selector wizard by editing the message in-place."""
-        from ductor_bot.orchestrator.session_selector import handle_session_callback
+        from ductor_bot.orchestrator.selectors.session_selector import handle_session_callback
 
         async with self._sequential.get_lock(chat_id):
-            text, keyboard = await handle_session_callback(self._orch, chat_id, data)
-        await edit_selector_result(self._bot, chat_id, message_id, text, keyboard)
+            resp = await handle_session_callback(self._orch, chat_id, data)
+        await edit_selector_response(self._bot, chat_id, message_id, resp)
 
     async def _handle_task_selector(self, chat_id: int, message_id: int, data: str) -> None:
         """Handle task selector wizard by editing the message in-place."""
-        from ductor_bot.orchestrator.task_selector import handle_task_callback
+        from ductor_bot.orchestrator.selectors.task_selector import handle_task_callback
 
         hub = self._orch.task_hub
         if hub is None:
             return
-        text, keyboard = await handle_task_callback(hub, chat_id, data)
-        await edit_selector_result(self._bot, chat_id, message_id, text, keyboard)
+        resp = await handle_task_callback(hub, chat_id, data)
+        await edit_selector_response(self._bot, chat_id, message_id, resp)
 
     async def _handle_ns_callback(
         self, key: SessionKey, data: str, *, thread_id: int | None = None

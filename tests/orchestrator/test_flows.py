@@ -184,7 +184,7 @@ async def test_normal_sigkill_recovers_once_then_asks_user_retry(orch: Orchestra
 async def test_normal_does_not_auto_fallback_provider(orch: Orchestrator) -> None:
     mock_execute = AsyncMock(return_value=_mock_response())
     object.__setattr__(orch._cli_service, "execute", mock_execute)
-    object.__setattr__(orch, "_available_providers", frozenset({"codex"}))
+    orch._providers._available_providers = frozenset({"codex"})
 
     await normal(orch, SessionKey(chat_id=1), "Hello")
 
@@ -199,7 +199,7 @@ async def test_normal_does_not_auto_fallback_provider(orch: Orchestrator) -> Non
 
 
 async def test_normal_preserves_existing_session_target_on_restart(orch: Orchestrator) -> None:
-    object.__setattr__(orch, "_available_providers", frozenset({"codex"}))
+    orch._providers._available_providers = frozenset({"codex"})
     await orch._sessions.reset_session(
         SessionKey(chat_id=1),
         provider="gemini",
@@ -217,7 +217,7 @@ async def test_normal_preserves_existing_session_target_on_restart(orch: Orchest
     mock_execute = AsyncMock(return_value=_mock_response())
     object.__setattr__(orch._cli_service, "execute", mock_execute)
 
-    orch._gemini_api_key_mode = False
+    orch._providers._gemini_api_key_mode = False
     await normal(orch, SessionKey(chat_id=1), "Hello")
 
     request = mock_execute.call_args[0][0]
@@ -232,7 +232,7 @@ async def test_normal_warns_for_gemini_api_key_mode_without_ductor_key(
     object.__setattr__(orch._cli_service, "execute", mock_execute)
     orch._config.gemini_api_key = "null"
 
-    orch._gemini_api_key_mode = True
+    orch._providers._gemini_api_key_mode = True
     result = await normal(
         orch, SessionKey(chat_id=1), "Hello", model_override="gemini-3-pro-preview"
     )
@@ -249,7 +249,7 @@ async def test_streaming_warns_for_gemini_api_key_mode_without_ductor_key(
     object.__setattr__(orch._cli_service, "execute_streaming", mock_streaming)
     orch._config.gemini_api_key = "null"
 
-    orch._gemini_api_key_mode = True
+    orch._providers._gemini_api_key_mode = True
     result = await normal_streaming(
         orch, SessionKey(chat_id=1), "Hello", model_override="gemini-3-pro-preview"
     )
@@ -263,7 +263,7 @@ async def test_normal_allows_gemini_api_key_mode_with_configured_key(orch: Orche
     object.__setattr__(orch._cli_service, "execute", mock_execute)
     orch._config.gemini_api_key = "cfg-key-123"
 
-    orch._gemini_api_key_mode = True
+    orch._providers._gemini_api_key_mode = True
     result = await normal(
         orch, SessionKey(chat_id=1), "Hello", model_override="gemini-3-pro-preview"
     )

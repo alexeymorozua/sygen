@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -110,7 +110,7 @@ def orch_with_mock_cli(
     """
     paths, config = workspace
     o = Orchestrator(config, paths)
-    o._available_providers = frozenset({"claude"})
+    o._providers._available_providers = frozenset({"claude"})
     o._cli_service.update_available_providers(frozenset({"claude"}))
 
     mock_execute = AsyncMock(return_value=_make_agent_response())
@@ -224,10 +224,13 @@ class TestCommandRouting:
     ) -> None:
         orch, mock_execute = orch_with_mock_cli
 
+        from ductor_bot.orchestrator.selectors.models import SelectorResponse
+
+        resp = SelectorResponse(text="Select a provider:")
         with patch(
             "ductor_bot.orchestrator.commands.model_selector_start",
             new_callable=AsyncMock,
-            return_value=("Select a provider:", MagicMock()),
+            return_value=resp,
         ):
             result = await orch.handle_message(KEY, "/model")
 

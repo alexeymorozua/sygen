@@ -14,6 +14,8 @@ def test_origin_values() -> None:
     assert Origin.INTERAGENT.value == "interagent"
     assert Origin.TASK_RESULT.value == "task_result"
     assert Origin.TASK_QUESTION.value == "task_question"
+    assert Origin.USER.value == "user"
+    assert Origin.API.value == "api"
 
 
 def test_delivery_mode_values() -> None:

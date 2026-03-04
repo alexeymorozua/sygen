@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -16,14 +14,7 @@ from ductor_bot.background import (
 )
 from ductor_bot.cli.process_registry import ProcessRegistry
 from ductor_bot.cli.service import CLIService, CLIServiceConfig
-from ductor_bot.config import (
-    _GEMINI_ALIASES,
-    CLAUDE_MODELS,
-    AgentConfig,
-    ModelRegistry,
-    get_gemini_models,
-    set_gemini_models,
-)
+from ductor_bot.config import AgentConfig
 from ductor_bot.cron.manager import CronManager
 from ductor_bot.errors import (
     CLIError,
@@ -33,7 +24,6 @@ from ductor_bot.errors import (
     WebhookError,
     WorkspaceError,
 )
-from ductor_bot.files.allowed_roots import resolve_allowed_roots
 from ductor_bot.infra.docker import DockerManager
 from ductor_bot.infra.inflight import InflightTracker
 from ductor_bot.orchestrator.commands import (
@@ -63,24 +53,19 @@ from ductor_bot.orchestrator.hooks import (
     MessageHookRegistry,
 )
 from ductor_bot.orchestrator.observers import ObserverManager
+from ductor_bot.orchestrator.providers import ProviderManager
 from ductor_bot.orchestrator.registry import CommandRegistry, OrchestratorResult
 from ductor_bot.security import detect_suspicious_patterns
 from ductor_bot.session import SessionKey, SessionManager
 from ductor_bot.session.manager import SessionData
 from ductor_bot.session.named import NamedSessionRegistry
 from ductor_bot.webhook.manager import WebhookManager
-from ductor_bot.workspace.init import inject_runtime_environment
-from ductor_bot.workspace.paths import DuctorPaths, resolve_paths
-from ductor_bot.workspace.skill_sync import (
-    cleanup_ductor_links,
-    sync_bundled_skills,
-    sync_skills,
-)
+from ductor_bot.workspace.paths import DuctorPaths
 
 if TYPE_CHECKING:
     from ductor_bot.background import BackgroundObserver
     from ductor_bot.bus.bus import MessageBus
-    from ductor_bot.cli.auth import AuthResult, AuthStatus
+    from ductor_bot.config import ModelRegistry
     from ductor_bot.multiagent.bus import AsyncInterAgentResult
     from ductor_bot.multiagent.supervisor import AgentSupervisor
     from ductor_bot.session.named import NamedSession
@@ -125,12 +110,6 @@ class _MessageDispatch:
         )
 
 
-def _docker_skill_resync(paths: DuctorPaths) -> None:
-    """Re-run skill sync with copies so skills resolve inside Docker."""
-    sync_bundled_skills(paths, docker_active=True)
-    sync_skills(paths, docker_active=True)
-
-
 class Orchestrator:
     """Routes messages through command dispatch and conversation flows."""
 
@@ -146,13 +125,10 @@ class Orchestrator:
         self._config = config
         self._paths: DuctorPaths = paths
         self._docker: DockerManager | None = None
-        self._models = ModelRegistry()
-        self._known_model_ids: frozenset[str] = frozenset()
-        self._refresh_known_model_ids()
+        self._providers = ProviderManager(config)
         self._sessions = SessionManager(paths.sessions_path, config)
         self._named_sessions = NamedSessionRegistry(paths.named_sessions_path)
         self._process_registry = ProcessRegistry()
-        self._available_providers: frozenset[str] = frozenset()
         self._cli_service = CLIService(
             config=CLIServiceConfig(
                 working_dir=str(paths.workspace),
@@ -170,7 +146,7 @@ class Orchestrator:
                 agent_name=agent_name,
                 interagent_port=interagent_port,
             ),
-            models=self._models,
+            models=self._providers.models,
             available_providers=frozenset(),
             process_registry=self._process_registry,
         )
@@ -186,7 +162,6 @@ class Orchestrator:
             lambda: self._process_registry.kill_stale(stale_max)
         )
         self._api_stop: Callable[[], Awaitable[None]] | None = None
-        self._gemini_api_key_mode: bool | None = None
         self._inflight_tracker = InflightTracker(paths.inflight_turns_path)
         self._hook_registry = MessageHookRegistry()
         self._hook_registry.register(MAINMEMORY_REMINDER)
@@ -225,7 +200,7 @@ class Orchestrator:
     @property
     def available_providers(self) -> frozenset[str]:
         """Public access to the set of authenticated providers."""
-        return self._available_providers
+        return self._providers.available_providers
 
     @property
     def cli_service(self) -> CLIService:
@@ -267,154 +242,28 @@ class Orchestrator:
 
         Workspace must already be initialized by the caller (``__main__.load_config``).
         """
-        paths = resolve_paths(ductor_home=config.ductor_home)
+        from ductor_bot.orchestrator.lifecycle import create_orchestrator
 
-        # Only set the process-wide env var for the main agent to avoid
-        # race conditions in multi-agent mode (sub-agents use per-subprocess env).
-        if agent_name == "main":
-            os.environ["DUCTOR_HOME"] = str(paths.ductor_home)
+        return await create_orchestrator(config, agent_name=agent_name)
 
-        docker_container = ""
-        docker_mgr: DockerManager | None = None
-        if config.docker.enabled:
-            docker_mgr = DockerManager(config.docker, paths)
-            container = await docker_mgr.setup()
-            if container:
-                docker_container = container
-            else:
-                logger.warning("Docker enabled but setup failed; running on host")
-
-        if docker_container:
-            await asyncio.to_thread(_docker_skill_resync, paths)
-
-        await asyncio.to_thread(
-            inject_runtime_environment,
-            paths,
-            docker_container=docker_container,
-            agent_name=agent_name,
-        )
-
-        orch = cls(config, paths, docker_container=docker_container, agent_name=agent_name)
-        orch._docker = docker_mgr
-
-        from ductor_bot.cli.auth import AuthStatus, check_all_auth
-
-        auth_results = await asyncio.to_thread(check_all_auth)
-        orch._apply_auth_results(auth_results, auth_status_enum=AuthStatus)
-
-        if not orch._available_providers:
-            logger.error("No authenticated providers found! CLI calls will fail.")
-        else:
-            logger.info("Available providers: %s", ", ".join(sorted(orch._available_providers)))
-
-        await asyncio.to_thread(orch._init_gemini_state)
-
-        codex_cache = await orch._observers.init_model_caches(
-            on_gemini_refresh=orch._on_gemini_models_refresh
-        )
-        orch._observers.init_task_observers(
-            cron_manager=orch._cron_manager,
-            webhook_manager=orch._webhook_manager,
-            cli_service=orch._cli_service,
-            codex_cache=codex_cache,
-        )
-        await orch._observers.start_all(docker_container=docker_container)
-
-        # Direct API server (WebSocket, designed for Tailscale)
-        if config.api.enabled:
-            await orch._start_api_server(config, paths)
-
-        await orch._observers.start_config_reloader(
-            on_hot_reload=orch._on_config_hot_reload,
-            on_restart_needed=lambda fields: logger.warning(
-                "Config changed but requires restart: %s", ", ".join(fields)
-            ),
-        )
-
-        return orch
-
-    def _on_gemini_models_refresh(self, models: tuple[str, ...]) -> None:
-        """Callback for GeminiCacheObserver: update model registry."""
-        set_gemini_models(frozenset(models))
-        self._refresh_known_model_ids()
-        self._gemini_api_key_mode = None  # Invalidate to re-check on next access
-
-    def _refresh_known_model_ids(self) -> None:
-        """Refresh directive-known model IDs from dynamic provider registries."""
-        self._known_model_ids = CLAUDE_MODELS | _GEMINI_ALIASES | get_gemini_models()
-
-    def _apply_auth_results(
-        self,
-        auth_results: dict[str, AuthResult],
-        *,
-        auth_status_enum: type[AuthStatus],
-    ) -> None:
-        """Log provider auth states and update the runtime provider set."""
-        authenticated = auth_status_enum.AUTHENTICATED
-        installed = auth_status_enum.INSTALLED
-
-        for provider, result in auth_results.items():
-            if result.status == authenticated:
-                logger.info("Provider [%s]: authenticated", provider)
-            elif result.status == installed:
-                logger.warning("Provider [%s]: installed but NOT authenticated", provider)
-            else:
-                logger.info("Provider [%s]: not found", provider)
-
-        self._available_providers = frozenset(
-            name for name, res in auth_results.items() if res.is_authenticated
-        )
-        self._cli_service.update_available_providers(self._available_providers)
-
-    def _init_gemini_state(self) -> None:
-        """Cache Gemini API-key mode and trust workspace once at startup."""
-        from ductor_bot.cli.auth import gemini_uses_api_key_mode
-
-        self._gemini_api_key_mode = gemini_uses_api_key_mode()
-        if "gemini" in self._available_providers:
-            from ductor_bot.cli.gemini_utils import trust_workspace
-
-            trust_workspace(self._paths.workspace)
+    @property
+    def models(self) -> ModelRegistry:
+        """Public access to the model registry (delegates to ProviderManager)."""
+        return self._providers.models
 
     @property
     def gemini_api_key_mode(self) -> bool:
         """Return cached Gemini API-key mode status."""
-        if self._gemini_api_key_mode is None:
-            from ductor_bot.cli.auth import gemini_uses_api_key_mode
+        return self._providers.gemini_api_key_mode
 
-            self._gemini_api_key_mode = gemini_uses_api_key_mode()
-        return self._gemini_api_key_mode
+    @property
+    def active_provider_name(self) -> str:
+        """Human-readable name for the active CLI provider."""
+        return self._providers.active_provider_name
 
     def _build_provider_info(self) -> list[dict[str, object]]:
-        """Build provider metadata for the API auth_ok response.
-
-        Only includes authenticated providers.
-        """
-        provider_meta: dict[str, tuple[str, str]] = {
-            "claude": ("Claude Code", "#F97316"),
-            "gemini": ("Gemini", "#8B5CF6"),
-            "codex": ("Codex", "#10B981"),
-        }
-        providers: list[dict[str, object]] = []
-        for pid in sorted(self._available_providers):
-            name, color = provider_meta.get(pid, (pid.title(), "#A1A1AA"))
-            models: list[str]
-            if pid == "claude":
-                models = sorted(CLAUDE_MODELS)
-            elif pid == "gemini":
-                gemini = get_gemini_models()
-                models = sorted(gemini) if gemini else sorted(_GEMINI_ALIASES)
-            elif pid == "codex":
-                cache = (
-                    self._observers.codex_cache_obs.get_cache()
-                    if self._observers.codex_cache_obs
-                    else None
-                )
-                models = [m.id for m in cache.models] if cache and cache.models else []
-            else:
-                models = []
-            providers.append({"id": pid, "name": name, "color": color, "models": models})
-        return providers
+        """Build provider metadata for the API auth_ok response."""
+        return self._providers.build_provider_info(self._observers.codex_cache_obs)
 
     async def handle_message(self, key: SessionKey, text: str) -> OrchestratorResult:
         """Main entry point: route message to appropriate handler."""
@@ -473,7 +322,7 @@ class Orchestrator:
 
         await self._ensure_docker()
 
-        directives = parse_directives(dispatch.text, self._known_model_ids)
+        directives = parse_directives(dispatch.text, self._providers._known_model_ids)
 
         # Check if a leading @directive matches a named session
         if directives.raw_directives:
@@ -584,8 +433,7 @@ class Orchestrator:
 
     def resolve_runtime_target(self, requested_model: str | None = None) -> tuple[str, str]:
         """Resolve requested model to the effective ``(model, provider)`` pair."""
-        model_name = requested_model or self._config.model
-        return model_name, self._models.provider_for(model_name)
+        return self._providers.resolve_runtime_target(requested_model)
 
     def wire_observers_to_bus(
         self,
@@ -706,40 +554,15 @@ class Orchestrator:
 
     def is_known_model(self, candidate: str) -> bool:
         """Return True if *candidate* is a recognized model ID for any provider."""
-        if candidate in self._known_model_ids:
-            return True
-        codex = self._observers.codex_cache
-        return bool(codex and codex.validate_model(candidate))
+        return self._providers.is_known_model(candidate)
 
     def default_model_for_provider(self, provider: str) -> str:
         """Return the default model ID for a provider, or empty string if unknown."""
-        if provider == "claude":
-            return self._config.model if self._config.provider == "claude" else "sonnet"
-        if provider == "codex":
-            codex = self._observers.codex_cache
-            if codex:
-                for m in codex.models:
-                    if m.is_default:
-                        return m.id
-            return ""
-        if provider == "gemini":
-            return ""
-        return ""
+        return self._providers.default_model_for_provider(provider)
 
     def resolve_session_directive(self, key: str) -> tuple[str, str] | None:
-        """Resolve a ``@key`` directive to ``(provider, model)`` or ``None``.
-
-        Handles three cases:
-        - provider name (``@codex``) → (provider, default_model)
-        - known model   (``@opus``)  → (inferred_provider, model)
-        - unknown                     → None
-        """
-        if key in ("claude", "codex", "gemini"):
-            return key, self.default_model_for_provider(key)
-        if self.is_known_model(key):
-            provider = self._models.provider_for(key)
-            return provider, key
-        return None
+        """Resolve a ``@key`` directive to ``(provider, model)`` or ``None``."""
+        return self._providers.resolve_session_directive(key)
 
     def get_named_session(self, chat_id: int, name: str) -> NamedSession | None:
         """Look up a named session."""
@@ -760,30 +583,15 @@ class Orchestrator:
             return []
         return self._observers.background.active_tasks(chat_id)
 
-    @property
-    def active_provider_name(self) -> str:
-        """Human-readable name for the active CLI provider."""
-        _model, provider = self.resolve_runtime_target(self._config.model)
-        if provider == "claude":
-            return "Claude Code"
-        if provider == "gemini":
-            return "Gemini"
-        return "Codex"
-
     def is_chat_busy(self, chat_id: int) -> bool:
         """Check if a chat has active CLI processes."""
         return self._process_registry.has_active(chat_id)
 
     async def _ensure_docker(self) -> None:
         """Health-check Docker before CLI calls; auto-recover or fall back."""
-        if not self._docker:
-            return
-        container = await self._docker.ensure_running()
-        if container:
-            self._cli_service.update_docker_container(container)
-        elif self._cli_service._config.docker_container:
-            logger.warning("Docker recovery failed, falling back to host execution")
-            self._cli_service.update_docker_container("")
+        from ductor_bot.orchestrator.lifecycle import ensure_docker
+
+        await ensure_docker(self)
 
     async def _start_api_server(
         self,
@@ -791,51 +599,9 @@ class Orchestrator:
         paths: DuctorPaths,
     ) -> None:
         """Initialize and start the direct WebSocket API server."""
-        try:
-            from ductor_bot.api.server import ApiServer
-        except ImportError:
-            logger.warning(
-                "API server enabled but PyNaCl is not installed. "
-                "Install with: pip install ductor[api]"
-            )
-            return
+        from ductor_bot.orchestrator.lifecycle import start_api_server
 
-        if not config.api.token:
-            from ductor_bot.config import update_config_file_async
-
-            token = secrets.token_urlsafe(32)
-            config.api.token = token
-            await update_config_file_async(
-                paths.config_path,
-                api={**config.api.model_dump(), "token": token},
-            )
-            logger.info("Generated API auth token (persisted to config)")
-
-        default_chat_id = config.api.chat_id or (
-            config.allowed_user_ids[0] if config.allowed_user_ids else 1
-        )
-        server = ApiServer(config.api, default_chat_id=default_chat_id)
-        server.set_message_handler(self.handle_message_streaming)
-        server.set_abort_handler(self.abort)
-        server.set_file_context(
-            allowed_roots=resolve_allowed_roots(config.file_access, paths.workspace),
-            upload_dir=paths.api_files_dir,
-            workspace=paths.workspace,
-        )
-        server.set_provider_info(self._build_provider_info())
-        server.set_active_state_getter(lambda: self.resolve_runtime_target(self._config.model))
-
-        try:
-            await server.start()
-        except OSError:
-            logger.exception(
-                "Failed to start API server on %s:%d",
-                config.api.host,
-                config.api.port,
-            )
-            return
-
-        self._api_stop = server.stop
+        await start_api_server(self, config, paths)
 
     def set_config_hot_reload_handler(
         self,
@@ -876,7 +642,7 @@ class Orchestrator:
             )
 
         if "model" in hot:
-            self._refresh_known_model_ids()
+            self._providers.refresh_known_model_ids()
 
         handler = getattr(self, "_config_hot_reload_handler", None)
         if handler is not None:
@@ -956,13 +722,6 @@ class Orchestrator:
 
     async def shutdown(self) -> None:
         """Cleanup on bot shutdown."""
-        killed = await self._process_registry.kill_all_active()
-        if killed:
-            logger.info("Shutdown terminated %d active CLI process(es)", killed)
-        if self._api_stop is not None:
-            await self._api_stop()
-        await asyncio.to_thread(cleanup_ductor_links, self._paths)
-        await self._observers.stop_all()
-        if self._docker:
-            await self._docker.teardown()
-        logger.info("Orchestrator shutdown")
+        from ductor_bot.orchestrator.lifecycle import shutdown
+
+        await shutdown(self)

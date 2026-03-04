@@ -65,7 +65,7 @@ def _make_orchestrator(
 ) -> MagicMock:
     orch = MagicMock()
     orch.handle_message = AsyncMock(
-        return_value=MagicMock(text=handle_message_text, reply_markup=None),
+        return_value=MagicMock(text=handle_message_text, buttons=None),
     )
     orch.handle_message_streaming = AsyncMock(
         return_value=MagicMock(text=handle_streaming_text, stream_fallback=stream_fallback),
@@ -715,10 +715,20 @@ class TestCallbackQueryHandler:
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
 
+        from ductor_bot.orchestrator.selectors.models import (
+            Button,
+            ButtonGrid,
+            SelectorResponse,
+        )
+
+        resp = SelectorResponse(
+            text="Select Claude model:",
+            buttons=ButtonGrid(rows=[[Button(text="OPUS", callback_data="ms:m:opus")]]),
+        )
         with patch(
-            "ductor_bot.orchestrator.model_selector.handle_model_callback",
+            "ductor_bot.orchestrator.selectors.model_selector.handle_model_callback",
             new_callable=AsyncMock,
-            return_value=("Select Claude model:", MagicMock()),
+            return_value=resp,
         ):
             cb = _make_callback_query(data="ms:p:claude", message_id=55)
             await tg_bot._on_callback_query(cb)
@@ -731,10 +741,20 @@ class TestCallbackQueryHandler:
         orch = _make_orchestrator()
         tg_bot._orchestrator = orch
 
+        from ductor_bot.orchestrator.selectors.models import (
+            Button,
+            ButtonGrid,
+            SelectorResponse,
+        )
+
+        resp = SelectorResponse(
+            text="Scheduled Tasks",
+            buttons=ButtonGrid(rows=[[Button(text="Refresh", callback_data="crn:r:0")]]),
+        )
         with patch(
-            "ductor_bot.orchestrator.cron_selector.handle_cron_callback",
+            "ductor_bot.orchestrator.selectors.cron_selector.handle_cron_callback",
             new_callable=AsyncMock,
-            return_value=("Scheduled Tasks", MagicMock()),
+            return_value=resp,
         ):
             cb = _make_callback_query(data="crn:r:0", message_id=56)
             await tg_bot._on_callback_query(cb)
@@ -824,31 +844,40 @@ class TestCallbackQueryHandler:
 
 class TestHandleModelSelector:
     async def test_edits_message_in_place(self) -> None:
+        from ductor_bot.orchestrator.selectors.models import (
+            Button,
+            ButtonGrid,
+            SelectorResponse,
+        )
         from ductor_bot.session.key import SessionKey
 
         tg_bot, bot_instance = _make_tg_bot()
         tg_bot._orchestrator = _make_orchestrator()
-        keyboard = MagicMock()
+        grid = ButtonGrid(rows=[[Button(text="OPUS", callback_data="ms:m:opus")]])
+        resp = SelectorResponse(text="Pick a model:", buttons=grid)
         key = SessionKey(chat_id=1)
 
         with patch(
-            "ductor_bot.orchestrator.model_selector.handle_model_callback",
+            "ductor_bot.orchestrator.selectors.model_selector.handle_model_callback",
             new_callable=AsyncMock,
-            return_value=("Pick a model:", keyboard),
+            return_value=resp,
         ):
             await tg_bot._handle_model_selector(key, message_id=50, data="ms:p:claude")
 
         from aiogram.enums import ParseMode
 
-        bot_instance.edit_message_text.assert_called_once_with(
-            text="Pick a model:",
-            chat_id=1,
-            message_id=50,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
+        call_kwargs = bot_instance.edit_message_text.call_args
+        assert call_kwargs is not None
+        assert call_kwargs.kwargs["text"] == "Pick a model:"
+        assert call_kwargs.kwargs["chat_id"] == 1
+        assert call_kwargs.kwargs["message_id"] == 50
+        assert call_kwargs.kwargs["parse_mode"] == ParseMode.HTML
+        markup = call_kwargs.kwargs["reply_markup"]
+        assert markup is not None
+        assert markup.inline_keyboard[0][0].text == "OPUS"
 
     async def test_suppresses_bad_request(self) -> None:
+        from ductor_bot.orchestrator.selectors.models import SelectorResponse
         from ductor_bot.session.key import SessionKey
 
         tg_bot, bot_instance = _make_tg_bot()
@@ -859,10 +888,11 @@ class TestHandleModelSelector:
             side_effect=TelegramBadRequest(method=MagicMock(), message="msg not modified")
         )
 
+        resp = SelectorResponse(text="Pick:")
         with patch(
-            "ductor_bot.orchestrator.model_selector.handle_model_callback",
+            "ductor_bot.orchestrator.selectors.model_selector.handle_model_callback",
             new_callable=AsyncMock,
-            return_value=("Pick:", MagicMock()),
+            return_value=resp,
         ):
             await tg_bot._handle_model_selector(key, message_id=50, data="ms:p:claude")
 
@@ -871,28 +901,39 @@ class TestHandleModelSelector:
 
 class TestHandleCronSelector:
     async def test_edits_message_in_place(self) -> None:
+        from ductor_bot.orchestrator.selectors.models import (
+            Button,
+            ButtonGrid,
+            SelectorResponse,
+        )
+
         tg_bot, bot_instance = _make_tg_bot()
         tg_bot._orchestrator = _make_orchestrator()
-        keyboard = MagicMock()
+        grid = ButtonGrid(rows=[[Button(text="Refresh", callback_data="crn:r:0")]])
+        resp = SelectorResponse(text="Cron panel", buttons=grid)
 
         with patch(
-            "ductor_bot.orchestrator.cron_selector.handle_cron_callback",
+            "ductor_bot.orchestrator.selectors.cron_selector.handle_cron_callback",
             new_callable=AsyncMock,
-            return_value=("Cron panel", keyboard),
+            return_value=resp,
         ):
             await tg_bot._handle_cron_selector(chat_id=1, message_id=60, data="crn:r:0")
 
         from aiogram.enums import ParseMode
 
-        bot_instance.edit_message_text.assert_called_once_with(
-            text="Cron panel",
-            chat_id=1,
-            message_id=60,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
+        call_kwargs = bot_instance.edit_message_text.call_args
+        assert call_kwargs is not None
+        assert call_kwargs.kwargs["text"] == "Cron panel"
+        assert call_kwargs.kwargs["chat_id"] == 1
+        assert call_kwargs.kwargs["message_id"] == 60
+        assert call_kwargs.kwargs["parse_mode"] == ParseMode.HTML
+        markup = call_kwargs.kwargs["reply_markup"]
+        assert markup is not None
+        assert markup.inline_keyboard[0][0].text == "Refresh"
 
     async def test_suppresses_bad_request(self) -> None:
+        from ductor_bot.orchestrator.selectors.models import SelectorResponse
+
         tg_bot, bot_instance = _make_tg_bot()
         tg_bot._orchestrator = _make_orchestrator()
 
@@ -900,10 +941,11 @@ class TestHandleCronSelector:
             side_effect=TelegramBadRequest(method=MagicMock(), message="msg not modified")
         )
 
+        resp = SelectorResponse(text="Cron panel")
         with patch(
-            "ductor_bot.orchestrator.cron_selector.handle_cron_callback",
+            "ductor_bot.orchestrator.selectors.cron_selector.handle_cron_callback",
             new_callable=AsyncMock,
-            return_value=("Cron panel", MagicMock()),
+            return_value=resp,
         ):
             await tg_bot._handle_cron_selector(chat_id=1, message_id=60, data="crn:r:0")
 

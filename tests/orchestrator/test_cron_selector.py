@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from ductor_bot.cron.manager import CronJob
 from ductor_bot.orchestrator.core import Orchestrator
-from ductor_bot.orchestrator.cron_selector import (
+from ductor_bot.orchestrator.selectors.cron_selector import (
     cron_selector_start,
     handle_cron_callback,
     is_cron_selector_callback,
@@ -41,19 +41,19 @@ def test_is_cron_selector_callback() -> None:
 
 
 async def test_start_no_jobs(orch: Orchestrator) -> None:
-    text, keyboard = await cron_selector_start(orch)
-    assert "No cron jobs configured" in text
-    assert keyboard is None
+    resp = await cron_selector_start(orch)
+    assert "No cron jobs configured" in resp.text
+    assert resp.buttons is None
 
 
 async def test_start_lists_jobs_with_keyboard(orch: Orchestrator) -> None:
     _add_job(orch, job_id="daily", title="Daily Report")
 
-    text, keyboard = await cron_selector_start(orch)
+    resp = await cron_selector_start(orch)
 
-    assert "Daily Report" in text
-    assert "0 9 * * *" in text
-    assert keyboard is not None
+    assert "Daily Report" in resp.text
+    assert "0 9 * * *" in resp.text
+    assert resp.buttons is not None
 
 
 async def test_toggle_job_updates_enabled_flag(orch: Orchestrator) -> None:
@@ -62,29 +62,29 @@ async def test_toggle_job_updates_enabled_flag(orch: Orchestrator) -> None:
     observer.request_reschedule = MagicMock()
     orch._observers.cron = observer
 
-    _text, keyboard = await cron_selector_start(orch)
-    assert keyboard is not None
-    callback_data = keyboard.inline_keyboard[0][0].callback_data
+    resp = await cron_selector_start(orch)
+    assert resp.buttons is not None
+    callback_data = resp.buttons.rows[0][0].callback_data
     assert callback_data is not None
 
-    text, _ = await handle_cron_callback(orch, callback_data)
+    resp2 = await handle_cron_callback(orch, callback_data)
 
     job = orch._cron_manager.get_job("daily")
     assert job is not None
     assert job.enabled is False
     observer.request_reschedule.assert_called_once_with()
-    assert "disabled" in text
+    assert "disabled" in resp2.text
 
 
 async def test_toggle_with_stale_fingerprint_is_ignored(orch: Orchestrator) -> None:
     _add_job(orch, job_id="daily", title="Daily Report", enabled=True)
 
-    text, _ = await handle_cron_callback(orch, "crn:t:0:0:deadbeef")
+    resp = await handle_cron_callback(orch, "crn:t:0:0:deadbeef")
 
     job = orch._cron_manager.get_job("daily")
     assert job is not None
     assert job.enabled is True
-    assert "Cron list changed" in text
+    assert "Cron list changed" in resp.text
 
 
 async def test_bulk_enable_disable(orch: Orchestrator) -> None:

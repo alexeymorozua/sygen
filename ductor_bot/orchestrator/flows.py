@@ -208,7 +208,7 @@ async def _recover_session(
     """
     logger.warning("recovery.%s chat=%s action=retry", ctx.reason, key.chat_id)
     model_name = ctx.model_override or orch._config.model
-    provider_name = orch._models.provider_for(model_name)
+    provider_name = orch.models.provider_for(model_name)
     await orch._process_registry.kill_all(key.chat_id)
     orch._process_registry.clear_abort(key.chat_id)
     await orch._sessions.reset_provider_session(key, provider=provider_name, model=model_name)
@@ -235,7 +235,7 @@ async def _recover_session(
 def _request_target(orch: Orchestrator, request: AgentRequest) -> tuple[str, str]:
     """Return the effective model/provider target of a prepared request."""
     model_name = request.model_override or orch._config.model
-    provider_name = request.provider_override or orch._models.provider_for(model_name)
+    provider_name = request.provider_override or orch.models.provider_for(model_name)
     return model_name, provider_name
 
 

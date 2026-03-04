@@ -6,9 +6,8 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-from ductor_bot.orchestrator.selector_utils import format_age
+from ductor_bot.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
+from ductor_bot.orchestrator.selectors.utils import format_age
 from ductor_bot.text.response_format import SEP, fmt
 
 if TYPE_CHECKING:
@@ -30,7 +29,7 @@ def is_task_selector_callback(data: str) -> bool:
 def task_selector_start(
     hub: TaskHub,
     chat_id: int,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Build the initial ``/tasks`` response with inline controls."""
     return _build_page(hub, chat_id)
 
@@ -39,7 +38,7 @@ async def handle_task_callback(
     hub: TaskHub,
     chat_id: int,
     data: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Route a ``tsc:*`` callback to the correct task selector action."""
     logger.debug("Task selector step=%s", data[:40])
     action = data[len(TSC_PREFIX) :]
@@ -72,21 +71,20 @@ def _build_page(
     chat_id: int,
     *,
     note: str = "",
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     all_tasks = hub.registry.list_all(chat_id)
     if not all_tasks:
         body = "No background tasks."
         if note:
             body = f"{note}\n\n{body}"
-        return (
-            fmt(
+        return SelectorResponse(
+            text=fmt(
                 "**Background Tasks**",
                 SEP,
                 body,
                 SEP,
                 "Tasks are created by the agent for long-running work.",
             ),
-            None,
         )
 
     running = [t for t in all_tasks if t.status == "running"]
@@ -94,7 +92,7 @@ def _build_page(
     finished = [t for t in all_tasks if t.status in _FINISHED]
 
     lines: list[str] = []
-    rows: list[list[InlineKeyboardButton]] = []
+    rows: list[list[Button]] = []
     now = time.time()
 
     _append_running(running, lines, rows, now)
@@ -104,13 +102,13 @@ def _build_page(
 
     summary = _summary_line(running, waiting, finished)
     text = fmt("**Background Tasks**", SEP, "\n".join(lines), SEP, summary, note)
-    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+    return SelectorResponse(text=text, buttons=ButtonGrid(rows=rows))
 
 
 def _append_running(
     running: list[TaskEntry],
     lines: list[str],
-    rows: list[list[InlineKeyboardButton]],
+    rows: list[list[Button]],
     now: float,
 ) -> None:
     if not running:
@@ -120,14 +118,14 @@ def _append_running(
         lines.append(_format_entry(entry, now))
         rows.append(
             [
-                InlineKeyboardButton(
+                Button(
                     text=f"Cancel {entry.name[:20]}",
                     callback_data=f"tsc:cancel:{entry.task_id}",
                 ),
             ]
         )
     if len(running) > 1:
-        rows.append([InlineKeyboardButton(text="Cancel All", callback_data="tsc:cancelall")])
+        rows.append([Button(text="Cancel All", callback_data="tsc:cancelall")])
 
 
 def _append_waiting(
@@ -164,15 +162,15 @@ def _append_finished(
 
 
 def _append_nav(
-    rows: list[list[InlineKeyboardButton]],
+    rows: list[list[Button]],
     finished: list[TaskEntry],
 ) -> None:
-    nav_row: list[InlineKeyboardButton] = [
-        InlineKeyboardButton(text="Refresh", callback_data="tsc:r"),
+    nav_row: list[Button] = [
+        Button(text="Refresh", callback_data="tsc:r"),
     ]
     if finished:
         nav_row.append(
-            InlineKeyboardButton(text="Delete Finished", callback_data="tsc:cleanup"),
+            Button(text="Delete Finished", callback_data="tsc:cleanup"),
         )
     rows.append(nav_row)
 
