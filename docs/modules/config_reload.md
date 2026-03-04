@@ -28,6 +28,7 @@ Avoid unnecessary restarts when safe `config.json` fields change.
 - `idle_timeout_minutes`, `session_age_warning_hours`, `daily_reset_hour`, `daily_reset_enabled`
 - `permission_mode`, `file_access`, `user_timezone`
 - `streaming`, `heartbeat`, `cleanup`, `cli_parameters`
+- `allowed_user_ids`, `allowed_group_ids`
 
 Important runtime nuance:
 
@@ -37,7 +38,7 @@ Important runtime nuance:
 
 ## Restart-required fields
 
-- `telegram_token`, `allowed_user_ids`, `allowed_group_ids`, `group_mention_only`
+- `telegram_token`, `group_mention_only`
 - `docker`, `api`, `webhooks`
 - `ductor_home`, `log_level`, `gemini_api_key`, `timeouts`, `tasks`
 - restart classification is schema-based over `AgentConfig` top-level fields
