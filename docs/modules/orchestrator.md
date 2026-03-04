@@ -1,279 +1,180 @@
 # orchestrator/
 
-Central routing layer between ingress transports (Telegram + optional API server) and CLI execution.
+Central routing layer between ingress transports (Telegram/API) and CLI execution.
 
 ## Files
 
-- `core.py`: `Orchestrator` lifecycle, routing, observer wiring, shutdown
-- `registry.py`: `CommandRegistry`, `OrchestratorResult`
-- `commands.py`: command handlers (`/status`, `/model`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`, ...)
-- `flows.py`: normal flow, streaming flow, heartbeat flow, session-recovery/error handling
-- `directives.py`: leading `@...` directive parser
-- `hooks.py`: hook registry + `MAINMEMORY_REMINDER`
-- `model_selector.py`: interactive model/provider switch wizard (`ms:*`)
-- `cron_selector.py`: interactive cron toggles (`crn:*`)
-- `session_selector.py`: interactive named-session manager (`nsc:*`)
-- `task_selector.py`: interactive background-task manager (`tsc:*`)
-- API server integration points in `core.py`: `_start_api_server()`, `_api_stop`, shutdown stop path
-- infra integrations in `core.py`: `InflightTracker` wiring for startup recovery
+- `orchestrator/core.py`: `Orchestrator` class, command dispatch, integrations, thin delegations
+- `orchestrator/lifecycle.py`: async factory/startup/shutdown helpers
+- `orchestrator/observers.py`: `ObserverManager` for all observer lifecycle wiring
+- `orchestrator/providers.py`: `ProviderManager` (provider auth/model resolution/metadata)
+- `orchestrator/injection.py`: shared session injection for inter-agent and task flows
+- `orchestrator/registry.py`: `CommandRegistry`, `OrchestratorResult`
+- `orchestrator/commands.py`: slash-command handlers
+- `orchestrator/flows.py`: normal/streaming/named-session/heartbeat flows
+- `orchestrator/directives.py`: leading `@...` parser
+- `orchestrator/hooks.py`: message hooks (`MAINMEMORY_REMINDER`, delegation hints)
+- `orchestrator/selectors/*`: model/cron/session/task selector modules + selector types
 
-## Startup (`Orchestrator.create`)
+## Why it was split
 
-Workspace precondition:
+Recent refactors moved startup/provider/observer concerns out of `core.py`:
 
-- `~/.ductor` seeding and `init_workspace(...)` are handled upstream by `load_config()` in `__main__.py`.
+- lifecycle logic -> `lifecycle.py`
+- provider/model state -> `providers.py`
+- observer orchestration -> `observers.py`
+- selector UI modules -> `orchestrator/selectors/` (transport-agnostic)
 
-1. resolve paths from `ductor_home`
-2. set process-wide `DUCTOR_HOME` only for `agent_name == "main"` (sub-agents rely on per-subprocess env)
-3. optional Docker setup (`DockerManager.setup`)
-4. if Docker active: re-sync skills in copy mode (`docker_active=True`)
-5. inject runtime environment notice into workspace rule files
-6. construct orchestrator instance
-   - initializes `InflightTracker` (`~/.ductor/inflight_turns.json`)
-   - initializes named-session registry with restart recovery metadata
-7. detect provider auth (`check_all_auth`) and update available providers
-8. start model caches (`_init_model_caches`):
-   - `GeminiCacheObserver` (`gemini_models.json`) with refresh callback to `set_gemini_models`
-   - `CodexCacheObserver` (`codex_models.json`)
-9. construct `BackgroundObserver`, `CronObserver`, `WebhookObserver` (heartbeat/cleanup already constructed in `__init__`)
-   - named background timeout is `config.timeouts.background`
-10. start `CronObserver`, `HeartbeatObserver`, `WebhookObserver`, `CleanupObserver`
-11. if `config.api.enabled`: start `ApiServer` via `_start_api_server` (logs warning + skips startup when PyNaCl is unavailable)
-12. start rule sync watcher (`watch_rule_files`)
-13. start skill sync watcher (`watch_skill_sync`)
-14. start `ConfigReloader` (`config.json` poll every 5s)
+Result: smaller `core.py` with clearer responsibilities.
+
+## Startup (`Orchestrator.create` -> `lifecycle.create_orchestrator`)
+
+High-level steps:
+
+1. resolve paths + set main-agent `DUCTOR_HOME`
+2. optional Docker setup + Docker skill resync
+3. runtime environment injection into workspace rule files
+4. instantiate `Orchestrator`
+5. provider auth detection + available-provider update
+6. initialize Gemini/Codex cache observers
+7. initialize/start task observers (`Background`, `Cron`, `Webhook`) + `Heartbeat` + `Cleanup`
+8. start rule/skill watcher tasks
+9. optional API server startup
+10. start config reloader
 
 ## Routing entry points
 
-- `handle_message(chat_id, text)`
-- `handle_message_streaming(chat_id, text, callbacks...)`
+- `handle_message(key, text)`
+- `handle_message_streaming(key, text, callbacks...)`
 
-Shared path:
+Common path:
 
-- clear abort flag
-- log suspicious input patterns (no hard block here)
-- command dispatch first
-- fallback to directive + normal/streaming flow
-- domain/unexpected exception boundary returns generic error text
+1. clear abort marker for chat
+2. suspicious input detection (log warning only)
+3. command registry dispatch
+4. directive parsing
+5. normal or streaming flow
 
 ## Command registry
 
-Registered commands:
+Registered command handlers:
 
-- `/new`
-- `/status`
-- `/model`
-- `/model ` (prefix form)
-- `/memory`
-- `/cron`
-- `/diagnose`
-- `/upgrade`
-- `/sessions`
-- `/tasks`
+- `/new`, `/status`, `/model`, `/memory`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
 
-Runtime-registered when supervisor hook is injected on main agent:
+Runtime main-agent registration:
 
-- `/agents`
-- `/agent_start` (and prefix form)
-- `/agent_stop` (and prefix form)
-- `/agent_restart` (and prefix form)
+- `/agents`, `/agent_start`, `/agent_stop`, `/agent_restart`
 
-`/stop` and `/stop_all` are intentionally not registered here; abort is middleware/bot-level behavior.
+Not orchestrator-owned:
 
-Note:
+- `/stop`, `/stop_all` (middleware/bot layer)
 
-- `/new` is also handled directly in the bot layer (`TelegramBot._on_new`) via `reset_active_provider_session`.
-- keeping `/new` registered in orchestrator preserves behavior for non-bot entry paths that still route through command dispatch.
+## Provider/model management (`ProviderManager`)
 
-## Directives
+Responsibilities:
 
-`parse_directives(text, known_models)` parses only leading `@...` tokens.
+- authenticated provider set
+- runtime model->provider resolution
+- known-model IDs for directive parsing
+- API provider metadata for auth responses
 
-Known model IDs are refreshed from:
+Directive resolution supports:
 
-- Claude set (`haiku`, `sonnet`, `opus`)
-- Gemini aliases (`auto`, `pro`, `flash`, `flash-lite`)
-- discovered Gemini models from runtime cache
+- provider directives (`@codex`, `@gemini`, `@claude`)
+- model directives (`@opus`, `@flash`, cache-backed IDs)
 
-Parser token rule is `@([a-zA-Z][a-zA-Z0-9_-]*)`; dotted model IDs are not parsed as a single directive token.
+## Selector subsystem (`orchestrator/selectors/`)
 
-Codex IDs are not included in inline directive-known set.
+Selectors are transport-agnostic and return `SelectorResponse` with abstract button types.
 
-Directive-only model messages return guidance text instead of executing.
+Modules:
+
+- `model_selector.py` (`ms:*`)
+- `cron_selector.py` (`crn:*`)
+- `session_selector.py` (`nsc:*`)
+- `task_selector.py` (`tsc:*`)
+- shared models/utilities in `selectors/models.py`, `selectors/utils.py`
+
+Important model-selector behavior:
+
+- topic-scoped `/model` changes only the active topic session
+- non-topic `/model` updates config defaults (and sub-agent `agents.json` when relevant)
+
+## Flow behavior (`flows.py`)
+
+### Normal/streaming
+
+- session resolution via `SessionKey`
+- provider-isolated session buckets
+- optional new-session system prompt append (`MAINMEMORY.md`)
+- in-flight foreground turn tracking
+- single automatic recovery retry on SIGKILL/invalid resumed session
+- session update on success
+
+### Named session flow
+
+- named session registry lookup/resume
+- foreground follow-up support (`@name <msg>`)
+
+### Heartbeat flow
+
+- read-only session lookup
+- provider match + cooldown checks
+- ACK-token suppression
+
+## Injection paths (`injection.py`)
+
+Shared helper `_inject_prompt(...)` is used by:
+
+- `handle_async_interagent_result(...)`
+- `handle_task_result(...)`
+- `handle_task_question(...)`
+- public `inject_prompt(...)` on orchestrator
+
+All injection paths respect `topic_id` when provided.
+
+## Observer and bus wiring
+
+`Orchestrator.wire_observers_to_bus(bus, wake_handler=...)`:
+
+- delegates to `ObserverManager.wire_to_bus(...)`
+- sets bus injector to orchestrator
+- replaces old per-observer setter scatter
+
+Observer manager owns lifecycle for:
+
+- background, cron, webhook, heartbeat, cleanup
+- Gemini/Codex cache observers
+- config reloader
+- rule sync watcher
+- skill sync watcher
 
 ## Config hot-reload impact
 
-`_on_config_hot_reload()` updates dependent services at runtime:
+`_on_config_hot_reload(...)` updates runtime services for hot fields:
 
-- refreshes `CLIServiceConfig` when hot fields include model/provider/limits/reasoning/permission/CLI args
-- refreshes known model IDs when `model` changed
+- CLI defaults (`model`, `provider`, limits, permission, reasoning, CLI args)
+- known model IDs refresh
+- external bot callback for auth/group updates
 
-Observer lifecycle toggle behavior remains unchanged (`heartbeat`/`cleanup` values hot-reload, but start/stop still needs restart when initially disabled).
+Restart-required fields are surfaced via reloader callback logging.
 
-## Normal/streaming flow (`flows.py`)
+## API integration
 
-`_prepare_normal()`:
+`lifecycle.start_api_server(...)`:
 
-- resolve runtime model/provider target
-- resolve or create session with provider-isolated buckets
-- new session: append `MAINMEMORY.md` as system appendix
-- apply hooks
-- build `AgentRequest`
-  - normal timeout path uses `resolve_timeout(config, "normal")` (`timeouts.normal`)
+- generates API token when missing
+- computes default chat fallback from `api.chat_id` or first allowed user
+- wires streaming message handler, abort handler, file context, provider metadata, active-state getter
 
-Gemini safeguard:
-
-- if target provider is Gemini,
-- and Gemini auth mode is API-key,
-- and `gemini_api_key` in config is empty/`"null"`,
-- return warning result without spawning CLI.
-
-Error behavior:
-
-- recoverable errors:
-  - SIGKILL -> reset active provider bucket and retry once
-  - invalid resumed session (`invalid session` / `session not found`) -> reset active provider bucket and retry once
-- other errors: kill processes, preserve session, return session-error guidance
-
-Success behavior:
-
-- persist returned session ID
-- increment counters/cost/tokens
-- optional session-age note every 10 messages after threshold
-
-Crash-recovery tracking:
-
-- every foreground turn is recorded in `InflightTracker.begin(...)` before CLI execution.
-- turn record is cleared in `finally` via `InflightTracker.complete(chat_id)`.
-- startup recovery planning/execution happens in bot startup (`TelegramBot._on_startup`), not in orchestrator startup.
-
-## Heartbeat flow
-
-`heartbeat_flow` is read-only until non-ACK output:
-
-- skip when no active session or no `session_id`
-- skip when provider mismatch or cooldown not reached
-- run heartbeat prompt in existing session
-- strip ACK token (`HEARTBEAT_OK` by default)
-- only non-ACK responses update session and trigger delivery
-
-Observer wiring in `Orchestrator.__init__`:
-
-- busy check callback -> `ProcessRegistry.has_active` (heartbeat skips while chat has active CLI process)
-- stale cleanup callback -> `ProcessRegistry.kill_stale(config.cli_timeout * 2)` (run before heartbeat ticks)
-
-## Model selector (`model_selector.py`)
-
-Callback namespace: `ms:`
-
-- provider step: `ms:p:<provider>`
-- model step: `ms:m:<model>`
-- codex reasoning step: `ms:r:<effort>:<model>`
-- back: `ms:b:*`
-
-Behavior:
-
-- provider buttons shown only for authenticated providers
-- model list sources:
-  - Claude static list
-  - Codex cache
-  - Gemini discovered models
-- switch updates config + CLIService defaults
-- provider session buckets are preserved across switches
-
-## Cron selector (`cron_selector.py`)
-
-Callback namespace: `crn:`
-
-- supports paging, refresh, per-job toggle, bulk all-on/all-off
-- toggles persist in `CronManager` and call `CronObserver.reschedule_now()`
-
-## Session selector (`session_selector.py`)
-
-Callback namespace: `nsc:`
-
-- `nsc:r` refresh
-- `nsc:end:<name>` end one named session
-- `nsc:endall` end all named sessions
-
-## Task selector (`task_selector.py`)
-
-Callback namespace: `tsc:`
-
-- `tsc:r` refresh
-- `tsc:cancel:<task_id>` cancel one running task
-- `tsc:cancelall` cancel all running tasks for current chat
-- `tsc:cleanup` remove finished tasks for current chat
-
-## Session wiring (`/session`)
-
-- `submit_named_session(...)` creates a named session and submits to `BackgroundObserver`
-- `submit_named_followup_bg(...)` submits a background follow-up to an existing session
-- `active_background_tasks(...)` powers `/status` visibility for running tasks
-- `abort(chat_id)` kills active CLI processes, cancels chat-scoped background tasks, and ends all named sessions for that chat
-- result delivery is delegated via `set_session_result_handler(...)` to bot layer callbacks
-
-## Task wiring (`/tasks` + delegated task results)
-
-- `/tasks` command path uses `cmd_tasks` + `task_selector_start(...)`.
-- TaskHub instance is injected by supervisor (`set_task_hub(...)`); when absent, `/tasks` returns disabled-state text.
-- task result injection: `handle_task_result(...)` resumes current active chat session with self-contained task-result prompt.
-- task-question injection: `handle_task_question(...)` resumes current active chat session with question + `resume_task.py` guidance.
-- task-result and task-question execution paths currently use `config.cli_timeout`.
-
-## Webhook wiring
-
-`Orchestrator` only wires handlers; wake execution remains in bot layer:
-
-- `set_webhook_result_handler`
-- `set_webhook_wake_handler`
-
-This keeps wake dispatch behind the same per-chat lock as normal messages.
-
-## API wiring
-
-`_start_api_server()` in `core.py`:
-
-1. auto-generates `api.token` when empty and persists it to `config.json`
-2. computes default API `chat_id` from `config.api.chat_id` using truthiness (`0` falls back) or first `allowed_user_ids` entry (fallback `1`)
-3. constructs `ApiServer(config.api, default_chat_id=...)`
-4. wires callbacks:
-   - message streaming -> `handle_message_streaming`
-   - abort -> `abort`
-5. wires file context:
-   - `allowed_roots` from `resolve_allowed_roots(config.file_access, paths.workspace)`
-   - upload directory `paths.api_files_dir`
-   - workspace root for relative prompt paths
-6. starts aiohttp server
-
-Clients can still override session per connection via auth payload `{"type":"auth","chat_id":...}` (positive int only).
-
-If API dependencies are missing (`ImportError` on `ductor_bot.api.server`), `_start_api_server()` logs and exits without starting the server.
-
-## Inter-agent wiring
-
-Inter-agent message handling in `core.py`:
-
-- deterministic named sessions per sender: `ia-<sender>`
-- real inter-agent `chat_id`: first `allowed_user_ids` entry when available, otherwise `0` (with warning)
-- optional forced fresh session via `new_session=True`
-- inter-agent timeout path currently uses `config.cli_timeout`
-- provider switch auto-reset:
-  - if an existing `ia-<sender>` session provider differs from current runtime provider, the old session is ended and a fresh one is created
-  - caller receives a provider-switch notice for user delivery
-
-Persistence detail:
-
-- inter-agent session creation uses `NamedSessionRegistry.add(...)` (pre-built entry insertion), not direct internal registry mutation
+`ApiServer` supports auth payload `channel_id` -> topic-aware `SessionKey`.
 
 ## Shutdown
 
-`Orchestrator.shutdown()`:
+`lifecycle.shutdown(...)` performs:
 
-1. stop API server if running
-2. cancel rule/skill watcher tasks
-3. `cleanup_ductor_links(paths)`
-4. stop `ConfigReloader`
-5. stop background/heartbeat/webhook/cron/cleanup observers
-6. stop codex and gemini cache observers
-7. teardown Docker container (if managed)
+1. kill active CLI processes
+2. stop API server (if running)
+3. cleanup managed skill links
+4. stop observers/reloader/cache/watchers
+5. Docker teardown (if enabled)

@@ -1,163 +1,137 @@
 # Setup Wizard and CLI Entry
 
-Covers `ductor` CLI command behavior, onboarding wizard, and upgrade/restart/uninstall flows.
+Covers `ductor` command behavior, onboarding flow, and lifecycle commands.
 
 ## Files
 
-- `ductor_bot/__main__.py`: CLI command dispatch + process lifecycle
-- `ductor_bot/cli/init_wizard.py`: onboarding wizard + smart reset
-- `ductor_bot/infra/service.py`, `service_linux.py`, `service_macos.py`, `service_windows.py`: background service backends
-- `ductor_bot/infra/process_tree.py`: cross-platform process cleanup helpers (used by stop/upgrade paths)
-- `ductor_bot/infra/version.py`, `infra/updater.py`: version check + upgrade helpers
-- `ductor_bot/orchestrator/commands.py`: Telegram `/upgrade` command
+- `ductor_bot/__main__.py`: CLI dispatch + config helpers + `run_telegram`
+- `ductor_bot/cli_commands/lifecycle.py`: start/stop/restart/upgrade/uninstall logic
+- `ductor_bot/cli_commands/status.py`: `ductor status` + `ductor help`
+- `ductor_bot/cli_commands/service.py`: service command routing
+- `ductor_bot/cli_commands/docker.py`: docker subcommands
+- `ductor_bot/cli_commands/api_cmd.py`: API enable/disable commands
+- `ductor_bot/cli_commands/agents.py`: sub-agent registry commands
+- `ductor_bot/cli/init_wizard.py`: onboarding + smart reset
 
 ## CLI commands
 
-- `ductor`: start bot (auto-onboarding if not configured)
-- `ductor onboarding` / `ductor reset`: run onboarding (smart reset first if configured)
-- `ductor status`: show status panel
-- `ductor stop`: stop service-managed bot processes + remaining ductor processes + docker container (if enabled)
-- `ductor restart`: stop and re-exec
-- `ductor upgrade`: CLI-side upgrade + restart (non-dev installs)
-- `ductor uninstall`: full removal workflow
-- `ductor service <install|status|start|stop|logs|uninstall>`: service control
-- `ductor docker <rebuild|enable|disable|mount|unmount|mounts>`: Docker lifecycle + config + mount management
-- `ductor api <enable|disable>`: API server config toggle (beta)
-- `ductor agents <list|add|remove>`: sub-agent registry management
-- `ductor help`: command table + status hint
+- `ductor`: start bot (auto-onboarding if needed)
+- `ductor onboarding` / `ductor reset`: onboarding flow (with smart reset when configured)
+- `ductor status`
+- `ductor stop`
+- `ductor restart`
+- `ductor upgrade`
+- `ductor uninstall`
+- `ductor service <install|status|start|stop|logs|uninstall>`
+- `ductor docker <rebuild|enable|disable|mount|unmount|mounts>`
+- `ductor api <enable|disable>`
+- `ductor agents <list|add|remove>`
+- `ductor help`
 
-Command resolution in `main()` takes the first matching non-flag command token.
+## Configuration gate
+
+`_is_configured()` currently requires:
+
+- valid non-placeholder `telegram_token`
+- non-empty `allowed_user_ids`
+
+`allowed_group_ids` controls group authorization but does not satisfy startup configuration alone.
 
 ## Onboarding flow (`run_onboarding`)
 
 1. banner
-2. provider detection (`claude`, `codex`, `gemini`) and auth status panel
-3. require at least one authenticated provider
-4. disclaimer confirmation
-5. Telegram bot token prompt + validation
-6. Telegram user ID prompt + validation
-7. Docker detection + opt-in prompt
-8. timezone prompt + validation
-9. write merged config and run `init_workspace`
-10. optional service install prompt
+2. provider install/auth check
+3. disclaimer
+4. Telegram bot token prompt
+5. Telegram user ID prompt
+6. Docker choice
+7. timezone choice
+8. write merged config + initialize workspace
+9. optional service install
 
 Return semantics:
 
-- returns `True` only when service install was requested and installation succeeded
-- returns `False` otherwise
+- `True` when service install was completed
+- `False` otherwise
 
 Caller behavior:
 
-- default `ductor` start path does not call `_stop_bot()`; duplicate prevention is handled by PID lock (`acquire_lock(..., kill_existing=True)`),
-- onboarding/reset path calls `_stop_bot()` before running onboarding,
-- `ductor` default path: exits after successful service install; otherwise starts foreground bot
-- `ductor onboarding` / `ductor reset`: same behavior (no forced foreground start after successful service install)
+- default `ductor`: onboarding if needed, then foreground start unless service install path returned `True`
+- `ductor onboarding/reset`: calls `stop_bot()` first, then onboarding, then same service/foreground logic
 
-## Stop behavior (`ductor stop`)
+## Lifecycle command behavior
 
-`_stop_bot()` runs a deterministic shutdown sequence:
+### `stop_bot()`
 
-1. stop installed service backend first (prevents auto-respawn),
-2. terminate PID-file instance,
-3. on Windows: kill remaining ductor processes (includes pipx `pythonw` cleanup),
-4. wait briefly on Windows for file locks to release,
-5. stop/remove Docker container when enabled.
+Shutdown sequence:
 
-Operational side effect:
+1. stop installed service (prevents auto-respawn)
+2. kill PID-file instance
+3. kill remaining ductor processes
+4. short lock-release wait on Windows
+5. stop Docker container when enabled
 
-- commands that call `_stop_bot()` (`restart`, `upgrade`, `docker rebuild`) can stop a currently running service-managed instance and leave it stopped until started again.
+### Restart
 
-## Smart reset (`run_smart_reset`)
+- `cmd_restart()` = `stop_bot()` + process re-exec
+- restart code `42` is used for service-managed restart semantics
 
-If already configured and onboarding/reset is requested:
+### Upgrade
 
-1. read current Docker settings
-2. show destructive reset warning
-3. optionally remove Docker container/image
-4. require final confirmation
-5. delete `~/.ductor`
+- dev installs: no self-upgrade, show guidance
+- upgradeable installs: stop -> upgrade pipeline -> verify version -> restart
 
-## Configured check
+### Uninstall
 
-`_is_configured()` requires:
+- stop bot/service
+- optional Docker image cleanup
+- remove `~/.ductor` via robust filesystem helper
+- uninstall package (`pipx` or `pip`)
 
-- valid non-placeholder `telegram_token`
-- and either non-empty `allowed_user_ids` or non-empty `allowed_group_ids`
+## Status panel
 
-## Status panel (`ductor status`)
+`ductor status` shows:
 
-Shows:
-
-- running state / PID / uptime
-- configured provider + model
-- Docker enabled state
+- running state/PID/uptime
+- provider/model
+- Docker state
 - error count from newest `ductor*.log`
-- key paths (home/config/workspace/logs/sessions)
-- when sub-agents are configured and main bot is running: live per-agent health table from internal API (`running|starting|crashed|stopped`, uptime, restart count)
+- key paths
+- sub-agent status table when configured (live health if bot is running)
 
-Note: runtime file logger writes `agent.log`; status counter still scans `ductor*.log`.
+Note: runtime primary log file is `~/.ductor/logs/agent.log`; status error counter is currently `ductor*.log`-based.
 
-## Service command wiring
+## Docker command notes
 
-`ductor service ...` delegates to platform backend via `infra/service.py`:
+`ductor docker ...` commands update `config.json` and/or container/image state.
+
+- mount/unmount paths are resolved and validated
+- mount list shows host path, container target, status
+- restart/rebuild is required for mount flag changes to affect running container
+
+## API command notes
+
+`ductor api enable`:
+
+- requires PyNaCl
+- writes/updates `config.api`
+- generates token when missing
+
+`ductor api disable`:
+
+- sets `config.api.enabled=false` (keeps token/settings)
+
+Both require bot restart to apply.
+
+## Service command routing
+
+`ductor service ...` delegates to platform backends:
 
 - Linux: systemd user service
 - macOS: launchd Launch Agent
 - Windows: Task Scheduler
 
-Windows-specific behavior:
+`ductor service logs`:
 
-- prefers `pythonw.exe -m ductor_bot` for windowless background execution,
-- falls back to `ductor` binary when `pythonw.exe` is unavailable,
-- installs Task Scheduler restart-on-failure retries (3 attempts, 1-minute interval),
-- shows an explicit admin-help panel on `schtasks` access-denied errors.
-
-`ductor service logs` behavior:
-
-- Linux: live journalctl stream
-- macOS/Windows: recent lines from `agent.log` (fallback newest `*.log`)
-
-## Docker command wiring
-
-`ductor docker ...` in `__main__.py` supports:
-
-- `enable` / `disable`: toggle `docker.enabled`
-- `rebuild`: stop bot, remove container/image, force fresh build on next start
-- `mount <path>`:
-  - validates directory and appends resolved path to `docker.mounts`
-  - skips duplicates by resolved-path comparison
-  - prints resolved container target (`/mnt/<name>`)
-- `unmount <path>`:
-  - removes mount by exact string, resolved path, or basename
-- `mounts`:
-  - lists configured mounts with `Host Path`, `Container Path`, and status
-  - unresolved/missing paths are shown as `not found`
-
-Mount changes require restart/rebuild to affect the running container.
-
-## API command wiring (beta)
-
-`ductor api ...` is handled directly in `__main__.py`:
-
-- `ductor api enable`:
-  - requires PyNaCl (`pipx inject ductor PyNaCl` or `pip install ductor[api]`)
-  - writes/updates `config.api` block
-  - sets `enabled=true`
-  - generates `api.token` when missing
-  - persists defaults (`host`, `port`, `chat_id`, `allow_public`)
-- `ductor api disable`:
-  - sets `config.api.enabled=false` (keeps existing token/settings)
-
-Both commands require a bot restart to apply runtime API server changes.
-
-## Telegram upgrade flow
-
-`/upgrade` command path:
-
-1. check PyPI version
-2. if update available, send inline buttons
-3. callback `upg:yes:<version>` runs upgrade pipeline with verification + one automatic forced retry when needed
-4. on confirmed version change: write sentinel and exit with restart code
-5. startup consumes sentinel and sends completion message
-
-`UpdateObserver` runs in bot startup only for upgradeable installs (`pipx`/`pip`, not dev mode).
+- Linux: `journalctl --user -u ductor -f`
+- macOS/Windows: tail from `~/.ductor/logs/agent.log` (fallback newest `*.log`)

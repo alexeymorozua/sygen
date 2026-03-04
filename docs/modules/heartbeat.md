@@ -1,75 +1,48 @@
 # heartbeat/
 
-Periodic background heartbeat loop per allowed user chat.
+Periodic proactive check loop for active sessions.
 
 ## Files
 
-- `observer.py`: `HeartbeatObserver`, quiet-hour logic, loop lifecycle.
-- `__init__.py`: exports `HeartbeatObserver`.
-
-## Purpose
-
-Heartbeat runs periodic model turns in the existing main session to produce proactive alerts without opening new sessions.
+- `heartbeat/observer.py`: `HeartbeatObserver` loop lifecycle + gating
 
 ## Public API (`HeartbeatObserver`)
 
 - `set_result_handler(handler)`
 - `set_heartbeat_handler(handler)`
 - `set_busy_check(check)`
-- `set_stale_cleanup(cleanup)` -- callback to kill wall-clock-stale CLI processes (wired to `ProcessRegistry.kill_stale`)
+- `set_stale_cleanup(cleanup)`
 - `start()`
 - `stop()`
 
 Helper:
 
-- `is_quiet_hour(now_hour, quiet_start, quiet_end)` from `ductor_bot/utils/quiet_hours.py` (supports wrap-around windows)
+- `utils/quiet_hours.py::is_quiet_hour(...)`
 
-## Lifecycle
+## Runtime flow
 
-`start()` checks:
+1. observer loop sleeps `interval_minutes`
+2. skip full cycle during quiet hours (`user_timezone`)
+3. per allowed user chat:
+   - skip when busy check is true
+   - execute heartbeat handler
+   - deliver only non-empty results
 
-1. `config.heartbeat.enabled` must be true,
-2. heartbeat handler must be set.
+`set_stale_cleanup(...)` is called before tick processing and is wired to `ProcessRegistry.kill_stale(...)`.
 
-Then it starts the background observer task (`BaseObserver.start()` -> `HeartbeatObserver._run()`).
+## Orchestrator contract
 
-`_run()`:
+Observer delegates heartbeats to `Orchestrator.handle_heartbeat(...)` (`heartbeat_flow`):
 
-1. sleep `interval_minutes`,
-2. skip if disabled/stopped,
-3. run `_tick()`.
+- read-only active session lookup
+- requires existing resumable session
+- provider-match enforcement
+- cooldown enforcement via `session.last_active`
+- ACK-token suppression
+- session metrics update only for non-ACK responses
 
-`_tick()`:
+## Delivery model
 
-- skip full cycle during quiet hours (evaluated in `user_timezone`, fallback host timezone then UTC),
-- iterate all `allowed_user_ids` and call `_run_for_chat(chat_id)`.
+Heartbeat results are wrapped as envelopes and delivered through `MessageBus` -> `TelegramTransport`.
 
-`_run_for_chat()`:
-
-1. skip if busy check says chat has active process,
-2. call heartbeat handler (orchestrator),
-3. if returned text is not `None`, deliver via result handler.
-
-## Orchestrator Contract
-
-Observer does not talk to CLI directly. It delegates to `Orchestrator.handle_heartbeat()` / `heartbeat_flow()` for session logic:
-
-- uses read-only `SessionManager.get_active()` (never creates or destroys sessions),
-- requires existing `session_id`,
-- skips on provider mismatch (session provider != current config provider),
-- enforces cooldown from `session.last_active`,
-- suppresses `ack_token` responses,
-- updates session metrics only for actual alert responses.
-
-## Resilience
-
-The heartbeat loop includes several defenses against system suspend and crashes:
-
-- **Wall-clock gap detection**: compares `time.time()` between ticks to detect system suspend (where `asyncio.sleep` pauses but wall clock advances). Logs a warning on gaps > 2x interval.
-- **Stale process cleanup**: before each tick, calls `stale_cleanup` callback to kill CLI processes that exceeded `cli_timeout * 2` in wall-clock time. Catches processes that survived suspend where monotonic-based `asyncio.timeout` did not fire.
-- **Catch-all exception handler**: each `_tick()` call is wrapped in a broad `except Exception` so a single tick failure does not kill the loop.
-- **Task crash callback**: `_log_task_crash` is attached via `add_done_callback` to detect and log unexpected background task termination.
-
-## Delivery Logging
-
-`TelegramBot._on_heartbeat_result()` logs both before and after sending to Telegram (`DEBUG` on entry, `INFO` on successful delivery) for end-to-end observability.
+No direct `TelegramBot._on_heartbeat_result` callback path exists anymore.

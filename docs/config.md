@@ -254,7 +254,9 @@ Runtime note (`Orchestrator._start_api_server` + `ApiServer._authenticate`):
 
 - `config.api.chat_id` is used via truthiness (`0` falls back),
 - fallback default comes from first `allowed_user_ids` entry (fallback `1`),
-- per-connection auth payload may override via `{"type":"auth","chat_id":...}` (positive int),
+- per-connection auth payload may override via:
+  - `{"type":"auth","chat_id":...}` (positive int),
+  - optional `channel_id` (positive int) for per-channel session isolation (`SessionKey.topic_id`),
 - clients can override only for that connection; persisted default stays in config.
 
 ## Runtime hot-reload (`config_reload.py`)

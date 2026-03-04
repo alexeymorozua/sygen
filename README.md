@@ -262,9 +262,10 @@ graph LR
 The orchestrator routes messages through command dispatch, directive parsing, and conversation flows. Background systems (cron, webhooks, heartbeat, named sessions, background tasks, config reload, model caches) run as in-process asyncio tasks. Sub-agents are managed by a supervisor with crash recovery — each one runs its own full bot stack.
 
 Session behavior:
-- Sessions are chat-scoped and provider-isolated
+- Sessions are keyed by `SessionKey(chat_id, topic_id)` (forum topics are isolated)
 - `/new` resets only the active provider bucket
 - Switching providers preserves each provider's session context
+- `/model` inside a forum topic updates only that topic session
 
 ## Telegram commands
 
@@ -285,6 +286,8 @@ Session behavior:
 | `/upgrade` | Check/apply updates |
 | `/agents` | Multi-agent status with current models |
 | `/agent_commands` | Multi-agent command reference |
+| `/where` | Show tracked chats/groups (active/rejected/left) |
+| `/leave <group_id>` | Manually leave a group |
 | `/info` | Version + links |
 
 ## CLI commands
@@ -320,6 +323,7 @@ Full CLI reference: [`docs/modules/setup_wizard.md`](docs/modules/setup_wizard.m
   sessions.json             # Chat session state
   named_sessions.json       # Named background sessions
   tasks.json                # Background task registry
+  chat_activity.json        # Group/join/reject/leave tracker for /where
   startup_state.json        # Startup lifecycle state (restart vs reboot)
   inflight_turns.json       # In-flight foreground turn tracker
   cron_jobs.json            # Scheduled tasks
@@ -348,7 +352,7 @@ Full config reference: [`docs/config.md`](docs/config.md)
 | [Architecture](docs/architecture.md) | Startup, routing, streaming, callbacks |
 | [Configuration](docs/config.md) | Config schema and merge behavior |
 | [Automation](docs/automation.md) | Cron, webhooks, heartbeat setup |
-| [Module docs](docs/modules/) | Per-module deep dives (22 modules) |
+| [Module docs](docs/modules/) | Per-module deep dives (incl. bus + cli_commands) |
 
 ## Disclaimer
 

@@ -1,165 +1,132 @@
 # tasks/
 
-Background task delegation system (`TaskHub`) used by agents and task tools.
+Delegated background task system (`TaskHub`) for long-running autonomous work.
 
 ## Files
 
-- `ductor_bot/tasks/hub.py`: `TaskHub` lifecycle (submit, run, resume, question forwarding, cancel, maintenance)
-- `ductor_bot/tasks/registry.py`: persistent task registry + task-folder seeding + orphan cleanup
-- `ductor_bot/tasks/models.py`: `TaskSubmit`, `TaskEntry`, `TaskInFlight`, `TaskResult`
-- `ductor_bot/orchestrator/task_selector.py`: `/tasks` interactive UI (`tsc:*` callbacks)
-- `ductor_bot/_home_defaults/workspace/tools/task_tools/*.py`: CLI tool scripts (`create_task.py`, `resume_task.py`, `ask_parent.py`, `list_tasks.py`, `cancel_task.py`)
+- `tasks/hub.py`: task lifecycle (submit/run/resume/question/cancel/shutdown)
+- `tasks/registry.py`: persistent registry + task-folder seeding + cleanup/delete
+- `tasks/models.py`: `TaskSubmit`, `TaskEntry`, `TaskInFlight`, `TaskResult`
+- `orchestrator/selectors/task_selector.py`: `/tasks` UI callbacks (`tsc:*`)
+- `_home_defaults/workspace/tools/task_tools/*.py`: CLI tools (`create`, `resume`, `ask_parent`, `list`, `cancel`, `delete`)
 
 ## Purpose
 
-Run long background work without blocking the parent chat, then inject outcomes back into the parent agent session.
+Run long work asynchronously while keeping parent chat responsive.
 
 High-level flow:
 
-1. create task (`/tasks/create`)
-2. run in background (`TaskHub._run`)
-3. optional question to parent (`/tasks/ask_parent`)
-4. optional resume with follow-up (`/tasks/resume`)
+1. create (`/tasks/create`)
+2. execute (`TaskHub._run`)
+3. optional question (`/tasks/ask_parent`)
+4. optional resume (`/tasks/resume`)
 5. result delivery + parent-session injection
+6. optional permanent deletion (`/tasks/delete`)
 
-## Persistence and Folders
+## Persistence and folders
 
-Main-home task files:
+Main-home task data:
 
 - registry: `~/.ductor/tasks.json`
-- task folders: `~/.ductor/workspace/tasks/<task_id>/`
+- folders: `~/.ductor/workspace/tasks/<task_id>/`
 
-Each task folder is seeded with:
+Task folder seeds include:
 
 - `TASKMEMORY.md`
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` (task-scoped rules)
+- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`
 
-Registry startup behavior:
+Startup/maintenance behavior:
 
-- loads `tasks.json`
-- downgrades stale `running` entries to `failed` (`"Bot restarted while task was running"`)
-- removes orphans:
-  - registry entries without folders
-  - folders without registry entries
+- stale `running` entries -> downgraded to `failed`
+- orphan entries/folders are cleaned
+- periodic orphan cleanup runs every 5 hours
 
-Periodic maintenance:
+## Config (`AgentConfig.tasks`)
 
-- `TaskHub.start_maintenance()` starts a cleanup loop (every 5 hours) that runs `TaskRegistry.cleanup_orphans()`.
+- `enabled`
+- `max_parallel` (per chat)
+- `timeout_seconds`
 
-## Config
-
-`AgentConfig.tasks`:
-
-- `enabled` (default `true`)
-- `max_parallel` (per-chat concurrent running tasks)
-- `timeout_seconds` (task execution timeout)
-
-TaskHub enforces:
-
-- system enabled check
-- CLI service availability
-- per-chat active-task cap (`max_parallel`)
-
-## Execution Model (`TaskHub`)
+## Execution model (`TaskHub`)
 
 `submit(TaskSubmit)`:
 
-- resolves `chat_id` from `parent_agent` mapping when request came from CLI tools
-- creates registry entry
-- appends mandatory task rules suffix to prompt
-- spawns `TaskHub._run(...)` as asyncio task
+- resolves chat ID from `parent_agent` mapping when missing
+- creates registry entry and folder
+- appends mandatory task rules suffix
+- spawns async execution
 
 `_run(...)`:
 
-- builds `AgentRequest` with:
-  - `process_label="task:<task_id>"`
-  - provider/model overrides from task entry
-  - timeout from `tasks.timeout_seconds`
-- resolves effective provider/model before first execution and persists them
-- executes via the agent-specific `CLIService` when available (fallback shared CLI otherwise)
+- builds `AgentRequest` with `process_label=task:<task_id>`
+- applies provider/model overrides when supplied
+- persists resolved provider/model on first run
 - updates status:
-  - `done`: successful completion
-  - `waiting`: task asked parent question during run
-  - `failed`: timeout/CLI/internal error
-  - `cancelled`: explicit cancel path
-- appends resume hint on success when session ID exists (`resume_task.py`)
+  - `done`
+  - `waiting` (question asked)
+  - `failed`
+  - `cancelled`
 
-No retry queue: each task run is single-shot unless explicitly resumed.
+Resume behavior:
 
-## Question and Resume Flow
+- allowed from `done|failed|cancelled|waiting`
+- requires stored `session_id` and provider
+- keeps same `task_id` and folder
 
-Question flow:
+## Topic-aware routing
 
-- task calls `python3 tools/task_tools/ask_parent.py "..."`
-- script hits `POST /tasks/ask_parent`
-- `TaskHub.forward_question(...)`:
-  - increments `question_count`
-  - stores `last_question`
-  - marks in-flight state so final status becomes `waiting`
-  - fire-and-forget delivery to parent handler
+Tasks preserve topic context:
 
-Resume flow:
+- `TaskEntry.thread_id` stores origin topic/thread
+- `create_task.py` forwards `DUCTOR_CHAT_ID` and `DUCTOR_TOPIC_ID` to `/tasks/create`
+- result/question envelopes map `thread_id -> topic_id`
+- parent-session injection resumes the correct topic session
 
-- parent calls `python3 tools/task_tools/resume_task.py TASK_ID "..."`
-- script hits `POST /tasks/resume`
-- `TaskHub.resume(...)` allows resume from:
-  - `done`, `failed`, `cancelled`, `waiting`
-- reuses same `task_id` and task folder
-- requires stored `session_id` and `provider`
-
-## InternalAgentAPI Endpoints
-
-Task endpoints (always registered):
+## InternalAgentAPI endpoints
 
 - `POST /tasks/create`
 - `POST /tasks/resume`
 - `POST /tasks/ask_parent`
 - `GET /tasks/list`
 - `POST /tasks/cancel`
+- `POST /tasks/delete`
 
 Behavior details:
 
-- when no TaskHub is attached: task routes return `503` (`/tasks/list` returns empty list)
-- `/tasks/list` supports `?from=<agent_name>` filtering by `parent_agent`
-- `/tasks/resume` and `/tasks/cancel` enforce ownership when `from` is provided
-- API class supports task-only mode (`bus=None`) where `/interagent/*` routes are absent but `/tasks/*` still work
+- no task hub attached -> `503` for mutating endpoints (`/tasks/list` returns empty list)
+- `/tasks/list?from=<agent>` filters by task owner
+- ownership checks for `/tasks/resume`, `/tasks/cancel`, `/tasks/delete` when `from` is provided
+- `/tasks/delete` only deletes finished tasks (`done|failed|cancelled`)
 
-## Supervisor Wiring
+## Registry deletion semantics
 
-`AgentSupervisor` creates one shared TaskHub (main home paths) when `tasks.enabled=true`:
+`TaskRegistry.delete(task_id)`:
 
-- registry path: main `tasks.json`
-- folders: main `workspace/tasks`
+- returns `False` if task is missing or not in a finished state
+- removes both registry entry and task folder
+- resolves folder path before entry removal (prevents per-agent folder resolution bug)
 
-Post-startup wiring per agent stack:
+Bulk cleanup path:
 
-- inject shared hub into orchestrator (`orch.set_task_hub(...)`)
-- register per-agent CLI service in hub
-- register per-agent result/question callbacks:
-  - `TelegramBot.on_task_result`
-  - `TelegramBot.on_task_question`
-- register agent primary chat ID for CLI-submitted task resolution
-
-Abort/shutdown:
-
-- main `/stop_all` callback cancels in-flight tasks across all agent stacks
-- supervisor shutdown calls `TaskHub.shutdown()`
+- `cleanup_finished(chat_id=None)` removes all finished tasks
 
 ## Telegram UX (`/tasks`)
 
-`/tasks` is orchestrator command + bot quick-command path.
+`/tasks` is quick-command routed and renders selector UI:
 
-UI groups tasks into:
+- sections: Running, Waiting for answer, Finished
+- callbacks (`tsc:*`): refresh, cancel one, cancel all, delete finished
+- if disabled: `Task system is not enabled.`
 
-- Running
-- Waiting for answer
-- Finished
+## Tool scripts
 
-Callbacks (`tsc:*`):
+From task agent context:
 
-- refresh
-- cancel one
-- cancel all
-- delete finished
+- `create_task.py`
+- `resume_task.py`
+- `ask_parent.py`
+- `list_tasks.py`
+- `cancel_task.py`
+- `delete_task.py`
 
-When task system is disabled, `/tasks` returns `Task system is not enabled.`
+`delete_task.py TASK_ID` performs permanent removal of one finished task via `/tasks/delete`.
