@@ -119,6 +119,7 @@ class TaskRegistry:
             original_prompt=submit.prompt,
             thinking=thinking,
             tasks_dir=str(resolved_dir),
+            thread_id=submit.thread_id,
         )
         self._entries[task_id] = entry
 

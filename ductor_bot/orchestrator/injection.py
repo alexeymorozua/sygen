@@ -33,18 +33,22 @@ async def _inject_prompt(
     prompt: str,
     chat_id: int,
     process_label: str,
+    *,
+    topic_id: int | None = None,
 ) -> str:
     """Execute *prompt* in the current active session and update session state.
 
     Shared by ``handle_async_interagent_result``, ``handle_task_result``,
     and ``handle_task_question``.
     """
-    active = await orch._sessions.get_active(SessionKey(chat_id=chat_id))
+    key = SessionKey(chat_id=chat_id, topic_id=topic_id)
+    active = await orch._sessions.get_active(key)
     resume_id = active.session_id if active else None
 
     request = AgentRequest(
         prompt=prompt,
         chat_id=chat_id,
+        topic_id=topic_id,
         process_label=process_label,
         resume_session=resume_id,
         timeout_seconds=orch._config.cli_timeout,
@@ -273,6 +277,7 @@ async def handle_task_result(
     result: TaskResult,
     *,
     chat_id: int = 0,
+    topic_id: int | None = None,
 ) -> str:
     """Inject a background task result into the current active session.
 
@@ -315,7 +320,13 @@ async def handle_task_result(
     )
 
     try:
-        return await _inject_prompt(orch, prompt, chat_id, f"task-result:{task_id}")
+        return await _inject_prompt(
+            orch,
+            prompt,
+            chat_id,
+            f"task-result:{task_id}",
+            topic_id=topic_id,
+        )
     except Exception:
         logger.exception("Task result handling failed (task=%s)", task_id)
         return f"Error processing result from task '{result.name}'"
@@ -326,7 +337,7 @@ async def handle_task_question(
     task_id: str,
     question: str,
     task_preview: str,
-    chat_id: int,
+    key: SessionKey,
 ) -> str:
     """Inject a task worker's question into the main agent's session.
 
@@ -353,7 +364,13 @@ async def handle_task_question(
     logger.debug("Answering task question: task=%s question='%s'", task_id, question[:60])
 
     try:
-        return await _inject_prompt(orch, prompt, chat_id, f"task-question:{task_id}")
+        return await _inject_prompt(
+            orch,
+            prompt,
+            key.chat_id,
+            f"task-question:{task_id}",
+            topic_id=key.topic_id,
+        )
     except Exception:
         logger.exception("Task question handling failed (task=%s)", task_id)
         return ""

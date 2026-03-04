@@ -1242,6 +1242,7 @@ class TelegramBot:
         question: str,
         prompt_preview: str,
         chat_id: int,
+        thread_id: int | None = None,
     ) -> None:
         """Deliver a background task question via the message bus."""
         from ductor_bot.bus.adapters import from_task_question
@@ -1252,7 +1253,9 @@ class TelegramBot:
             logger.warning("No chat_id for task question delivery (task=%s)", task_id)
             return
         set_log_context(operation="task", chat_id=chat_id)
-        await self._bus.submit(from_task_question(task_id, question, prompt_preview, chat_id))
+        await self._bus.submit(
+            from_task_question(task_id, question, prompt_preview, chat_id, topic_id=thread_id)
+        )
 
     async def _handle_webhook_wake(self, chat_id: int, prompt: str) -> str | None:
         """Process webhook wake prompt via the message bus."""

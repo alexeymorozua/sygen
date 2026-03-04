@@ -74,6 +74,7 @@ class _FakeTaskResult:
     error: str = ""
     task_folder: str = "/tmp/tasks/t1"
     original_prompt: str = "find info about X"
+    thread_id: int | None = None
 
 
 # -- Tests ---------------------------------------------------------------------
@@ -157,12 +158,19 @@ def test_from_task_result_done() -> None:
     env = from_task_result(_FakeTaskResult())
     assert env.origin == Origin.TASK_RESULT
     assert env.chat_id == 100
+    assert env.topic_id is None
     assert env.status == "done"
     assert env.lock_mode == LockMode.REQUIRED
     assert env.needs_injection
     assert not env.is_error
     assert env.metadata["name"] == "research"
     assert env.prompt == "find info about X"
+
+
+def test_from_task_result_with_topic() -> None:
+    env = from_task_result(_FakeTaskResult(thread_id=42))
+    assert env.chat_id == 100
+    assert env.topic_id == 42
 
 
 def test_from_task_result_failed() -> None:
@@ -183,7 +191,14 @@ def test_from_task_question() -> None:
     env = from_task_question("t1", "what color?", "what co...", 100)
     assert env.origin == Origin.TASK_QUESTION
     assert env.chat_id == 100
+    assert env.topic_id is None
     assert env.prompt == "what color?"
     assert env.lock_mode == LockMode.REQUIRED
     assert env.needs_injection
     assert env.metadata["task_id"] == "t1"
+
+
+def test_from_task_question_with_topic() -> None:
+    env = from_task_question("t1", "what color?", "what co...", 100, topic_id=42)
+    assert env.chat_id == 100
+    assert env.topic_id == 42

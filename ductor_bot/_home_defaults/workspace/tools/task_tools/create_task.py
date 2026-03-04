@@ -80,6 +80,14 @@ def main() -> None:
     if thinking:
         body["thinking"] = thinking
 
+    # Propagate sender context so task results route back to the originating chat/topic
+    chat_id = os.environ.get("DUCTOR_CHAT_ID", "")
+    topic_id = os.environ.get("DUCTOR_TOPIC_ID", "")
+    if chat_id:
+        body["chat_id"] = int(chat_id)
+    if topic_id:
+        body["topic_id"] = int(topic_id)
+
     result = post_json(url, body, timeout=10)
 
     if result.get("success"):

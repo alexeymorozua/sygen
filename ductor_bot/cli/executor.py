@@ -41,6 +41,10 @@ def _build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
     env["DUCTOR_AGENT_NAME"] = config.agent_name
     env["DUCTOR_AGENT_ROLE"] = "main" if config.agent_name == "main" else "sub"
     env["DUCTOR_INTERAGENT_PORT"] = str(config.interagent_port)
+    if config.chat_id:
+        env["DUCTOR_CHAT_ID"] = str(config.chat_id)
+    if config.topic_id:
+        env["DUCTOR_TOPIC_ID"] = str(config.topic_id)
     working_dir = Path(config.working_dir)
     ductor_home = working_dir.parent if working_dir.name == "workspace" else working_dir
     env["DUCTOR_HOME"] = str(ductor_home)

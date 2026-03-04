@@ -26,8 +26,8 @@ _RESUMABLE = frozenset({"done", "failed", "cancelled", "waiting"})
 _MAINTENANCE_INTERVAL = 5 * 3600  # 5 hours
 
 TaskResultCallback = Callable[[TaskResult], Awaitable[None]]
-QuestionHandler = Callable[[str, str, str, int], Awaitable[None]]
-# QuestionHandler(task_id, question, prompt_preview, chat_id) -> None (fire-and-forget)
+QuestionHandler = Callable[[str, str, str, int, int | None], Awaitable[None]]
+# QuestionHandler(task_id, question, prompt_preview, chat_id, thread_id) -> None
 
 TASK_PROMPT_SUFFIX = """
 
@@ -251,7 +251,7 @@ class TaskHub:
 
         # Fire-and-forget: deliver to parent's Telegram chat
         task = asyncio.create_task(
-            self._deliver_question(handler, task_id, question, entry.prompt_preview, entry.chat_id),
+            self._deliver_question(handler, entry, question),
             name=f"task-question:{task_id}",
         )
         task.add_done_callback(lambda _: None)  # prevent GC of fire-and-forget task
@@ -264,16 +264,20 @@ class TaskHub:
     async def _deliver_question(
         self,
         handler: QuestionHandler,
-        task_id: str,
+        entry: TaskEntry,
         question: str,
-        prompt_preview: str,
-        chat_id: int,
     ) -> None:
         """Deliver question to parent agent (background coroutine)."""
         try:
-            await handler(task_id, question, prompt_preview, chat_id)
+            await handler(
+                entry.task_id,
+                question,
+                entry.prompt_preview,
+                entry.chat_id,
+                entry.thread_id,
+            )
         except Exception:
-            logger.exception("Question delivery failed for task %s", task_id)
+            logger.exception("Question delivery failed for task %s", entry.task_id)
 
     async def cancel(self, task_id: str) -> bool:
         """Cancel a running task. Returns True if cancelled."""
@@ -436,6 +440,7 @@ class TaskHub:
                     error=error,
                     task_folder=str(self._registry.task_folder(entry.task_id)),
                     original_prompt=entry.original_prompt,
+                    thread_id=entry.thread_id,
                 )
             )
 
@@ -461,6 +466,7 @@ class TaskHub:
                         provider=entry.provider,
                         model=entry.model,
                         original_prompt=entry.original_prompt,
+                        thread_id=entry.thread_id,
                     )
                 )
             raise
@@ -491,6 +497,7 @@ class TaskHub:
                         model=entry.model,
                         error=error_msg,
                         original_prompt=entry.original_prompt,
+                        thread_id=entry.thread_id,
                     )
                 )
 

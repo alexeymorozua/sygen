@@ -246,10 +246,10 @@ class InternalAgentAPI:
         from ductor_bot.tasks.models import TaskSubmit
 
         submit = TaskSubmit(
-            chat_id=0,  # Resolved by the handler wiring (from agent config)
+            chat_id=data.get("chat_id", 0),
             prompt=prompt,
             message_id=0,
-            thread_id=None,
+            thread_id=data.get("topic_id") or None,
             parent_agent=sender,
             name=data.get("name", ""),
             provider_override=data.get("provider") or "",

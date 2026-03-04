@@ -151,7 +151,10 @@ async def test_injection_updates_result_text() -> None:
     await bus.submit(env)
 
     injector.inject_prompt.assert_awaited_once_with(
-        "Injected prompt", 10, f"cron:{env.envelope_id}"
+        "Injected prompt",
+        10,
+        f"cron:{env.envelope_id}",
+        topic_id=None,
     )
     assert env.result_text == "Injected response"
     t.deliver.assert_awaited_once()
