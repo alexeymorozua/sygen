@@ -270,7 +270,7 @@ Hot-reloadable top-level fields:
 - `idle_timeout_minutes`, `session_age_warning_hours`, `daily_reset_hour`, `daily_reset_enabled`
 - `permission_mode`, `file_access`, `user_timezone`
 - `streaming`, `heartbeat`, `cleanup`, `cli_parameters`
-- `allowed_user_ids`, `allowed_group_ids`
+- `allowed_user_ids`, `allowed_group_ids`, `group_mention_only`
 - `timeouts` is currently restart-required (not in hot-reloadable set)
 
 Observer lifecycle caveat:
@@ -281,7 +281,7 @@ Observer lifecycle caveat:
 
 Restart-required top-level fields:
 
-- `telegram_token`, `group_mention_only`
+- `telegram_token`
 - `docker`, `api`, `webhooks`
 - `ductor_home`, `log_level`, `gemini_api_key`, `timeouts`, `tasks`
 
