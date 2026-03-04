@@ -23,9 +23,9 @@
 
 ---
 
-ductor runs on your machine, executes the real provider CLIs (`claude`, `codex`, `gemini`) as subprocesses, and keeps all state in plain JSON and Markdown under `~/.ductor/`.
+If you want to control Claude Code, Google's Gemini CLI, or OpenAI's Codex CLI via Telegram, build automations, or manage multiple agents easily — ductor is the right tool for you.
 
-No API proxying, no SDK patching. Just the official CLIs, as if you typed the command in your terminal.
+ductor runs on your machine and sends simple console commands as if you were typing them yourself, so you can use your active subscriptions (Claude Max, etc.) directly. No API proxying, no SDK patching, no spoofed headers. Just the official CLIs, executed as subprocesses, with all state kept in plain JSON and Markdown under `~/.ductor/`.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/PleasePrompto/ductor/main/docs/images/ductor-start.jpeg" alt="ductor /start screen" width="49%" />
