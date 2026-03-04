@@ -6,9 +6,8 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-from ductor_bot.orchestrator.selector_utils import format_age
+from ductor_bot.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
+from ductor_bot.orchestrator.selectors.utils import format_age
 from ductor_bot.text.response_format import SEP, fmt
 
 if TYPE_CHECKING:
@@ -28,7 +27,7 @@ def is_session_selector_callback(data: str) -> bool:
 async def session_selector_start(
     orch: Orchestrator,
     chat_id: int,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Build the initial ``/sessions`` response with inline controls."""
     return await _build_page(orch, chat_id)
 
@@ -37,7 +36,7 @@ async def handle_session_callback(
     orch: Orchestrator,
     chat_id: int,
     data: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Route a ``nsc:*`` callback to the correct session selector action."""
     logger.debug("Session selector step=%s", data[:40])
     action = data[len(NSC_PREFIX) :]
@@ -78,7 +77,7 @@ async def _build_page(
     chat_id: int,
     *,
     note: str = "",
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     sessions = orch.list_named_sessions(chat_id)
     topic_sessions = await orch.list_topic_sessions(chat_id)
     topic_block = _format_topic_block(topic_sessions)
@@ -87,19 +86,18 @@ async def _build_page(
         body = "No active sessions."
         if note:
             body = f"{note}\n\n{body}"
-        return (
-            fmt(
+        return SelectorResponse(
+            text=fmt(
                 "**Sessions**",
                 SEP,
                 body,
                 SEP,
                 "Start one with `/session <prompt>`.",
             ),
-            None,
         )
 
     lines: list[str] = []
-    rows: list[list[InlineKeyboardButton]] = []
+    rows: list[list[Button]] = []
     now = time.time()
 
     if topic_block:
@@ -122,7 +120,7 @@ async def _build_page(
             lines.append(f"     > _{ns.prompt_preview}_")
             rows.append(
                 [
-                    InlineKeyboardButton(
+                    Button(
                         text=f"End {ns.name}",
                         callback_data=f"nsc:end:{ns.name}",
                     ),
@@ -131,12 +129,12 @@ async def _build_page(
     elif topic_block:
         lines.append("Named:\n  No active sessions.\n  Start one with `/session <prompt>`.")
 
-    nav_row: list[InlineKeyboardButton] = [
-        InlineKeyboardButton(text="Refresh", callback_data="nsc:r"),
+    nav_row: list[Button] = [
+        Button(text="Refresh", callback_data="nsc:r"),
     ]
     rows.append(nav_row)
     if len(sessions) > 1:
-        rows.append([InlineKeyboardButton(text="End All", callback_data="nsc:endall")])
+        rows.append([Button(text="End All", callback_data="nsc:endall")])
 
     total = len(sessions) + len(topic_sessions)
     info_lines: list[str] = [f"Active: {total}"]
@@ -151,4 +149,4 @@ async def _build_page(
         "\n".join(info_lines),
         "Follow up: `@<name> <message>`",
     )
-    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+    return SelectorResponse(text=text, buttons=ButtonGrid(rows=rows))

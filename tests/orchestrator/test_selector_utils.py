@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ductor_bot.orchestrator.selector_utils import format_age
+from ductor_bot.orchestrator.selectors.utils import format_age
 
 
 class TestFormatAge:

@@ -6,6 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
+from ductor_bot.bot.callbacks import button_grid_to_markup
 from ductor_bot.bot.sender import SendRichOpts, send_rich
 from ductor_bot.bot.topic import TopicNameCache, get_session_key, get_thread_id
 from ductor_bot.bot.typing import TypingContext
@@ -93,13 +94,14 @@ async def handle_command(orchestrator: Orchestrator, bot: Bot, message: Message)
     logger.info("Command dispatched cmd=%s", message.text.strip()[:40])
     async with TypingContext(bot, chat_id, thread_id=thread_id):
         result = await orchestrator.handle_message(key, message.text.strip())
+    markup = button_grid_to_markup(result.buttons) if result.buttons else None
     await send_rich(
         bot,
         chat_id,
         result.text,
         SendRichOpts(
             reply_to_message_id=message.message_id,
-            reply_markup=result.reply_markup,
+            reply_markup=markup,
             thread_id=thread_id,
         ),
     )

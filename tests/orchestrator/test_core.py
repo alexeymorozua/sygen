@@ -146,7 +146,7 @@ async def test_create_with_authenticated_provider(
 
     with (
         patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
+            "ductor_bot.orchestrator.lifecycle.resolve_paths",
             return_value=paths,
         ),
         patch(
@@ -160,7 +160,7 @@ async def test_create_with_authenticated_provider(
     ):
         result = await Orchestrator.create(config)
 
-    assert result._available_providers == frozenset({"claude"})
+    assert result.available_providers == frozenset({"claude"})
 
 
 async def test_create_no_authenticated_providers(
@@ -172,7 +172,7 @@ async def test_create_no_authenticated_providers(
 
     with (
         patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
+            "ductor_bot.orchestrator.lifecycle.resolve_paths",
             return_value=paths,
         ),
         patch(
@@ -186,7 +186,7 @@ async def test_create_no_authenticated_providers(
     ):
         result = await Orchestrator.create(config)
 
-    assert result._available_providers == frozenset()
+    assert result.available_providers == frozenset()
 
 
 async def test_create_installed_but_not_authenticated(
@@ -198,7 +198,7 @@ async def test_create_installed_but_not_authenticated(
 
     with (
         patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
+            "ductor_bot.orchestrator.lifecycle.resolve_paths",
             return_value=paths,
         ),
         patch(
@@ -212,7 +212,7 @@ async def test_create_installed_but_not_authenticated(
     ):
         result = await Orchestrator.create(config)
 
-    assert result._available_providers == frozenset({"codex"})
+    assert result.available_providers == frozenset({"codex"})
 
 
 async def test_create_both_providers_authenticated(
@@ -224,7 +224,7 @@ async def test_create_both_providers_authenticated(
 
     with (
         patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
+            "ductor_bot.orchestrator.lifecycle.resolve_paths",
             return_value=paths,
         ),
         patch(
@@ -238,7 +238,7 @@ async def test_create_both_providers_authenticated(
     ):
         result = await Orchestrator.create(config)
 
-    assert result._available_providers == frozenset({"claude", "codex"})
+    assert result.available_providers == frozenset({"claude", "codex"})
 
 
 async def test_create_starts_cron_and_heartbeat(
@@ -249,7 +249,7 @@ async def test_create_starts_cron_and_heartbeat(
 
     with (
         patch(
-            "ductor_bot.orchestrator.core.resolve_paths",
+            "ductor_bot.orchestrator.lifecycle.resolve_paths",
             return_value=paths,
         ),
         patch(

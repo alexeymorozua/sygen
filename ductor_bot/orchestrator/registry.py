@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from ductor_bot.orchestrator.selectors.models import ButtonGrid
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +25,9 @@ CommandHandler = Callable[
 class OrchestratorResult(BaseModel):
     """Structured return from handle_message."""
 
-    model_config = {"arbitrary_types_allowed": True}
-
     text: str
     stream_fallback: bool = False
-    reply_markup: Any = Field(default=None, exclude=True)
+    buttons: ButtonGrid | None = None
 
 
 @dataclass(frozen=True, slots=True)

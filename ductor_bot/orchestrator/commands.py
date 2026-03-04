@@ -7,15 +7,14 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
 from ductor_bot.cli.auth import check_all_auth
 from ductor_bot.infra.version import check_pypi, get_current_version
-from ductor_bot.orchestrator.cron_selector import cron_selector_start
-from ductor_bot.orchestrator.model_selector import model_selector_start, switch_model
 from ductor_bot.orchestrator.registry import OrchestratorResult
-from ductor_bot.orchestrator.session_selector import session_selector_start
-from ductor_bot.orchestrator.task_selector import task_selector_start
+from ductor_bot.orchestrator.selectors.cron_selector import cron_selector_start
+from ductor_bot.orchestrator.selectors.model_selector import model_selector_start, switch_model
+from ductor_bot.orchestrator.selectors.models import Button, ButtonGrid
+from ductor_bot.orchestrator.selectors.session_selector import session_selector_start
+from ductor_bot.orchestrator.selectors.task_selector import task_selector_start
 from ductor_bot.text.response_format import SEP, fmt, new_session_text
 from ductor_bot.workspace.loader import read_mainmemory
 
@@ -48,8 +47,8 @@ async def cmd_model(orch: Orchestrator, key: SessionKey, text: str) -> Orchestra
     logger.info("Model requested")
     parts = text.split(None, 1)
     if len(parts) < 2:
-        msg_text, keyboard = await model_selector_start(orch, key)
-        return OrchestratorResult(text=msg_text, reply_markup=keyboard)
+        resp = await model_selector_start(orch, key)
+        return OrchestratorResult(text=resp.text, buttons=resp.buttons)
     name = parts[1].strip()
     result_text = await switch_model(orch, key, name)
     return OrchestratorResult(text=result_text)
@@ -83,8 +82,8 @@ async def cmd_memory(orch: Orchestrator, _key: SessionKey, _text: str) -> Orches
 async def cmd_sessions(orch: Orchestrator, key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /sessions."""
     logger.info("Sessions requested")
-    text, keyboard = await session_selector_start(orch, key.chat_id)
-    return OrchestratorResult(text=text, reply_markup=keyboard)
+    resp = await session_selector_start(orch, key.chat_id)
+    return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 
 async def cmd_tasks(orch: Orchestrator, key: SessionKey, _text: str) -> OrchestratorResult:
@@ -95,15 +94,15 @@ async def cmd_tasks(orch: Orchestrator, key: SessionKey, _text: str) -> Orchestr
         return OrchestratorResult(
             text=fmt("**Background Tasks**", SEP, "Task system is not enabled."),
         )
-    text, keyboard = task_selector_start(hub, key.chat_id)
-    return OrchestratorResult(text=text, reply_markup=keyboard)
+    resp = task_selector_start(hub, key.chat_id)
+    return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 
 async def cmd_cron(orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /cron."""
     logger.info("Cron requested")
-    text, keyboard = await cron_selector_start(orch)
-    return OrchestratorResult(text=text, reply_markup=keyboard)
+    resp = await cron_selector_start(orch)
+    return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 
 async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
@@ -130,15 +129,15 @@ async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> Orch
         )
 
     if not info.update_available:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
+        keyboard = ButtonGrid(
+            rows=[
                 [
-                    InlineKeyboardButton(
+                    Button(
                         text=f"Changelog v{info.current}",
                         callback_data=f"upg:cl:{info.current}",
-                    ),
+                    )
                 ],
-            ],
+            ]
         )
         return OrchestratorResult(
             text=fmt(
@@ -148,24 +147,25 @@ async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> Orch
                 f"Latest:    `{info.latest}`\n\n"
                 "You're running the latest version.",
             ),
-            reply_markup=keyboard,
+            buttons=keyboard,
         )
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
+    keyboard = ButtonGrid(
+        rows=[
             [
-                InlineKeyboardButton(
+                Button(
                     text=f"Changelog v{info.latest}",
                     callback_data=f"upg:cl:{info.latest}",
-                ),
+                )
             ],
             [
-                InlineKeyboardButton(
-                    text="Yes, upgrade now", callback_data=f"upg:yes:{info.latest}"
+                Button(
+                    text="Yes, upgrade now",
+                    callback_data=f"upg:yes:{info.latest}",
                 ),
-                InlineKeyboardButton(text="Not now", callback_data="upg:no"),
+                Button(text="Not now", callback_data="upg:no"),
             ],
-        ],
+        ]
     )
 
     return OrchestratorResult(
@@ -174,7 +174,7 @@ async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> Orch
             SEP,
             f"Installed: `{info.current}`\nNew:       `{info.latest}`\n\nUpgrade now?",
         ),
-        reply_markup=keyboard,
+        buttons=keyboard,
     )
 
 

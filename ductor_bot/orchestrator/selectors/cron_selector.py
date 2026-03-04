@@ -6,8 +6,7 @@ import hashlib
 import logging
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
+from ductor_bot.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
 from ductor_bot.text.response_format import SEP, fmt
 
 if TYPE_CHECKING:
@@ -27,7 +26,7 @@ def is_cron_selector_callback(data: str) -> bool:
 
 async def cron_selector_start(
     orch: Orchestrator,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Build the initial ``/cron`` response with inline controls."""
     return await _build_page(orch, page=0)
 
@@ -35,7 +34,7 @@ async def cron_selector_start(
 async def handle_cron_callback(
     orch: Orchestrator,
     data: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Route a ``crn:*`` callback to the correct cron selector action."""
     logger.debug("Cron selector step=%s", data[:40])
     parts = data[len(CRN_PREFIX) :].split(":")
@@ -75,7 +74,7 @@ async def _toggle_job(
     page: int,
     slot: int,
     fingerprint: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     jobs = orch._cron_manager.list_jobs()
     if not jobs:
         return await _build_page(orch, page=0)
@@ -103,25 +102,24 @@ async def _build_page(
     *,
     page: int,
     note: str = "",
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     jobs = orch._cron_manager.list_jobs()
     if not jobs:
-        return (
-            fmt(
+        return SelectorResponse(
+            text=fmt(
                 "**Scheduled Tasks**",
                 SEP,
                 "No cron jobs configured.",
                 SEP,
                 '*Ask your agent: "Run a backup check every day at 9am"*',
             ),
-            None,
         )
 
     page_jobs, current_page, total_pages = _page_slice(jobs, page)
     start = current_page * _PAGE_SIZE
 
     lines: list[str] = []
-    rows: list[list[InlineKeyboardButton]] = []
+    rows: list[list[Button]] = []
     for idx, job in enumerate(page_jobs):
         number = start + idx + 1
         status_tag = "active" if job.enabled else "paused"
@@ -132,26 +130,26 @@ async def _build_page(
         button_text = f"{number}. {'Disable' if job.enabled else 'Enable'}"
         rows.append(
             [
-                InlineKeyboardButton(
+                Button(
                     text=button_text,
                     callback_data=f"crn:t:{current_page}:{idx}:{_fingerprint(job)}",
                 ),
             ]
         )
 
-    nav_row: list[InlineKeyboardButton] = []
+    nav_row: list[Button] = []
     if current_page > 0:
         nav_row.append(
-            InlineKeyboardButton(text="<< Prev", callback_data=f"crn:p:{current_page}"),
+            Button(text="<< Prev", callback_data=f"crn:p:{current_page}"),
         )
-    nav_row.append(InlineKeyboardButton(text="Refresh", callback_data=f"crn:r:{current_page}"))
+    nav_row.append(Button(text="Refresh", callback_data=f"crn:r:{current_page}"))
     if current_page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton(text="Next >>", callback_data=f"crn:n:{current_page}"))
+        nav_row.append(Button(text="Next >>", callback_data=f"crn:n:{current_page}"))
     rows.append(nav_row)
     rows.append(
         [
-            InlineKeyboardButton(text="All ON", callback_data=f"crn:ao:{current_page}"),
-            InlineKeyboardButton(text="All OFF", callback_data=f"crn:af:{current_page}"),
+            Button(text="All ON", callback_data=f"crn:ao:{current_page}"),
+            Button(text="All OFF", callback_data=f"crn:af:{current_page}"),
         ]
     )
 
@@ -170,7 +168,7 @@ async def _build_page(
         SEP,
         info_line,
     )
-    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+    return SelectorResponse(text=text, buttons=ButtonGrid(rows=rows))
 
 
 async def _reschedule_now(orch: Orchestrator) -> None:

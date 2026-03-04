@@ -25,9 +25,11 @@ _AUTHED = {
 
 
 async def test_model_list_returns_keyboard(orch: Orchestrator) -> None:
-    with patch("ductor_bot.orchestrator.model_selector.check_all_auth", return_value=_AUTHED):
+    with patch(
+        "ductor_bot.orchestrator.selectors.model_selector.check_all_auth", return_value=_AUTHED
+    ):
         result = await cmd_model(orch, SessionKey(chat_id=1), "/model")
-    assert result.reply_markup is not None
+    assert result.buttons is not None
     assert "Model Selector" in result.text
 
 
@@ -141,7 +143,7 @@ async def test_cron_lists_jobs(orch: Orchestrator) -> None:
         ),
     )
     result = await cmd_cron(orch, SessionKey(chat_id=0), "/cron")
-    assert result.reply_markup is not None
+    assert result.buttons is not None
     assert "0 9 * * *" in result.text
     assert "Test Job" in result.text
     assert "active" in result.text
@@ -200,7 +202,7 @@ async def test_diagnose_shows_cache_status(orch: Orchestrator) -> None:
 
 
 async def test_diagnose_shows_effective_runtime_target(orch: Orchestrator) -> None:
-    object.__setattr__(orch, "_available_providers", frozenset({"codex"}))
+    orch._providers._available_providers = frozenset({"codex"})
 
     result = await cmd_diagnose(orch, SessionKey(chat_id=0), "/diagnose")
 

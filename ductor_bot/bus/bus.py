@@ -64,6 +64,7 @@ class MessageBus:
         self._transports: list[TransportAdapter] = []
         self._injector: SessionInjector | None = None
         self._pre_deliver: Callable[[Envelope], Awaitable[None]] | None = None
+        self._audit: Callable[[Envelope], Awaitable[None]] | None = None
 
     @property
     def lock_pool(self) -> LockPool:
@@ -86,10 +87,20 @@ class MessageBus:
         """
         self._pre_deliver = hook
 
+    def set_audit_hook(self, hook: Callable[[Envelope], Awaitable[None]]) -> None:
+        """Optional audit hook called for every submitted envelope."""
+        self._audit = hook
+
     async def submit(self, envelope: Envelope) -> None:
         """Route an envelope: assign ID, acquire lock, inject, deliver."""
         if not envelope.envelope_id:
             envelope.envelope_id = secrets.token_hex(6)
+
+        if self._audit:
+            try:
+                await self._audit(envelope)
+            except Exception:
+                logger.exception("Audit hook failed for envelope %s", envelope.envelope_id)
 
         logger.debug(
             "Bus submit: origin=%s chat=%d delivery=%s lock=%s inject=%s",

@@ -231,7 +231,7 @@ async def test_heartbeat_skips_when_session_provider_differs_from_configured_pro
     orch: Orchestrator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Heartbeat should skip when active session provider does not match current provider target."""
-    object.__setattr__(orch, "_available_providers", frozenset({"codex"}))
+    orch._providers._available_providers = frozenset({"codex"})
 
     key = SessionKey(chat_id=1)
     session, _ = await orch._sessions.resolve_session(key, provider="codex", model="opus")

@@ -25,9 +25,9 @@ class TestCmdUpgrade:
         assert "Update Available" in result.text
         assert "1.0.0" in result.text
         assert "2.0.0" in result.text
-        assert result.reply_markup is not None
+        assert result.buttons is not None
 
-        all_buttons = [b for row in result.reply_markup.inline_keyboard for b in row]
+        all_buttons = [b for row in result.buttons.rows for b in row]
         callback_values = [b.callback_data for b in all_buttons]
         assert "upg:yes:2.0.0" in callback_values
         assert "upg:no" in callback_values
@@ -43,8 +43,8 @@ class TestCmdUpgrade:
 
         assert "up to date" in result.text.lower()
         assert "2.0.0" in result.text
-        assert result.reply_markup is not None
-        buttons = result.reply_markup.inline_keyboard[0]
+        assert result.buttons is not None
+        buttons = result.buttons.rows[0]
         assert any(b.callback_data == "upg:cl:2.0.0" for b in buttons)
 
     async def test_handles_pypi_failure(self, orch: Orchestrator) -> None:
@@ -55,7 +55,7 @@ class TestCmdUpgrade:
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
         assert "could not reach" in result.text.lower() or "pypi" in result.text.lower()
-        assert result.reply_markup is None
+        assert result.buttons is None
 
     async def test_button_text_is_user_friendly(self, orch: Orchestrator) -> None:
         info = VersionInfo(current="1.0.0", latest="1.1.0", update_available=True, summary="Patch")
@@ -65,7 +65,7 @@ class TestCmdUpgrade:
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        all_buttons = [b for row in result.reply_markup.inline_keyboard for b in row]
+        all_buttons = [b for row in result.buttons.rows for b in row]
         labels = [b.text for b in all_buttons]
         assert any("upgrade" in label.lower() or "yes" in label.lower() for label in labels)
         assert any("not" in label.lower() or "no" in label.lower() for label in labels)
@@ -90,7 +90,7 @@ class TestCmdUpgrade:
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        all_buttons = [b for row in result.reply_markup.inline_keyboard for b in row]
+        all_buttons = [b for row in result.buttons.rows for b in row]
         assert any(b.callback_data == "upg:cl:2.0.0" for b in all_buttons)
         assert any(b.callback_data == "upg:yes:2.0.0" for b in all_buttons)
 
@@ -99,4 +99,4 @@ class TestCmdUpgrade:
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
         assert "source" in result.text.lower() or "git pull" in result.text.lower()
-        assert result.reply_markup is None
+        assert result.buttons is None

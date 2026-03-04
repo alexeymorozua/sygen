@@ -19,6 +19,8 @@ class Origin(enum.Enum):
     INTERAGENT = "interagent"
     TASK_RESULT = "task_result"
     TASK_QUESTION = "task_question"
+    USER = "user"
+    API = "api"
 
 
 class DeliveryMode(enum.Enum):

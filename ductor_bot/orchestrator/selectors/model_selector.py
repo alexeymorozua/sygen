@@ -7,11 +7,10 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
 from ductor_bot.cli.auth import AuthStatus, check_all_auth
 from ductor_bot.config import CLAUDE_MODELS_ORDERED, get_gemini_models, update_config_file_async
 from ductor_bot.multiagent.registry import update_agent_fields
+from ductor_bot.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
 
 if TYPE_CHECKING:
     from ductor_bot.cli.codex_cache import CodexModelCache
@@ -109,13 +108,13 @@ def _chunk_buttons(
     model_ids: list[str],
     *,
     columns: int = 3,
-) -> list[list[InlineKeyboardButton]]:
-    rows: list[list[InlineKeyboardButton]] = []
+) -> list[list[Button]]:
+    rows: list[list[Button]] = []
     for index in range(0, len(model_ids), columns):
         chunk = model_ids[index : index + columns]
         rows.append(
             [
-                InlineKeyboardButton(
+                Button(
                     text=_button_label(model_id),
                     callback_data=f"ms:m:{model_id}",
                 )
@@ -138,10 +137,10 @@ def is_model_selector_callback(data: str) -> bool:
 async def model_selector_start(
     orch: Orchestrator,
     key: SessionKey,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Build the initial ``/model`` response with provider buttons.
 
-    Returns ``(text, keyboard)``. Keyboard is ``None`` when no providers
+    Returns a ``SelectorResponse``. Buttons are ``None`` when no providers
     are authenticated.
     """
     auth = await asyncio.to_thread(check_all_auth)
@@ -150,11 +149,12 @@ async def model_selector_start(
     header = await _status_line(orch, key)
 
     if not authed:
-        return (
-            f"{header}\n\n"
-            "No authenticated providers found.\n"
-            "Run `claude auth`, `codex auth`, or authenticate in `gemini` to get started.",
-            None,
+        return SelectorResponse(
+            text=(
+                f"{header}\n\n"
+                "No authenticated providers found.\n"
+                "Run `claude auth`, `codex auth`, or authenticate in `gemini` to get started."
+            ),
         )
 
     if len(authed) == 1:
@@ -164,26 +164,26 @@ async def model_selector_start(
         )
         return await _build_model_step(provider, header, codex_cache)
 
-    buttons: list[InlineKeyboardButton] = []
+    buttons: list[Button] = []
     if "claude" in authed:
-        buttons.append(InlineKeyboardButton(text="CLAUDE", callback_data="ms:p:claude"))
+        buttons.append(Button(text="CLAUDE", callback_data="ms:p:claude"))
     if "codex" in authed:
-        buttons.append(InlineKeyboardButton(text="CODEX", callback_data="ms:p:codex"))
+        buttons.append(Button(text="CODEX", callback_data="ms:p:codex"))
     if "gemini" in authed:
-        buttons.append(InlineKeyboardButton(text="GEMINI", callback_data="ms:p:gemini"))
+        buttons.append(Button(text="GEMINI", callback_data="ms:p:gemini"))
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
-    return f"{header}\n\nPick a provider:", keyboard
+    keyboard = ButtonGrid(rows=[buttons])
+    return SelectorResponse(text=f"{header}\n\nPick a provider:", buttons=keyboard)
 
 
 async def handle_model_callback(
     orch: Orchestrator,
     key: SessionKey,
     data: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Route an ``ms:*`` callback to the correct wizard step.
 
-    Returns ``(text, keyboard)`` for editing the message in-place.
+    Returns a ``SelectorResponse`` for editing the message in-place.
     """
     logger.debug("Model selector step=%s", data[:40])
     parts = data[len(MS_PREFIX) :].split(":", 2)
@@ -210,7 +210,7 @@ async def handle_model_callback(
         return await _build_model_step(payload, await _status_line(orch, key), codex_cache)
 
     logger.warning("Unknown model selector callback: %s", data)
-    return "Unknown action.", None
+    return SelectorResponse(text="Unknown action.")
 
 
 async def switch_model(
@@ -234,8 +234,8 @@ async def switch_model(
     if same_model and reasoning_effort is None:
         return f"Already running {model_id}. No changes made."
 
-    old_provider = orch._models.provider_for(old)
-    new_provider = orch._models.provider_for(model_id)
+    old_provider = orch.models.provider_for(old)
+    new_provider = orch.models.provider_for(model_id)
     provider_changed = old_provider != new_provider
     resume_session_id, resume_message_count = _resume_state_for_provider(
         active_session,
@@ -330,57 +330,53 @@ async def _build_model_step(
     provider: str,
     header: str,
     codex_cache: CodexModelCache | None = None,
-) -> tuple[str, InlineKeyboardMarkup]:
+) -> SelectorResponse:
     """Build the model selection keyboard for a provider."""
     if provider == "claude":
-        buttons = [
-            InlineKeyboardButton(text=m.upper(), callback_data=f"ms:m:{m}")
-            for m in CLAUDE_MODELS_ORDERED
-        ]
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
+        buttons = [Button(text=m.upper(), callback_data=f"ms:m:{m}") for m in CLAUDE_MODELS_ORDERED]
+        keyboard = ButtonGrid(
+            rows=[
                 buttons,
-                [InlineKeyboardButton(text="<< Back", callback_data="ms:b:root")],
+                [Button(text="<< Back", callback_data="ms:b:root")],
             ]
         )
-        return f"{header}\n\nSelect Claude model:", keyboard
+        return SelectorResponse(text=f"{header}\n\nSelect Claude model:", buttons=keyboard)
 
     if provider == "gemini":
         gemini_models = _gemini_models_for_selector()
         if not gemini_models:
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="<< Back", callback_data="ms:b:root")],
+            keyboard = ButtonGrid(
+                rows=[
+                    [Button(text="<< Back", callback_data="ms:b:root")],
                 ]
             )
-            return (
-                f"{header}\n\nNo Gemini models discovered from local Gemini CLI files.",
-                keyboard,
+            return SelectorResponse(
+                text=f"{header}\n\nNo Gemini models discovered from local Gemini CLI files.",
+                buttons=keyboard,
             )
 
         gemini_rows = _chunk_buttons(gemini_models)
-        gemini_rows.append([InlineKeyboardButton(text="<< Back", callback_data="ms:b:root")])
-        keyboard = InlineKeyboardMarkup(inline_keyboard=gemini_rows)
-        return f"{header}\n\nSelect Gemini model:", keyboard
+        gemini_rows.append([Button(text="<< Back", callback_data="ms:b:root")])
+        keyboard = ButtonGrid(rows=gemini_rows)
+        return SelectorResponse(text=f"{header}\n\nSelect Gemini model:", buttons=keyboard)
 
     # Use cache instead of live discovery
     codex_models = codex_cache.models if codex_cache else []
     if not codex_models:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="<< Back", callback_data="ms:b:root")],
+        keyboard = ButtonGrid(
+            rows=[
+                [Button(text="<< Back", callback_data="ms:b:root")],
             ]
         )
-        return f"{header}\n\nNo Codex models available.", keyboard
+        return SelectorResponse(text=f"{header}\n\nNo Codex models available.", buttons=keyboard)
 
-    rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text=m.display_name, callback_data=f"ms:m:{m.id}")]
-        for m in codex_models
+    rows: list[list[Button]] = [
+        [Button(text=m.display_name, callback_data=f"ms:m:{m.id}")] for m in codex_models
     ]
-    rows.append([InlineKeyboardButton(text="<< Back", callback_data="ms:b:root")])
+    rows.append([Button(text="<< Back", callback_data="ms:b:root")])
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
-    return f"{header}\n\nSelect Codex model:", keyboard
+    keyboard = ButtonGrid(rows=rows)
+    return SelectorResponse(text=f"{header}\n\nSelect Codex model:", buttons=keyboard)
 
 
 async def _handle_model_selected(
@@ -388,34 +384,34 @@ async def _handle_model_selected(
     key: SessionKey,
     model_id: str,
     codex_cache: CodexModelCache | None = None,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Handle a model button press. Claude/Gemini: switch immediately. Codex: show reasoning."""
-    provider = orch._models.provider_for(model_id)
+    provider = orch.models.provider_for(model_id)
 
     if provider in ("claude", "gemini"):
         result = await switch_model(orch, key, model_id)
-        return result, None
+        return SelectorResponse(text=result)
 
     # Use cache instead of live discovery
     codex_info = codex_cache.get_model(model_id) if codex_cache else None
     efforts = codex_info.supported_efforts if codex_info else ("low", "medium", "high", "xhigh")
 
     buttons = [
-        InlineKeyboardButton(
+        Button(
             text=_EFFORT_LABELS.get(e, e),
             callback_data=f"ms:r:{e}:{model_id}",
         )
         for e in efforts
     ]
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
+    keyboard = ButtonGrid(
+        rows=[
             buttons,
-            [InlineKeyboardButton(text="<< Back", callback_data="ms:b:codex")],
+            [Button(text="<< Back", callback_data="ms:b:codex")],
         ]
     )
 
     header = await _status_line(orch, key)
-    return f"{header}\n\nThinking level for {model_id}:", keyboard
+    return SelectorResponse(text=f"{header}\n\nThinking level for {model_id}:", buttons=keyboard)
 
 
 async def _handle_reasoning_selected(
@@ -424,7 +420,7 @@ async def _handle_reasoning_selected(
     *,
     effort: str,
     model_id: str,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> SelectorResponse:
     """Handle a reasoning effort button press. Final step: switch model + effort."""
     result = await switch_model(orch, key, model_id, reasoning_effort=effort)
-    return result, None
+    return SelectorResponse(text=result)

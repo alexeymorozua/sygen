@@ -15,6 +15,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 
 from ductor_bot.bot.formatting import markdown_to_telegram_html
+from ductor_bot.orchestrator.selectors.models import ButtonGrid, SelectorResponse
 
 if TYPE_CHECKING:
     from aiogram import Bot
@@ -22,24 +23,42 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
+# ButtonGrid -> InlineKeyboardMarkup conversion
+# ---------------------------------------------------------------------------
+
+
+def button_grid_to_markup(grid: ButtonGrid | None) -> InlineKeyboardMarkup | None:
+    """Convert abstract ``ButtonGrid`` to aiogram ``InlineKeyboardMarkup``."""
+    if grid is None:
+        return None
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=btn.text, callback_data=btn.callback_data) for btn in row]
+            for row in grid.rows
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
 # Selector result editing (shared by model / cron / session / task wizards)
 # ---------------------------------------------------------------------------
 
 
-async def edit_selector_result(
+async def edit_selector_response(
     bot: Bot,
     chat_id: int,
     message_id: int,
-    text: str,
-    keyboard: InlineKeyboardMarkup | None,
+    resp: SelectorResponse,
 ) -> None:
-    """Edit a message in-place with HTML-formatted selector wizard output."""
+    """Edit a message in-place with a ``SelectorResponse``."""
     with contextlib.suppress(TelegramBadRequest):
         await bot.edit_message_text(
-            text=markdown_to_telegram_html(text),
+            text=markdown_to_telegram_html(resp.text),
             chat_id=chat_id,
             message_id=message_id,
-            reply_markup=keyboard,
+            reply_markup=button_grid_to_markup(resp.buttons),
             parse_mode=ParseMode.HTML,
         )
 

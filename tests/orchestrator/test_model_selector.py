@@ -15,7 +15,7 @@ from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_discovery import CodexModelInfo
 from ductor_bot.config import set_gemini_models
 from ductor_bot.orchestrator.core import Orchestrator
-from ductor_bot.orchestrator.model_selector import (
+from ductor_bot.orchestrator.selectors.model_selector import (
     handle_model_callback,
     is_model_selector_callback,
     model_selector_start,
@@ -52,7 +52,7 @@ _CODEX_MODELS = [
 
 def _patch_auth(auth_map: dict[str, AuthResult]) -> Any:
     return patch(
-        "ductor_bot.orchestrator.model_selector.check_all_auth",
+        "ductor_bot.orchestrator.selectors.model_selector.check_all_auth",
         return_value=auth_map,
     )
 
@@ -98,19 +98,19 @@ async def test_start_no_providers(orch: Orchestrator) -> None:
     with _patch_auth(
         {"claude": _NOT_FOUND_CLAUDE, "codex": _NOT_FOUND_CODEX, "gemini": _NOT_FOUND_GEMINI}
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert "No authenticated providers" in text
-    assert keyboard is None
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert "No authenticated providers" in resp.text
+    assert resp.buttons is None
 
 
 async def test_start_one_provider_claude(orch: Orchestrator) -> None:
     with _patch_auth(
         {"claude": _AUTHED_CLAUDE, "codex": _NOT_FOUND_CODEX, "gemini": _NOT_FOUND_GEMINI}
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert "Select Claude model" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert "Select Claude model" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "HAIKU" in labels
     assert "SONNET" in labels
     assert "OPUS" in labels
@@ -123,33 +123,33 @@ async def test_start_one_provider_codex(orch: Orchestrator) -> None:
         ),
         _with_codex_cache(orch),
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert "Select Codex model" in text
-    assert keyboard is not None
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert "Select Codex model" in resp.text
+    assert resp.buttons is not None
 
 
 async def test_start_shows_configured_model_without_runtime_fallback(orch: Orchestrator) -> None:
-    object.__setattr__(orch, "_available_providers", frozenset({"codex"}))
+    orch._providers._available_providers = frozenset({"codex"})
     with (
         _patch_auth(
             {"claude": _NOT_FOUND_CLAUDE, "codex": _AUTHED_CODEX, "gemini": _NOT_FOUND_GEMINI}
         ),
         _with_codex_cache(orch),
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert keyboard is not None
-    assert "Current: opus" in text
-    assert "Configured default:" not in text
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert resp.buttons is not None
+    assert "Current: opus" in resp.text
+    assert "Configured default:" not in resp.text
 
 
 async def test_start_two_providers(orch: Orchestrator) -> None:
     with _patch_auth(
         {"claude": _AUTHED_CLAUDE, "codex": _AUTHED_CODEX, "gemini": _NOT_FOUND_GEMINI}
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert "Model Selector" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert "Model Selector" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "CLAUDE" in labels
     assert "CODEX" in labels
 
@@ -167,10 +167,10 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
     with _patch_auth(
         {"claude": _NOT_FOUND_CLAUDE, "codex": _NOT_FOUND_CODEX, "gemini": _AUTHED_GEMINI}
     ):
-        text, keyboard = await model_selector_start(orch, SessionKey(chat_id=1))
-    assert "Select Gemini model" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await model_selector_start(orch, SessionKey(chat_id=1))
+    assert "Select Gemini model" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "2.5-pro" in labels
     assert "2.5-flash" in labels
     assert "3-pro-preview" in labels
@@ -180,28 +180,28 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
 
 
 async def test_callback_provider_claude(orch: Orchestrator) -> None:
-    text, keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:claude")
-    assert "Select Claude model" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+    resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:claude")
+    assert "Select Claude model" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "OPUS" in labels
     assert "<< Back" in labels
 
 
 async def test_callback_provider_codex(orch: Orchestrator) -> None:
     with _with_codex_cache(orch):
-        text, keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:codex")
-    assert "Select Codex model" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:codex")
+    assert "Select Codex model" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "gpt-5.2-codex" in labels
 
 
 async def test_callback_provider_codex_fallback(orch: Orchestrator) -> None:
     with _with_codex_cache(orch, models=[]):
-        _text, keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:codex")
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:p:codex")
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert any("o3" in label.lower() for label in labels) or "<< Back" in labels
 
 
@@ -210,20 +210,18 @@ async def test_callback_provider_codex_fallback(orch: Orchestrator) -> None:
 
 async def test_callback_model_claude_switches(orch: Orchestrator) -> None:
     object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
-    text, keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:m:sonnet")
-    assert "sonnet" in text
-    assert keyboard is None
+    resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:m:sonnet")
+    assert "sonnet" in resp.text
+    assert resp.buttons is None
     assert orch._config.model == "sonnet"
 
 
 async def test_callback_model_codex_shows_reasoning(orch: Orchestrator) -> None:
     with _with_codex_cache(orch):
-        text, keyboard = await handle_model_callback(
-            orch, SessionKey(chat_id=1), "ms:m:gpt-5.2-codex"
-        )
-    assert "Thinking level" in text
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:m:gpt-5.2-codex")
+    assert "Thinking level" in resp.text
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "Low" in labels
     assert "High" in labels
     assert "XHigh" in labels
@@ -231,11 +229,9 @@ async def test_callback_model_codex_shows_reasoning(orch: Orchestrator) -> None:
 
 async def test_callback_model_codex_mini_limited_efforts(orch: Orchestrator) -> None:
     with _with_codex_cache(orch):
-        _text, keyboard = await handle_model_callback(
-            orch, SessionKey(chat_id=1), "ms:m:gpt-5.1-codex-mini"
-        )
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:m:gpt-5.1-codex-mini")
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "Medium" in labels
     assert "High" in labels
     assert "Low" not in labels
@@ -247,12 +243,10 @@ async def test_callback_model_codex_mini_limited_efforts(orch: Orchestrator) -> 
 
 async def test_callback_reasoning_switches(orch: Orchestrator) -> None:
     object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
-    text, keyboard = await handle_model_callback(
-        orch, SessionKey(chat_id=1), "ms:r:high:gpt-5.2-codex"
-    )
-    assert "gpt-5.2-codex" in text
-    assert "high" in text.lower()
-    assert keyboard is None
+    resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:r:high:gpt-5.2-codex")
+    assert "gpt-5.2-codex" in resp.text
+    assert "high" in resp.text.lower()
+    assert resp.buttons is None
 
 
 # -- handle_model_callback: back navigation --
@@ -262,15 +256,15 @@ async def test_callback_back_root(orch: Orchestrator) -> None:
     with _patch_auth(
         {"claude": _AUTHED_CLAUDE, "codex": _AUTHED_CODEX, "gemini": _NOT_FOUND_GEMINI}
     ):
-        _text, keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:b:root")
-    assert keyboard is not None
-    labels = [btn.text for row in keyboard.inline_keyboard for btn in row]
+        resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:b:root")
+    assert resp.buttons is not None
+    labels = [btn.text for row in resp.buttons.rows for btn in row]
     assert "CLAUDE" in labels
 
 
 async def test_callback_back_provider(orch: Orchestrator) -> None:
-    text, _keyboard = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:b:claude")
-    assert "Select Claude model" in text
+    resp = await handle_model_callback(orch, SessionKey(chat_id=1), "ms:b:claude")
+    assert "Select Claude model" in resp.text
 
 
 # -- switch_model --
