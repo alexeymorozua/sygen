@@ -4,104 +4,62 @@ Shared transport-agnostic file helpers used by Telegram and direct API paths.
 
 ## Files
 
-- `allowed_roots.py`: `resolve_allowed_roots(file_access, workspace)`
-- `tags.py`: file-tag parsing, MIME detection, media classification
-- `storage.py`: filename sanitization and destination-path generation
-- `prompt.py`: shared incoming-file prompt builder (`MediaInfo`, `build_media_prompt`)
+- `files/allowed_roots.py`: `resolve_allowed_roots(file_access, workspace)`
+- `files/tags.py`: file-tag parsing, MIME detection, media classification
+- `files/storage.py`: filename sanitization + destination generation
+- `files/prompt.py`: incoming-file prompt builder (`MediaInfo`, `build_media_prompt`)
 
-## Why this module exists
+## Purpose
 
-Previously, Telegram-specific modules held duplicated file logic. `files/` centralizes that logic so both transports use the same behavior for:
+Centralize file logic so Telegram and API use identical behavior for:
 
-- `<file:...>` tag parsing
-- MIME detection and image/document decisions
-- upload/download path handling
-- incoming file prompt text construction
+- `<file:...>` parsing
+- MIME/type detection
+- safe upload/download path handling
+- incoming media prompt construction
 
-## Public API
+## Core helpers
 
-### `allowed_roots.resolve_allowed_roots(...)`
+### `resolve_allowed_roots(...)`
 
-Maps config `file_access` to allowed path roots:
+Maps `file_access` to allowed roots:
 
-- `all` -> `None` (unrestricted)
+- `all` -> unrestricted (`None`)
 - `home` -> `[Path.home()]`
 - `workspace` -> `[workspace]`
-- unknown value -> `[workspace]` (restrictive fallback, warning logged)
+- unknown -> `[workspace]` fallback (restrictive)
 
-Used by Telegram send path and API `GET /files` path checks.
+### `sanitize_filename(name)`
 
-### `storage.sanitize_filename(name)`
+- strips separators/unsafe chars
+- normalizes repeated separators
+- truncates long names
+- fallback `"file"`
 
-- removes `/`, `\`, and null bytes
-- removes Windows-illegal characters `< > : \" | ? *`
-- collapses repeated underscores
-- strips edge punctuation/space
-- truncates to 120 chars
-- fallback `"file"` when empty
+### `prepare_destination(base_dir, file_name)`
 
-### `storage.prepare_destination(base_dir, file_name)`
-
-- uses UTC date folder: `base_dir/YYYY-MM-DD/`
+- uses date folder `YYYY-MM-DD`
 - creates directories as needed
-- appends `_1`, `_2`, ... to avoid collisions
+- de-duplicates via `_1`, `_2`, ... suffix
 
-### `tags`
+### `tags` helpers
 
-- `FILE_PATH_RE`: regex for `<file:...>` tags
-- `extract_file_paths(text)`
-- `path_from_file_tag(file_tag)`:
-  - parses plain path payloads and `file:` URIs
-  - URL-decodes path segments
-  - normalizes Windows drive-letter variants (`/C/...`, `/C:/...`, `file://C:/...`)
-- `guess_mime(path)`:
-  - magic-bytes detection via `filetype`
-  - fallback to `mimetypes` extension detection
-  - default `application/octet-stream`
-- `classify_mime(mime)` -> `photo` / `audio` / `video` / `document`
-- `is_image_path(path_str)`:
-  - extension-based image check
-  - excludes SVG/SVGZ
+- parse `<file:...>` tags and file URIs
+- normalize Windows path variants
+- detect MIME via `filetype` with extension fallback
+- classify media as `photo|audio|video|document`
 
-Dependency note:
+### `build_media_prompt(info, workspace, transport=...)`
 
-- `guess_mime(...)` relies on runtime dependency `filetype>=1.2.0`.
+Builds standardized `[INCOMING FILE]` prompt blocks for agent input.
 
-### `prompt`
+## Integration points
 
-`MediaInfo` dataclass fields:
+- Telegram media ingest/send: `bot/media.py`, `bot/sender.py`, `bot/app.py`
+- API upload/download and file-ref extraction: `api/server.py`
+- API startup file-context wiring: `orchestrator/lifecycle.py`
 
-- `path`
-- `media_type`
-- `file_name`
-- `caption`
-- `original_type`
+## Runtime paths
 
-`build_media_prompt(info, workspace, transport="")`:
-
-- emits `[INCOMING FILE]` block used as agent input
-- path is made workspace-relative when possible
-- optional transport label (`via Telegram`, `via API`)
-- adds transcribe/process hints for audio/video media types
-- appends caption as `User message: ...` when present
-
-## Integration points in codebase
-
-- `ductor_bot/bot/media.py`:
-  - `MediaInfo`
-  - `build_media_prompt(..., transport="Telegram")`
-  - `prepare_destination`, `sanitize_filename`, `guess_mime`
-- `ductor_bot/bot/sender.py`:
-  - `FILE_PATH_RE`, `extract_file_paths`, `path_from_file_tag`, `guess_mime`
-- `ductor_bot/bot/app.py`:
-  - `resolve_allowed_roots` for outbound file access policy
-- `ductor_bot/orchestrator/core.py`:
-  - `resolve_allowed_roots` for API file endpoint policy
-- `ductor_bot/api/server.py`:
-  - all file helpers for upload/download/file-ref extraction (`path_from_file_tag`)/prompt creation
-
-## Behavioral notes
-
-- Date folders are UTC-based (`YYYY-MM-DD`).
-- API uploads land in `~/.ductor/workspace/api_files/YYYY-MM-DD/`.
-- Telegram media downloads land in `~/.ductor/workspace/telegram_files/YYYY-MM-DD/`.
+- Telegram uploads: `~/.ductor/workspace/telegram_files/YYYY-MM-DD/`
+- API uploads: `~/.ductor/workspace/api_files/YYYY-MM-DD/`

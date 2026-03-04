@@ -1,32 +1,32 @@
 # System Overview
 
-This document is the fastest way to understand how ductor works end-to-end.
+Fastest end-to-end mental model for ductor.
 
-## 1) What ductor runs
+## 1) Runtime shape
 
-At runtime, one Python process hosts:
+One Python process hosts:
 
-- one mandatory main agent (`AgentStack`)
-- zero or more sub-agents from `~/.ductor/agents.json`
-- one shared `AgentSupervisor`
-- one shared in-memory inter-agent bus (`InterAgentBus`)
-- one internal HTTP bridge for CLI tool scripts (`InternalAgentAPI`, port `8799`)
-- one shared background task coordinator (`TaskHub`, when `tasks.enabled=true`)
+- main agent stack (always)
+- optional sub-agent stacks from `~/.ductor/agents.json`
+- shared `AgentSupervisor`
+- shared `InterAgentBus`
+- shared internal HTTP bridge (`InternalAgentAPI`, port `8799`)
+- shared `TaskHub` when `tasks.enabled=true`
 
 Each agent stack contains:
 
-- `TelegramBot` (ingress + callbacks)
+- `TelegramBot` (aiogram ingress)
 - `Orchestrator` (routing + flows)
 - `CLIService` (provider wrappers)
 - provider subprocesses (`claude`, `codex`, `gemini`)
 
-## 2) Primary message path (Telegram)
+## 2) Primary Telegram message path
 
 ```text
 Telegram update
   -> AuthMiddleware
-  -> SequentialMiddleware (per-chat lock + queue)
-  -> bot/app.py handlers
+  -> SequentialMiddleware (shared lock pool + queue)
+  -> bot handlers
   -> Orchestrator.handle_message(_streaming)
   -> CLIService
   -> provider subprocess
@@ -35,95 +35,81 @@ Telegram update
 
 Notes:
 
-- `/stop` is handled before normal routing (middleware/bot path).
-- `/stop_all` is also middleware/bot-level; on the main agent it aborts active runs across all agents (on sub-agents it falls back to local abort).
-- `/new` resets only the active provider bucket, not all provider buckets.
-- In group chats, both the group (`allowed_group_ids`) and the user (`allowed_user_ids`) must be allowlisted. `group_mention_only` only controls whether the bot responds to all messages or only @mentions in allowlisted groups.
+- `/stop` and `/stop_all` are middleware/bot-level abort paths (not orchestrator command dispatch).
+- `/new` resets only the active provider bucket for the active session key.
+- in groups: both `allowed_group_ids` and `allowed_user_ids` must allow the message.
+- `group_mention_only` is a mention/reply filter only (never an auth bypass).
 
-## 3) Optional API path (WebSocket)
+## 3) Session identity model
 
-When `config.api.enabled=true` and PyNaCl is installed:
+Session identity is transport-agnostic via `SessionKey(chat_id, topic_id)`.
+
+- Telegram normal chats: `topic_id=None`
+- Telegram forum topics: `topic_id=message_thread_id`
+- API channel isolation: `topic_id=channel_id` (from auth payload)
+
+Persistence key format in `sessions.json`:
+
+- legacy flat: `"<chat_id>"`
+- topic-aware: `"<chat_id>:<topic_id>"`
+
+This keeps topic/channel conversations fully isolated while staying backward-compatible.
+
+## 4) Background and delivery model
+
+Observers run in-process (cron, webhook, heartbeat, cleanup, background sessions, model caches, config watcher, rule/skill sync).
+
+All observer/task/inter-agent results now flow through `bus/`:
+
+- wrap to `Envelope` (`bus/adapters.py`)
+- route via `MessageBus`
+- optional lock + optional injection into active session
+- deliver through `TelegramTransport`
+
+A single shared `LockPool` is used by Telegram middleware, API server, and message bus.
+
+## 5) Optional direct API path
+
+When `api.enabled=true` and PyNaCl is installed:
 
 ```text
 /ws
-  -> auth frame: {type:"auth", token, e2e_pk, chat_id?}
+  -> plaintext auth frame (token + e2e_pk + optional chat_id/channel_id)
   -> auth_ok
   -> encrypted frames (NaCl Box)
-  -> Orchestrator.handle_message_streaming(...)
+  -> orchestrator streaming callbacks
 ```
 
-API files:
+HTTP endpoints:
 
-- upload: `POST /upload` -> `~/.ductor/workspace/api_files/YYYY-MM-DD/...`
-- download: `GET /files?path=...` (Bearer auth + file root checks)
+- `GET /health`
+- `GET /files?path=...` (Bearer token + root checks)
+- `POST /upload` (Bearer token, multipart)
 
-## 4) Background systems
+## 6) Internal localhost bridge
 
-Started in-process by orchestrator/supervisor:
+`InternalAgentAPI` endpoints for CLI tool scripts:
 
-- named background sessions (`BackgroundObserver`)
-- delegated background tasks (`TaskHub`, shared across agents when enabled)
-- cron (`CronObserver`)
-- webhooks (`WebhookObserver`)
-- heartbeat (`HeartbeatObserver`)
-- cleanup (`CleanupObserver`)
-- codex model cache observer
-- gemini model cache observer
-- config hot-reloader (`ConfigReloader`)
-- rule sync watcher
-- skill sync watcher
-- shared knowledge sync (`SHAREDMEMORY.md` -> all agents)
+- `/interagent/send`
+- `/interagent/send_async`
+- `/interagent/agents`
+- `/interagent/health`
+- `/tasks/create`
+- `/tasks/resume`
+- `/tasks/ask_parent`
+- `/tasks/list`
+- `/tasks/cancel`
+- `/tasks/delete`
 
-## 5) Session model
+Ownership checks are enforced for resume/cancel/delete when `from=<agent>` is supplied.
 
-Three independent systems exist:
-
-1. chat sessions: `~/.ductor/sessions.json`
-   - provider-isolated buckets per chat
-   - model/provider switching preserves per-provider context
-2. named sessions: `~/.ductor/named_sessions.json`
-   - used by `/session` and by inter-agent deterministic sessions (`ia-<sender>`)
-3. delegated task registry: `~/.ductor/tasks.json`
-   - task metadata for shared `TaskHub` runs
-   - task folders under `~/.ductor/workspace/tasks/<task_id>/`
-
-Startup recovery state:
-
-- `~/.ductor/inflight_turns.json` tracks in-flight foreground turns for crash/restart recovery.
-- `~/.ductor/startup_state.json` stores boot/session startup metadata (`first_start`, `service_restart`, `system_reboot` detection).
-- startup recovery replays safe named-session follow-ups and sends interruption notices for foreground tasks that need manual resend.
-
-## 6) Internal API bridges
-
-CLI tool scripts call internal API endpoints:
-
-- `POST /interagent/send`
-- `POST /interagent/send_async`
-- `GET /interagent/agents`
-- `GET /interagent/health`
-- `POST /tasks/create`
-- `POST /tasks/resume`
-- `POST /tasks/ask_parent`
-- `GET /tasks/list`
-- `POST /tasks/cancel`
-
-Key behavior:
-
-- sync calls block until recipient result
-- async calls return `task_id` immediately
-- recipient receives a Telegram preview for async tasks
-- sender receives final async result in Telegram
-- `new_session=true` forces fresh recipient inter-agent session
-- task endpoints enforce owner checks for resume/cancel when `from=<agent>` is provided
-
-## 7) Runtime files you need to know
-
-Main home (`~/.ductor`):
+## 7) Key runtime files (`~/.ductor`)
 
 - `config/config.json`
 - `sessions.json`
 - `named_sessions.json`
 - `tasks.json`
+- `chat_activity.json`
 - `cron_jobs.json`
 - `webhooks.json`
 - `agents.json`
@@ -131,37 +117,36 @@ Main home (`~/.ductor`):
 - `inflight_turns.json`
 - `SHAREDMEMORY.md`
 - `logs/agent.log`
-- `workspace/` (rules, memory, tools, tasks, cron_tasks, telegram_files, output_to_user, api_files, skills)
+- `workspace/` (rules, tools, files, tasks, cron_tasks, skills)
 
-Sub-agent home (`~/.ductor/agents/<name>/`):
-
-- own `config/config.json` (effective runtime view)
-- own `sessions.json`, `named_sessions.json`, cron/webhook state
-- own `workspace/`
+Sub-agent home: `~/.ductor/agents/<name>/` with its own config/workspace/session files.
 
 ## 8) Where to read code first
 
-1. `ductor_bot/__main__.py` (CLI entry and lifecycle)
-2. `ductor_bot/multiagent/supervisor.py` (always-on runtime model)
-3. `ductor_bot/bot/app.py` (Telegram handlers)
-4. `ductor_bot/orchestrator/core.py` (routing + wiring)
-5. `ductor_bot/orchestrator/flows.py` (normal/streaming behavior)
-6. `ductor_bot/tasks/hub.py` and `ductor_bot/tasks/registry.py`
-7. `ductor_bot/cli/service.py` and provider wrappers
+1. `ductor_bot/__main__.py` (entrypoint + config/load/run)
+2. `ductor_bot/cli_commands/` (actual CLI subcommand logic)
+3. `ductor_bot/multiagent/supervisor.py` (always-on runtime wrapper)
+4. `ductor_bot/bot/app.py` + `bot/startup.py` (Telegram lifecycle + ingress)
+5. `ductor_bot/orchestrator/core.py` + `orchestrator/lifecycle.py`
+6. `ductor_bot/bus/*` (unified delivery/injection)
+7. `ductor_bot/tasks/hub.py` + `tasks/registry.py`
+8. `ductor_bot/cli/service.py` and provider wrappers
 
-## 9) Command surface (high-level)
+## 9) Command surface (high level)
 
 Telegram core:
 
 - `/new`, `/stop`, `/stop_all`, `/model`, `/status`, `/memory`, `/session`, `/sessions`, `/tasks`, `/cron`, `/diagnose`, `/upgrade`
+- hidden utility commands: `/where`, `/leave` (work but are not in command popup)
 
-Telegram multi-agent (main only):
+Telegram main-agent only:
 
 - `/agents`, `/agent_start`, `/agent_stop`, `/agent_restart`, `/agent_commands`
 
 CLI:
 
 - `ductor`
+- `ductor status|stop|restart|upgrade|uninstall|onboarding|reset`
 - `ductor service ...`
 - `ductor docker ...`
 - `ductor api ...`

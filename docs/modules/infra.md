@@ -1,180 +1,97 @@
 # infra/
 
-Runtime infrastructure: process lifecycle, restart/update flow, Docker sandbox, service backends.
+Runtime infrastructure: process lifecycle, restart/update flow, Docker sandbox, service backends, shared low-level helpers.
 
 ## Files
 
-- `pidlock.py`: single-instance PID lock
-- `restart.py`: restart marker/sentinel helpers, `EXIT_RESTART = 42`
-- `docker.py`: `DockerManager`
-- `install.py`: install mode detection (`pipx` / `pip` / `dev`)
-- `platform.py`: shared platform helpers (`is_windows`)
-- `process_tree.py`: cross-platform process-tree terminate/kill helpers
-- `boot_id.py`: cross-platform boot-session fingerprinting
-- `startup_state.py`: startup classification (`first_start` / `service_restart` / `system_reboot`)
-- `inflight.py`: in-flight foreground turn tracker (`inflight_turns.json`)
-- `recovery.py`: safe recovery planner for interrupted foreground/named-session work
-- `service.py`: platform dispatch facade
-- `service_base.py`: shared console helper, NVM path collection
-- `service_logs.py`: shared log rendering (`print_recent_logs`, file/journal adapters)
-- `service_linux.py`: Linux systemd backend
-- `service_macos.py`: macOS launchd backend
-- `service_windows.py`: Windows Task Scheduler backend
-- `version.py`: PyPI version/changelog utilities
-- `updater.py`: `UpdateObserver`, upgrade helpers/sentinel
+- process/runtime: `pidlock.py`, `restart.py`, `inflight.py`, `recovery.py`, `startup_state.py`, `boot_id.py`
+- Docker: `docker.py`
+- service: `service.py`, `service_base.py`, `service_logs.py`, `service_linux.py`, `service_macos.py`, `service_windows.py`
+- update/version: `install.py`, `version.py`, `updater.py`
+- filesystem/atomic I/O: `fs.py`, `atomic_io.py`, `json_store.py`
+- shared observer/task helpers: `base_observer.py`, `base_task_observer.py`, `task_runner.py`
+- platform/process helpers: `platform.py`, `process_tree.py`
 
-## Startup lifecycle and recovery state
+## Startup and recovery state
 
-Runtime state files under `~/.ductor/`:
+State files under `~/.ductor/`:
 
-- `startup_state.json`: last known boot fingerprint + startup timestamp
-- `inflight_turns.json`: foreground turns that were in-flight when the process exited
+- `startup_state.json`
+- `inflight_turns.json`
 
 Behavior:
 
-- `startup_state.detect_startup_kind(...)` compares current boot ID vs stored state:
-  - no/invalid prior state -> `first_start`
-  - same boot ID -> `service_restart`
-  - different boot ID -> `system_reboot`
-- startup state is persisted atomically on each boot.
-- `InflightTracker` writes/removes per-chat in-flight foreground turns atomically.
-- `RecoveryPlanner` combines interrupted in-flight turns and recovered named sessions into safe recovery actions.
+- startup kind detection: `first_start`, `service_restart`, `system_reboot`
+- in-flight foreground turns are tracked for restart recovery planning
+- named-session recovery candidates are merged by `RecoveryPlanner`
 
-Safety rules in recovery planning:
+## PID lock and single-instance control
 
-- skip stale entries (`max_age_seconds`)
-- skip recovery-marked entries (`is_recovery=True`)
-- max one foreground recovery action per chat
-- skip inter-agent named sessions (`ia-*`)
-- only recover named sessions that are `idle` and have a resumable `session_id`
+`acquire_lock(pid_file, kill_existing=True)` ensures one active runtime instance.
 
-## Service management
-
-`service.py` dispatches by platform:
-
-- Linux -> systemd user service (`service_linux.py`)
-- macOS -> launchd Launch Agent (`service_macos.py`)
-- Windows -> Task Scheduler (`service_windows.py`)
-
-Shared helpers:
-
-- `ensure_console()` in `service_base.py`
-- `print_recent_logs()` in `service_logs.py`
-- `print_file_service_logs()` for file-based backends (macOS/Windows)
-- `print_journal_service_logs()` for journalctl backend (Linux)
-
-`print_recent_logs()` behavior:
-
-- prefers `~/.ductor/logs/agent.log`
-- fallback: newest `*.log`
-- prints last 50 lines by default
-
-### Linux backend
-
-- service file: `~/.config/systemd/user/ductor.service`
-- optional linger enable via `sudo loginctl enable-linger <user>`
-- logs command uses `journalctl --user -u ductor -f`
-
-### macOS backend
-
-- plist: `~/Library/LaunchAgents/dev.ductor.plist`
-- launchd logs configured to `service.log` / `service.err`
-- `ductor service logs` uses `print_file_service_logs()` over ductor log files
-
-### Windows backend
-
-- scheduled task name: `ductor`
-- starts 10s after logon
-- restart-on-failure policy: up to 3 retries, 1 minute interval
-- prefers `pythonw.exe -m ductor_bot`, fallback `ductor` binary
-- explicit admin hint panel on access-denied `schtasks` errors
-- `ductor service logs` uses `print_file_service_logs()`
-
-## PID lock
-
-`acquire_lock(pid_file, kill_existing=True)` is used for bot startup.
-
-- detects stale/alive PID
-- optionally terminates existing process
-- writes current PID
-
-Windows compatibility includes broader `OSError` handling around PID liveness/termination checks.
-
-## Process-tree helpers
-
-`process_tree.py` centralizes process termination behavior used across CLI execution and runtime control:
-
-- POSIX: sends signals to process trees (`SIGTERM` then `SIGKILL`)
-- Windows: uses `taskkill /T` (`/F` for force-kill)
-- `kill_all_ductor_processes()` (Windows-only) additionally removes lingering `ductor.exe` and pipx venv `python/pythonw` processes to avoid upgrade file-lock issues
+`run_telegram()` acquires lock at startup and releases it on shutdown.
 
 ## Restart protocol
 
-- `/restart` or restart marker file triggers exit code `42`
-- restart sentinel stores chat + message for post-restart notification
-- sentinel consumed on next startup
+Restart code: `42` (`EXIT_RESTART`).
 
-`ductor stop` (`__main__._stop_bot`) behavior:
+- `/restart` writes sentinel and stops polling
+- service/supervisor context: process exits with restart code
+- foreground direct context: process re-exec path
 
-1. stop installed background service (prevents immediate respawn)
+## Lifecycle stop behavior
+
+`stop_bot()` (implemented in `cli_commands/lifecycle.py`):
+
+1. stop installed service
 2. kill PID-file instance
-3. on Windows only: kill remaining ductor processes (`kill_all_ductor_processes`)
-4. short Windows wait for lock release
+3. kill remaining ductor processes
+4. short Windows lock-release wait
 5. stop Docker container when enabled
 
 ## Docker manager
 
-`DockerManager.setup()`:
+`DockerManager.setup()` handles:
 
-1. verify Docker binary/daemon
-2. ensure image (build when missing and `auto_build=true`)
-3. reuse running container or start new one
-4. mount `~/.ductor -> /ductor`
-5. mount provider homes when present:
-   - `~/.claude`
-   - `~/.codex`
-   - `~/.gemini`
-   - `~/.claude.json` (file mount)
-6. optionally mount host cache (`mount_host_cache` config flag):
-   - Linux: `~/.cache` (or `$XDG_CACHE_HOME`)
-   - macOS: `~/Library/Caches`
-   - Windows: `%LOCALAPPDATA%`
-7. mount user-configured directories from `docker.mounts`:
-   - host paths are expanded/resolved and must exist as directories
-   - mounted as `rw` under `/mnt/<name>`
-   - `<name>` comes from host basename (sanitized), with `_2`, `_3` suffixes for collisions
+- daemon/image/container checks
+- container (re)start
+- mounts:
+  - `~/.ductor -> /ductor`
+  - provider homes (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.claude.json` when present)
+  - optional host cache mount
+  - user-configured `docker.mounts` to `/mnt/<name>`
 
-Linux adds UID/GID mapping (`--user uid:gid`) to avoid root-owned host files.
+Fallback behavior:
 
-If setup fails, orchestrator falls back to host execution.
-At runtime, `Orchestrator._ensure_docker()` also health-checks the container and falls back to host execution if recovery fails.
+- if Docker setup/recovery fails, runtime falls back to host execution.
 
-The `Dockerfile.sandbox` includes Chrome/Chromium runtime dependencies (libgbm, libnss3, libasound2, etc.) for browser-based skills using patchright/playwright.
+## Service backends
 
-### Docker CLI commands
+Platform dispatch via `infra/service.py`:
 
-| Command | Effect |
-|---|---|
-| `ductor docker` | Show docker subcommand help |
-| `ductor docker rebuild` | Stop bot, remove container & image (rebuilt on next start) |
-| `ductor docker enable` | Set `docker.enabled = true` in config |
-| `ductor docker disable` | Stop container, set `docker.enabled = false` in config |
-| `ductor docker mount <path>` | Add directory to `docker.mounts` (stored as resolved absolute path) |
-| `ductor docker unmount <path>` | Remove configured mount (exact/resolved/basename match) |
-| `ductor docker mounts` | List configured mounts with resolved container targets and status |
+- Linux: systemd user service
+- macOS: launchd
+- Windows: Task Scheduler
 
-`ductor docker rebuild` calls `_stop_bot()` first, which also stops a running installed service. Rebuild does not explicitly start the service again.
+`ductor service logs`:
 
-Mount-management commands update `config.json` only. Restart (or rebuild) is required for new `docker run -v ...` flags to take effect.
+- Linux: journal stream
+- macOS/Windows: file tail from `~/.ductor/logs/agent.log` (fallback newest `*.log`)
 
-## Version/update system
+## Atomic persistence helpers
 
-- `check_pypi()` fetches latest package metadata
-- `UpdateObserver` checks periodically and notifies once per new version
-- `check_pypi(fresh=True)` adds cache-busting and no-cache headers for manual `/upgrade` checks
-- `perform_upgrade_pipeline()` runs generic upgrade, verifies installed version with short settle polling, and performs one forced retry when needed
-- upgrade sentinel stores old/new version + chat for post-restart confirmation
+- `atomic_io.py`: `atomic_text_save`, `atomic_bytes_save`
+- `json_store.py`: `atomic_json_save`, `load_json`
 
-## Supervisor
+These are used across session/task/cron/webhook/config persistence paths.
 
-See [supervisor.md](supervisor.md) for the in-process multi-agent supervisor (`ductor_bot/multiagent/supervisor.py`).
+## Shared task observer helpers
+
+- `base_task_observer.py`: shared execution-config and execution-log behavior for cron/webhook observers
+- `task_runner.py`: shared one-shot task execution helpers used by cron/webhook/background
+
+## Update/version flow
+
+- `version.py`: current version + PyPI metadata helpers
+- `updater.py`: `UpdateObserver` and upgrade pipeline helpers
+- upgrade sentinel is consumed on next startup for post-upgrade user message

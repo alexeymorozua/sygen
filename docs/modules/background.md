@@ -1,77 +1,61 @@
 # background/
 
-Named background session execution for `/session` (persistent sessions with follow-ups).
+Named background session execution for `/session`.
 
-Scope note: this module covers `/session` named-session execution only. Delegated background tasks are handled by `TaskHub` in [`docs/modules/tasks.md`](tasks.md).
+Scope: this module is only `/session` named-session execution. Delegated tasks are documented in `docs/modules/tasks.md`.
 
 ## Files
 
-- `background/observer.py`: `BackgroundObserver` task lifecycle, execution, cancel/shutdown, result callback
-- `background/models.py`: `BackgroundSubmit`, `BackgroundTask`, `BackgroundResult` dataclasses
+- `background/observer.py`: `BackgroundObserver` lifecycle, execution, cancellation, result callback
+- `background/models.py`: `BackgroundSubmit`, `BackgroundTask`, `BackgroundResult`
 
 ## Purpose
 
-Runs CLI tasks without blocking the chat flow, with persistent session support:
+Run named session work asynchronously without blocking chat flow.
 
-- user sends `/session <prompt>`
-- optional directive forms:
-  - `/session @provider [model] <prompt>` (for example `@claude opus`)
-  - `/session @model <prompt>` (provider inferred)
-  - `/session @session-name <prompt>` (background follow-up to existing named session)
-- a named session is created (e.g. `swiftfox`)
-- task executes asynchronously with session tracking
-- bot sends a tagged completion/failure/cancel message when done
-- follow-ups resume the same CLI session via `--resume`
+Typical flow:
+
+1. user sends `/session <prompt>`
+2. named session is created in registry
+3. background task runs via `BackgroundObserver`
+4. result is wrapped and delivered through message bus
+5. named session metadata is updated with returned session ID
 
 ## Execution model
 
-`BackgroundObserver.submit(sub, exec_config)`:
+`BackgroundObserver.submit(...)`:
 
-1. enforces per-chat concurrency cap (`MAX_TASKS_PER_CHAT = 5`)
-2. creates `BackgroundTask` metadata (`task_id`, chat/thread IDs, provider/model, prompt preview, session name)
-3. starts `asyncio.create_task(self._run(...))`
-4. auto-removes finished tasks from in-memory registry
+- enforces per-chat cap (`MAX_TASKS_PER_CHAT = 5`)
+- creates in-memory `BackgroundTask`
+- starts async worker task
+- auto-removes completed in-memory entries
 
 Two execution paths:
 
-- **Named session path** (`session_name` set): uses `CLIService.execute()` with `resume_session` for session persistence
-- **Legacy path** (no `session_name`): uses `run_oneshot_task()` for stateless one-shot execution
+- named session (`session_name` set): CLIService execution with resume support
+- stateless one-shot (no session): shared one-shot runner (`infra/task_runner.py`)
 
 Timeout source:
 
-- `BackgroundObserver` is constructed with `timeout_seconds=config.timeouts.background` in `Orchestrator.create(...)`.
-- named-session and legacy background executions both use this observer-level timeout.
+- observer is constructed with `config.timeouts.background`
 
-## Status mapping
+## Status values
 
-Delivered `BackgroundResult.status` values include:
+Common statuses:
 
-- named-session success path: `ok`
-- legacy one-shot success path: `success`
-- named-session failures: `error:timeout`, `error:cli`, `error:internal`
-- legacy one-shot failures: `error:timeout`, `error:exit_<code>`, `error:cli_not_found`, `error:internal`
-- user abort path: `aborted`
+- `ok` (named-session success)
+- `success` (stateless success)
+- `error:timeout`, `error:cli`, `error:internal`, `error:cli_not_found`
+- `aborted`
 
 ## Wiring
 
-Orchestrator integration (`orchestrator/core.py`):
+- observer is created by `ObserverManager.init_task_observers(...)`
+- result callback is wired in `ObserverManager.wire_to_bus(...)`
+- delivery formatting/injection is handled by `MessageBus` + `TelegramTransport`
 
-- created in `Orchestrator.create(...)`
-- submission API: `submit_named_session(...)`, `submit_named_followup_bg(...)`
-- listing API: `active_background_tasks(...)`
-- shared abort: `abort(chat_id)` cancels CLI subprocesses, cancels active background tasks, and ends all named sessions for that chat
-- shutdown: `_stop_observers()` calls `BackgroundObserver.shutdown()`
+## Limits and persistence
 
-Bot integration (`bot/app.py`):
-
-- `/session` handler creates named session and confirms start to user
-- result handler (`_on_session_result`) sends tagged completion/failure/cancel message
-- `/sessions` shows interactive session management UI
-- `/status` shows active background tasks via orchestrator status builder
-
-## Limitations
-
-- task registry is in-memory (lost on restart), but named sessions persist in JSON
-- named session metadata persistence is handled by `session/named.py` (`~/.ductor/named_sessions.json`)
-- startup auto-recovery can resume safe named sessions that were persisted as `running` before restart
-- no retry queue; each submission is a single execution
+- in-memory running task map is not persisted
+- named-session metadata persistence lives in `session/named.py` (`named_sessions.json`)
+- startup recovery may resume eligible named sessions that were persisted as `running`

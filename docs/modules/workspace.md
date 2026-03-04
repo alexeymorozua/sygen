@@ -21,6 +21,7 @@ Important runtime paths:
 - `sessions_path`: `~/.ductor/sessions.json`
 - `named_sessions_path`: `~/.ductor/named_sessions.json`
 - `tasks_registry_path`: `~/.ductor/tasks.json`
+- `chat_activity_path`: `~/.ductor/chat_activity.json`
 - `startup_state_path`: `~/.ductor/startup_state.json`
 - `inflight_turns_path`: `~/.ductor/inflight_turns.json`
 - `cron_jobs_path`: `~/.ductor/cron_jobs.json`

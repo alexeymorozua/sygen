@@ -12,8 +12,9 @@ pip install -e ".[dev]"
 
 Optional for full runtime validation:
 
-- install/auth at least one provider CLI (`claude`, `codex`, or `gemini`)
-- create Telegram bot token + user ID (add group IDs to `allowed_group_ids` for group chat support)
+- install/auth at least one provider CLI (`claude`, `codex`, `gemini`)
+- create Telegram bot token + user ID (`allowed_user_ids`)
+- for group support, also set `allowed_group_ids`
 
 ## 2) Run the bot
 
@@ -21,13 +22,14 @@ Optional for full runtime validation:
 ductor
 ```
 
-First run auto-starts onboarding and writes config to `~/.ductor/config/config.json`.
+First run starts onboarding and writes config to `~/.ductor/config/config.json`.
 
 Primary runtime files/directories:
 
 - `~/.ductor/sessions.json`
 - `~/.ductor/named_sessions.json`
 - `~/.ductor/tasks.json`
+- `~/.ductor/chat_activity.json`
 - `~/.ductor/cron_jobs.json`
 - `~/.ductor/webhooks.json`
 - `~/.ductor/startup_state.json`
@@ -36,8 +38,6 @@ Primary runtime files/directories:
 - `~/.ductor/agents.json`
 - `~/.ductor/agents/`
 - `~/.ductor/workspace/`
-- `~/.ductor/workspace/tasks/`
-- `~/.ductor/workspace/api_files/`
 - `~/.ductor/logs/agent.log`
 
 ## 3) Quality gates
@@ -54,100 +54,93 @@ Expected: zero warnings, zero errors.
 ## 4) Core mental model
 
 ```text
-Telegram update or API message
+Telegram or API input
   -> ingress layer (bot middleware/handlers or ApiServer)
-  -> orchestrator (routing + flows)
-  -> CLI service (claude/codex/gemini subprocess)
-  -> streamed/non-streamed response to Telegram or API client
+  -> orchestrator flow
+  -> provider CLI subprocess
+  -> response delivery
+
+background/async results
+  -> Envelope adapters
+  -> MessageBus
+  -> optional session injection
+  -> TelegramTransport
 ```
-
-Background systems run in-process:
-
-- named session runner (`/session`)
-- delegated background tasks (`TaskHub`, `/tasks`)
-- cron
-- heartbeat
-- webhook
-- cleanup
-- codex model cache
-- gemini model cache
-- config hot-reloader (`config.json` poller)
-- rule sync
-- skill sync
-- update check (upgradeable installs only)
-
-Optional network service:
-
-- direct API server (`ApiServer`) when `api.enabled=true`
 
 ## 5) Read order in code
 
-Entry points:
+Entry + command layer:
 
 - `ductor_bot/__main__.py`
+- `ductor_bot/cli_commands/`
+
+Runtime hot path:
+
+- `ductor_bot/multiagent/supervisor.py`
 - `ductor_bot/bot/app.py`
+- `ductor_bot/bot/startup.py`
 - `ductor_bot/orchestrator/core.py`
+- `ductor_bot/orchestrator/lifecycle.py`
+- `ductor_bot/orchestrator/flows.py`
 
-Hot paths:
+Delivery/task/session core:
 
-- queue/lock behavior: `ductor_bot/bot/middleware.py`
-- message flows: `ductor_bot/orchestrator/flows.py`
-- command handling: `ductor_bot/orchestrator/commands.py`
-- delegated task system: `ductor_bot/tasks/hub.py`, `ductor_bot/tasks/registry.py`
-- shared response text: `ductor_bot/text/response_format.py`
-- provider execution: `ductor_bot/cli/service.py`
-- provider wrappers: `ductor_bot/cli/claude_provider.py`, `ductor_bot/cli/codex_provider.py`, `ductor_bot/cli/gemini_provider.py`
-- direct API ingress: `ductor_bot/api/server.py`
-- shared file helpers: `ductor_bot/files/allowed_roots.py`, `ductor_bot/files/tags.py`, `ductor_bot/files/storage.py`, `ductor_bot/files/prompt.py`
-- workspace/rules/skills: `ductor_bot/workspace/init.py`, `ductor_bot/workspace/rules_selector.py`, `ductor_bot/workspace/skill_sync.py`
+- `ductor_bot/bus/`
+- `ductor_bot/session/manager.py`
+- `ductor_bot/tasks/hub.py`
+- `ductor_bot/tasks/registry.py`
+
+Provider/API/workspace core:
+
+- `ductor_bot/cli/service.py` + provider wrappers
+- `ductor_bot/api/server.py`
+- `ductor_bot/workspace/init.py`
+- `ductor_bot/workspace/rules_selector.py`
+- `ductor_bot/workspace/skill_sync.py`
 
 ## 6) Common debug paths
 
-If message handling is wrong:
+If command behavior is wrong:
+
+1. `ductor_bot/__main__.py`
+2. `ductor_bot/cli_commands/*`
+
+If Telegram routing is wrong:
 
 1. `ductor_bot/bot/middleware.py`
 2. `ductor_bot/bot/app.py`
-3. `ductor_bot/orchestrator/core.py`
-4. `ductor_bot/cli/service.py`
+3. `ductor_bot/orchestrator/commands.py`
+4. `ductor_bot/orchestrator/flows.py`
 
-If direct API is wrong:
+If background results look wrong:
+
+1. `ductor_bot/bus/adapters.py`
+2. `ductor_bot/bus/bus.py`
+3. `ductor_bot/bus/telegram_transport.py`
+
+If tasks are wrong:
+
+1. `ductor_bot/tasks/hub.py`
+2. `ductor_bot/tasks/registry.py`
+3. `ductor_bot/multiagent/internal_api.py`
+4. `ductor_bot/_home_defaults/workspace/tools/task_tools/*.py`
+
+If API is wrong:
 
 1. `ductor_bot/api/server.py`
-2. `ductor_bot/orchestrator/core.py` (`_start_api_server` wiring)
-3. `ductor_bot/files/*` (path safety, MIME detection, upload prompt construction)
-
-If automation is not firing:
-
-1. cron: `ductor_bot/cron/observer.py`
-2. webhooks: `ductor_bot/webhook/server.py`, `ductor_bot/webhook/observer.py`
-3. heartbeat: `ductor_bot/heartbeat/observer.py`
-4. quiet-hour logic: `ductor_bot/utils/quiet_hours.py`
-5. dependency locking: `ductor_bot/cron/dependency_queue.py`
-
-If rules/skills drift:
-
-1. `ductor_bot/workspace/init.py`
-2. `ductor_bot/workspace/rules_selector.py`
-3. `ductor_bot/workspace/skill_sync.py`
+2. `ductor_bot/orchestrator/lifecycle.py` (API startup wiring)
+3. `ductor_bot/files/*` (allowed roots, MIME, prompt building)
 
 ## 7) Behavior details to remember
 
-- `/stop` is middleware-level abort handling before normal command routing.
-- `/stop_all` is middleware-level too; on the main agent it aborts active runs across all agents (sub-agent fallback is local-only).
-- `/new` resets only the active provider bucket in that chat.
-- foreground chat timeout path uses `config.timeouts.normal`; named background `/session` uses `config.timeouts.background`; delegated task runs use `config.tasks.timeout_seconds`.
-- cron/webhook `cron_task` runs support provider/model/reasoning/CLI-arg overrides.
-- cron/webhook/inter-agent timeout paths still use `config.cli_timeout`.
-- `/tasks` is quick-command routed (no queue wait) and opens task management UI.
-- startup classifies `first_start` / `service_restart` / `system_reboot` from `startup_state.json`.
-- interrupted foreground turns are tracked in `inflight_turns.json`; startup recovery can auto-resume safe named sessions and notifies users about interrupted foreground turns.
-- direct API upload writes to `workspace/api_files/YYYY-MM-DD/`.
-- rule sync updates existing `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` siblings by mtime.
-- Zone 2 overwrite in workspace init includes:
-  - `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`
-  - `workspace/tools/cron_tools/*.py`
-  - `workspace/tools/webhook_tools/*.py`
-  - `workspace/tools/agent_tools/*.py`
-  - `workspace/tools/task_tools/*.py`
+- `/stop` and `/stop_all` are pre-routing abort paths in middleware/bot.
+- `/new` resets only active provider bucket for the active `SessionKey`.
+- session identity is topic-aware: `SessionKey(chat_id, topic_id)`.
+- `/model` inside a topic updates only that topic session (not global config).
+- task tools now support permanent single-task removal via `delete_task.py` (`/tasks/delete`).
+- task routing is topic-aware via `thread_id` and `DUCTOR_TOPIC_ID`.
+- API auth accepts optional `channel_id` for per-channel session isolation.
+- startup recovery uses `inflight_turns.json` + recovered named sessions.
+- auth allowlists (`allowed_user_ids`, `allowed_group_ids`) are hot-reloadable.
 
-Continue with `docs/architecture.md` and `docs/modules/*.md` for subsystem details.
+Continue with `docs/system_overview.md` and `docs/architecture.md` for complete runtime detail.

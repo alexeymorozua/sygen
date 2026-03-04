@@ -45,7 +45,7 @@ Delegated tasks are separate from `/session`:
 - persisted in `~/.ductor/tasks.json`
 - task folders in `~/.ductor/workspace/tasks/<task_id>/`
 - managed in Telegram via `/tasks` (running/waiting/finished + cancel/cleanup controls)
-- created/resumed/cancelled through task tools (`tools/task_tools/*.py`) over `InternalAgentAPI /tasks/*`
+- created/resumed/cancelled/deleted through task tools (`tools/task_tools/*.py`) over `InternalAgentAPI /tasks/*`
 - timeout source: `config.tasks.timeout_seconds`
 
 Result flow:
@@ -53,6 +53,7 @@ Result flow:
 - task completion/failure is posted to Telegram
 - result is injected into parent agent's current active session (`handle_task_result`)
 - task questions (`ask_parent.py`) are posted and injected via `handle_task_question`
+- forum-topic tasks route back to the originating topic via `thread_id` / `DUCTOR_TOPIC_ID`
 
 ## Cron jobs
 

@@ -1,106 +1,103 @@
 # session/
 
-Per-chat session lifecycle with JSON persistence and provider-isolated state.
+Session lifecycle and persistence with provider isolation and topic/channel-aware keys.
 
 ## Files
 
-- `manager.py`: `ProviderSessionData`, `SessionData`, `SessionManager`
-- `named.py`: `NamedSession`, `NamedSessionRegistry`, generated-name helpers
+- `session/key.py`: `SessionKey(chat_id, topic_id)`
+- `session/manager.py`: `ProviderSessionData`, `SessionData`, `SessionManager`
+- `session/named.py`: `NamedSession`, `NamedSessionRegistry`
 
-## Data Model
+## Session identity (`SessionKey`)
 
-### `ProviderSessionData`
+`SessionKey` is transport-agnostic:
 
-Provider-local bucket:
+- Telegram default chats -> `SessionKey(chat_id, None)`
+- Telegram forum topics -> `SessionKey(chat_id, message_thread_id)`
+- API channel scope -> `SessionKey(chat_id, channel_id)`
+
+Persistence key (`storage_key`) format:
+
+- legacy flat: `"<chat_id>"`
+- topic-aware: `"<chat_id>:<topic_id>"`
+
+Parsing is backward-compatible (`SessionKey.parse`).
+
+## `SessionData` model
+
+Fields:
+
+- `chat_id`
+- `topic_id` (optional)
+- `topic_name` (optional cached display name)
+- `provider`, `model` (active target for this session key)
+- `created_at`, `last_active`
+- `provider_sessions: dict[str, ProviderSessionData]`
+
+Provider bucket (`ProviderSessionData`):
 
 - `session_id`
 - `message_count`
 - `total_cost_usd`
 - `total_tokens`
-
-### `SessionData`
-
-Chat-level envelope:
-
-- `chat_id`
-- `provider` (currently active provider)
-- `model` (currently active model)
-- `created_at`, `last_active` (ISO UTC)
-- `provider_sessions: dict[str, ProviderSessionData]`
-
-Provider keys typically include `claude`, `codex`, and/or `gemini`.
 
 Compatibility behavior:
 
-- constructor still accepts legacy flat fields (`session_id`, `message_count`, `total_cost_usd`, `total_tokens`) for old JSON/tests,
-- if legacy fields are provided and `provider_sessions` is missing, they are migrated into the current provider bucket.
-
-Compatibility properties:
-
-- `session_id`
-- `message_count`
-- `total_cost_usd`
-- `total_tokens`
-
-These read/write `provider_sessions[self.provider]`, so existing call sites remain unchanged while data is isolated per provider.
-
-Utility methods:
-
-- `clear_all_sessions()`: removes all provider buckets
-- `clear_provider_session(provider)`: removes one provider bucket
+- legacy flat metrics/session fields are migrated into provider buckets
+- legacy storage keys are still accepted
 
 ## `SessionManager` API
 
-- `resolve_session(chat_id, provider=None, model=None, preserve_existing_target=False) -> (SessionData, is_new)`
-- `get_active(chat_id) -> SessionData | None`
-- `reset_session(chat_id, provider=None, model=None) -> SessionData`
-- `reset_provider_session(chat_id, provider, model) -> SessionData`
-- `update_session(session, cost_usd=0.0, tokens=0) -> None`
-- `sync_session_target(session, provider=None, model=None) -> None`
+- `resolve_session(key, provider=None, model=None, preserve_existing_target=False)`
+- `get_active(key)`
+- `list_active_for_chat(chat_id)`
+- `list_all()`
+- `reset_session(key, provider=None, model=None)`
+- `reset_provider_session(key, provider, model)`
+- `update_session(session, cost_usd=0.0, tokens=0)`
+- `sync_session_target(session, provider=None, model=None)`
+- `set_topic_name_resolver(resolver)`
 
-Behavior highlights:
+## Freshness and rollover
 
-- `reset_session(...)` is a full low-level reset: new `SessionData` with empty `provider_sessions`.
-- `reset_provider_session(...)` clears only one provider bucket and keeps other providers intact.
-- `update_session(...)` merges provider buckets from caller state into persisted state, then increments counters only for the active provider.
-- merge logic prevents stale snapshots from regressing counters (`max(existing, incoming)` per metric).
+Session freshness checks include:
 
-## Freshness Rules (`_is_fresh`)
+- `max_session_messages`
+- idle timeout (`idle_timeout_minutes`, `0` disables)
+- daily reset boundary (`daily_reset_enabled`, `daily_reset_hour`, `user_timezone`)
+- timestamp validity
 
-A session is stale if any condition matches:
+Stale sessions are replaced on next `resolve_session(...)` call.
 
-- `max_session_messages` reached (uses active provider `message_count`)
-- idle timeout exceeded (`idle_timeout_minutes`; `0` disables idle expiry)
-- daily reset boundary crossed (`daily_reset_enabled=true`, hour=`daily_reset_hour`, timezone=`user_timezone`)
-- invalid `last_active` timestamp
+## Provider/model switching behavior
 
-Each decision is logged at `DEBUG` with `reason=...`.
+Switching model/provider for a key:
 
-## Provider Switch Behavior
+- updates active target for that key
+- keeps other provider buckets intact
+- `is_new=True` only if target provider bucket lacks `session_id`
 
-`resolve_session()` no longer clears IDs/counters on provider switch.
+This enables seamless return to previously used provider buckets.
 
-- it updates `session.provider` and `session.model`,
-- returns `is_new=True` only when the target provider has no `session_id`,
-- switching back to a previously used provider resumes that provider’s original session and metrics.
+## Topic name integration
 
-## Error Behavior
+`SessionManager` can resolve and backfill topic names through a callback:
 
-CLI errors do not reset sessions in `SessionManager`.
+- `set_topic_name_resolver((chat_id, topic_id) -> str)`
+- used by bot startup with `TopicNameCache`
+- persisted `topic_name` improves `/status` and `/sessions` readability
 
-- chat-command resets are provider-targeted (`reset_provider_session`, used by `/new` and SIGKILL recovery),
-- normal runtime errors preserve session state so the next user message can resume.
+## Named sessions (`NamedSessionRegistry`)
 
-## Named sessions (`named.py`)
+Purpose:
 
-`NamedSessionRegistry` stores named background-session metadata used by `/session` and `/sessions`.
+- background `/session` registry
+- deterministic inter-agent sessions (`ia-<sender>`)
 
-Model:
+Model fields:
 
 - `name`, `chat_id`, `provider`, `model`
-- `session_id` (CLI resume token)
-- `prompt_preview`, `status`, `created_at`, `message_count`
-- `last_prompt` (full last submitted prompt, truncated to 4000 chars)
+- `session_id`, `prompt_preview`, `status`, `created_at`, `message_count`, `last_prompt`
 
 Status values:
 
@@ -110,27 +107,14 @@ Status values:
 
 Behavior:
 
-- names are auto-generated adjective+noun strings (compact, no hyphen),
-- max sessions per chat: `MAX_SESSIONS_PER_CHAT = 10` for user-created sessions via `create(...)`,
-- sessions persist across restarts,
-- on startup, persisted `running` sessions are downgraded to `idle`,
-- downgraded sessions are tracked in an internal recovered-running set for startup recovery orchestration,
-- updates are persisted after each response (`update_after_response`).
-
-Additional insertion API:
-
-- `add(session)` inserts a pre-built `NamedSession` and persists immediately.
-- used by inter-agent deterministic sessions (`ia-<sender>`) where caller controls full metadata.
-- `mark_running(chat_id, name, prompt)` sets status to `running` and stores `last_prompt`.
-- `pop_recovered_running(chat_id=None)` returns and clears sessions that were `running` at last shutdown (excluding `ia-*`).
+- user-created cap: `MAX_SESSIONS_PER_CHAT = 10`
+- persisted `running` entries are downgraded to `idle` on load
+- recovered-running sessions are tracked for startup recovery
 
 ## Persistence
 
-File: `~/.ductor/sessions.json` (dict keyed by chat ID string).
+- sessions: `~/.ductor/sessions.json`
+- named sessions: `~/.ductor/named_sessions.json`
 
-- load: tolerant to missing/corrupt JSON (returns `{}`),
-- save: atomic temp write + replace,
-- I/O runs in `asyncio.to_thread()`,
-- `dataclasses.asdict(SessionData)` serializes `provider_sessions` as nested JSON.
-
-Named-session file: `~/.ductor/named_sessions.json` (`{"sessions": [...]}`).
+Storage is JSON + atomic write helpers (`atomic_json_save`).
+I/O runs in worker threads (`asyncio.to_thread`).

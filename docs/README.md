@@ -1,50 +1,49 @@
 # ductor Docs
 
-ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`), streams responses back to Telegram, persists per-chat state, and runs cron/heartbeat/webhook automation plus daily cleanup in-process. It also supports a direct WebSocket API transport (plus authenticated file upload/download endpoints) for non-Telegram clients.
+ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`), streams responses back to Telegram, persists session state, and runs cron/heartbeat/webhook/cleanup automation in-process. It also supports a direct WebSocket API transport with authenticated file upload/download.
 
 ## Onboarding (Read in This Order)
 
-1. `docs/system_overview.md` -- immediate mental model (runtime, message flow, files).
-2. `docs/developer_quickstart.md` -- fastest path for contributors and junior devs.
-3. `docs/modules/setup_wizard.md` -- CLI commands, onboarding flow, upgrade flow.
-4. `docs/architecture.md` -- startup, routing, streaming, callbacks, background systems.
-5. `docs/config.md` -- config schema, merge behavior, provider/model resolution.
-6. `docs/modules/config_reload.md` -- config hot-reload behavior and restart boundaries.
-7. `docs/modules/orchestrator.md` -- routing core and flow behavior.
-8. `docs/modules/bot.md` -- Telegram ingress, middleware, streaming UX, callbacks.
-9. `docs/modules/text.md` -- shared response text primitives used by bot + orchestrator.
-10. `docs/modules/api.md` -- direct WebSocket API ingress and HTTP file endpoints.
-11. `docs/modules/files.md` -- shared file parsing/storage/prompt helpers.
-12. `docs/modules/cli.md` -- provider wrappers, stream parsing, process control.
-13. `docs/modules/workspace.md` -- `~/.ductor` seeding, rule deployment/sync, runtime notices.
-14. `docs/modules/tasks.md` -- shared task system (`TaskHub`), `/tasks`, task tool/API flows.
-15. `docs/modules/multiagent.md` -- multi-agent system, inter-agent communication, shared knowledge.
-16. Remaining module docs (`background`, `session`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `skill_system`).
+1. `docs/system_overview.md` -- fastest end-to-end mental model.
+2. `docs/developer_quickstart.md` -- shortest path for contributors/junior devs.
+3. `docs/modules/setup_wizard.md` -- CLI commands, onboarding, restart/upgrade lifecycle.
+4. `docs/architecture.md` -- startup, routing, streaming, callbacks, observers.
+5. `docs/config.md` -- config schema, merge behavior, hot-reload boundaries.
+6. `docs/modules/config_reload.md` -- runtime config reload details.
+7. `docs/modules/orchestrator.md` -- routing core, flows, selectors, lifecycle split.
+8. `docs/modules/bot.md` -- Telegram ingress, middleware, topic routing, chat tracking.
+9. `docs/modules/bus.md` -- unified Envelope/MessageBus delivery architecture.
+10. `docs/modules/session.md` -- `SessionKey(chat_id, topic_id)` isolation model.
+11. `docs/modules/tasks.md` -- delegated task system (`TaskHub`) and `/tasks/*` API.
+12. `docs/modules/api.md` -- direct WebSocket ingress and HTTP file endpoints.
+13. `docs/modules/cli.md` -- provider wrappers, stream parsing, process control.
+14. `docs/modules/cli_commands.md` -- CLI command split from `__main__.py`.
+15. `docs/modules/workspace.md` -- `~/.ductor` seeding, rules sync, skill sync.
+16. `docs/modules/multiagent.md` -- supervisor, bus bridge, sub-agent runtime.
+17. Remaining module docs (`background`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `files`, `text`, `skill_system`).
 
 ## System in 60 Seconds
 
-- `ductor_bot/bot/`: aiogram handlers, auth/sequencing middleware, streaming editors, rich sender, file browser.
-- `ductor_bot/api/`: direct WebSocket ingress (`/ws`) plus authenticated `GET /files` and `POST /upload` endpoints.
-- `ductor_bot/text/`: shared user-facing response format/builders (`fmt`, `/new` + `/stop` text, session-error hints).
-- `ductor_bot/files/`: shared file tag parsing, MIME detection/classification, storage naming, transport-agnostic media prompt builder.
-- `ductor_bot/orchestrator/`: command dispatch, directives/hooks, normal + heartbeat flows, observer/server wiring.
-- `ductor_bot/config_reload.py`: centralized hot-reload watcher for safe `config.json` fields.
-- `ductor_bot/cli/`: Claude/Codex/Gemini wrappers, stream-event normalization, process registry, auth detection, model caches.
-- `ductor_bot/background/`: named background sessions (`/session`) with follow-ups and result delivery.
-- `ductor_bot/tasks/`: shared background task delegation (`TaskHub`), persistent task registry, task-folder seeding.
-- `ductor_bot/session/`: per-chat provider-isolated session state (`sessions.json`) plus named-session registry (`named_sessions.json`).
-- `ductor_bot/cron/`: in-process scheduler for `cron_jobs.json` with task overrides, quiet hours, dependency queue.
-- `ductor_bot/webhook/`: HTTP ingress (`/hooks/{hook_id}`) with `bearer`/`hmac`, `wake`/`cron_task`, and shared dependency queue.
-- `ductor_bot/heartbeat/`: periodic proactive checks in active sessions.
-- `ductor_bot/cleanup/`: daily recursive retention cleanup for `telegram_files`, `output_to_user`, and `api_files` (plus empty-dir pruning).
-- `ductor_bot/workspace/`: path resolution, home seeding from `_home_defaults`, RULES variant deployment, rule sync, skill sync.
-- `ductor_bot/multiagent/`: multi-agent supervisor, inter-agent bus, shared knowledge sync, health monitoring, agent tool scripts.
-- `ductor_bot/infra/`: PID lock, restart/update sentinels, startup lifecycle state (`startup_state`), in-flight turn tracking (`inflight`), recovery planning, Docker manager, service backends, updater/version checks.
+- `ductor_bot/__main__.py`: thin CLI entrypoint (dispatch) + config loading.
+- `ductor_bot/cli_commands/`: concrete CLI subcommand implementations (`agents`, `docker`, `service`, `api`, lifecycle/status helpers).
+- `ductor_bot/bot/`: aiogram handlers, auth/sequencing middleware, streaming dispatch, callback routing, group audit/chat tracking.
+- `ductor_bot/orchestrator/`: command registry, directives/hooks, normal + streaming + heartbeat flows, provider/session/task wiring.
+- `ductor_bot/bus/`: central `MessageBus` + `Envelope` + `LockPool` + Telegram transport formatting.
+- `ductor_bot/session/`: provider-isolated session state keyed by `SessionKey(chat_id, topic_id)` plus named-session registry.
+- `ductor_bot/tasks/`: shared background task delegation (`TaskHub`) and persistent task registry.
+- `ductor_bot/api/`: WebSocket ingress (`/ws`) and HTTP file endpoints (`/files`, `/upload`).
+- `ductor_bot/cli/`: Claude/Codex/Gemini wrappers, stream-event normalization, auth checks, model caches, process registry.
+- `ductor_bot/cron/`, `webhook/`, `heartbeat/`, `cleanup/`: in-process automation observers.
+- `ductor_bot/workspace/`: path source-of-truth, home defaults sync, rules deployment/sync, skill sync.
+- `ductor_bot/multiagent/`: supervisor, inter-agent bus, internal localhost API bridge, shared-knowledge sync.
+- `ductor_bot/infra/`: PID lock, restart/update state, Docker manager, service backends, observer/task utilities.
 
-Runtime behavior note:
+Runtime behavior notes:
 
-- Normal CLI errors do not auto-reset sessions. Session context is preserved; users can retry or run `/new`.
-- Startup can auto-recover interrupted foreground turns and resumable named sessions from persisted state files.
+- `/new` resets only the active provider bucket of the active session key (topic-aware).
+- Forum topics are isolated: each topic has its own `SessionKey(chat_id, topic_id)` state.
+- Normal CLI errors do not auto-reset sessions; context is preserved unless explicit reset/recovery path applies.
+- Startup can recover interrupted foreground turns and safely resume eligible named sessions.
 
 ## Documentation Index
 
@@ -56,24 +55,26 @@ Runtime behavior note:
 - [Configuration](config.md)
 - Module docs:
   - [setup_wizard](modules/setup_wizard.md)
+  - [cli_commands](modules/cli_commands.md)
   - [config_reload](modules/config_reload.md)
   - [bot](modules/bot.md)
+  - [bus](modules/bus.md)
   - [background](modules/background.md)
+  - [session](modules/session.md)
   - [tasks](modules/tasks.md)
   - [api](modules/api.md)
-  - [text](modules/text.md)
   - [files](modules/files.md)
+  - [text](modules/text.md)
   - [cli](modules/cli.md)
   - [orchestrator](modules/orchestrator.md)
   - [workspace](modules/workspace.md)
   - [skill_system](modules/skill_system.md)
-  - [session](modules/session.md)
   - [cron](modules/cron.md)
-  - [heartbeat](modules/heartbeat.md)
   - [webhook](modules/webhook.md)
+  - [heartbeat](modules/heartbeat.md)
   - [cleanup](modules/cleanup.md)
-  - [security](modules/security.md)
   - [infra](modules/infra.md)
   - [supervisor](modules/supervisor.md)
   - [multiagent](modules/multiagent.md)
+  - [security](modules/security.md)
   - [logging](modules/logging.md)

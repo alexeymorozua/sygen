@@ -1,12 +1,12 @@
 # Skill System
 
-Cross-tool skill sync between ductor workspace and installed CLI homes.
+Cross-tool skill sync between ductor workspace and CLI skill homes.
 
 ## Files
 
-- `workspace/skill_sync.py`: discovery, canonical resolution, sync, bundled skill sync, cleanup, watcher
-- `workspace/init.py`: calls bundled + one-shot sync at startup
-- `orchestrator/core.py`: starts watcher and runs shutdown cleanup
+- `workspace/skill_sync.py`: discovery, canonical selection, sync, cleanup, watcher
+- `workspace/init.py`: startup one-shot sync calls
+- `orchestrator/observers.py`: starts/stops background skill-sync watcher
 - `workspace/paths.py`: skill-related path properties
 
 ## Sync directories
@@ -14,71 +14,47 @@ Cross-tool skill sync between ductor workspace and installed CLI homes.
 ```text
 <agent-home>/workspace/skills/
 <-> ~/.claude/skills/
-<-> ~/.codex/skills/   (or $CODEX_HOME/skills)
+<-> ~/.codex/skills/ (or $CODEX_HOME/skills)
 <-> ~/.gemini/skills/
 ```
 
-`<agent-home>` is:
+`<agent-home>`:
 
-- main agent: `~/.ductor`
+- main: `~/.ductor`
 - sub-agent: `~/.ductor/agents/<name>`
-
-Only existing CLI home directories are included.
 
 ## Bundled skills
 
 Bundled source: `ductor_bot/_home_defaults/workspace/skills/`.
 
-`sync_bundled_skills(paths)` mirrors bundled skills into each agent's `paths.skills_dir`.
+`sync_bundled_skills(paths)` mirrors bundled skills into each agent's workspace skill dir.
 
-- normal mode: symlink/junction to bundled source
-- Docker mode (`docker_active=True`): managed directory copy
-
-Real user directories are never overwritten.
+- normal mode: links/junctions
+- Docker mode: managed copies (`.ductor_managed`)
 
 ## Sync algorithm (`sync_skills`)
 
-1. discover skills in each directory (subdirectories/symlinks only)
-2. union all skill names
-3. choose canonical source by priority: `ductor > claude > codex > gemini`
-4. mirror canonical skill into other directories
-5. clean broken symlinks
+1. discover skill dirs in all roots
+2. union names
+3. pick canonical source by priority (`ductor > claude > codex > gemini`)
+4. mirror to other roots
+5. cleanup broken managed links
 
-## Docker mode behavior
+## Docker-mode behavior
 
-When `docker_active=True`, sync uses copies instead of links:
+When `docker_active=True`:
 
-- copied dirs get marker `.ductor_managed`
-- unchanged sources skip recopy via recursive mtime check
-- unmanaged real directories are untouched
-
-Reason: absolute host symlink targets may not resolve inside container mount namespace.
-
-## External symlink protection
-
-In link mode, existing symlinks pointing outside sync roots are treated as user-managed and left untouched.
+- uses managed copies instead of links
+- updates only managed copies
+- preserves unmanaged user directories
 
 ## Cleanup on shutdown
 
-`cleanup_ductor_links(paths)` removes symlinks in CLI skill dirs whose resolved targets are under managed roots.
-
-Managed roots:
-
-- `<agent-home>/workspace/skills`
-- bundled skills directory
-
-User-managed links/directories are preserved.
-
-In multi-agent mode, cleanup is executed per agent on orchestrator shutdown with that agent's `paths`.
-
-## Watcher
-
-`watch_skill_sync(paths, docker_active=False, interval=30s)` runs as background task per agent and calls `sync_skills` in worker thread.
+`cleanup_ductor_links(paths)` removes managed links under CLI skill dirs whose targets point to managed roots.
 
 ## Safety guarantees
 
-- unmanaged real directories are not overwritten
-- managed Docker-copy directories (`.ductor_managed`) may be replaced on source changes
-- broken symlinks are cleaned
-- hidden/internal directories are skipped (`.system`, `.claude`, `.git`, `.venv`, etc.)
-- sync logic is cross-platform (Windows junction fallback)
+- unmanaged real directories are preserved
+- broken links are cleaned
+- hidden/system dirs are skipped
+- cross-platform link handling (incl. Windows junction fallback)
