@@ -4,7 +4,6 @@
 
 <p align="center">
   <strong>Claude Code, Codex CLI, and Gemini CLI as your Telegram assistant.</strong><br>
-  Named sessions. Persistent memory. Scheduled tasks. Live streaming. Docker sandboxing.<br>
   Uses only official CLIs. Nothing spoofed, nothing proxied.
 </p>
 
@@ -16,8 +15,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> &middot;
-  <a href="#features">Features</a> &middot;
-  <a href="#how-it-works">How it works</a> &middot;
+  <a href="#how-chats-work">How chats work</a> &middot;
   <a href="#telegram-commands">Commands</a> &middot;
   <a href="docs/README.md">Docs</a> &middot;
   <a href="#contributing">Contributing</a>
@@ -25,9 +23,9 @@
 
 ---
 
-Use your Claude Max, GPT Pro, or Gemini Pro subscription with ductor. Control your coding agents via Telegram -- automations, cron jobs, named sessions, and more.
+ductor runs on your machine, executes the real provider CLIs (`claude`, `codex`, `gemini`) as subprocesses, and keeps all state in plain JSON and Markdown under `~/.ductor/`.
 
-ductor runs on your machine, uses your existing CLI authentication, and keeps state in plain JSON/Markdown under `~/.ductor/`.
+No API proxying, no SDK patching. Just the official CLIs, as if you typed the command in your terminal.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/PleasePrompto/ductor/main/docs/images/ductor-start.jpeg" alt="ductor /start screen" width="49%" />
@@ -43,251 +41,196 @@ ductor
 
 The onboarding wizard handles CLI checks, Telegram setup, timezone, optional Docker, and optional background service install.
 
-**Requirements:** Python 3.11+, at least one CLI installed (`claude`, `codex`, or `gemini`), a Telegram Bot Token from [@BotFather](https://t.me/BotFather), and at least one Telegram user ID in `allowed_user_ids` (plus `allowed_group_ids` if you want group chat support).
+**Requirements:** Python 3.11+, at least one CLI installed (`claude`, `codex`, or `gemini`), a Telegram Bot Token from [@BotFather](https://t.me/BotFather).
 
 Detailed setup: [`docs/installation.md`](docs/installation.md)
 
-## Why ductor?
+## How chats work
 
-ductor executes the real provider CLIs as subprocesses. No API proxying, no spoofing.
+ductor gives you multiple ways to interact with your coding agents. Each level builds on the previous one.
 
-Other projects manipulate SDKs or patch CLIs and risk violating provider terms of service. ductor simply runs the official CLI binaries as if you typed the command in your terminal. Nothing more.
+### 1. Single chat (your main agent)
 
-- Official CLIs only (`claude`, `codex`, `gemini`)
-- Rule files are plain Markdown (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
-- Memory is one Markdown file (`memory_system/MAINMEMORY.md`)
-- All state is JSON (`sessions.json`, `named_sessions.json`, `tasks.json`, `cron_jobs.json`, `webhooks.json`, `startup_state.json`, `inflight_turns.json`)
+This is where everyone starts. You get a private 1:1 Telegram chat with your bot. Every message goes to the CLI you have active (`claude`, `codex`, or `gemini`), responses stream back in real time.
+
+```text
+You:   "Explain the auth flow in this codebase"
+Bot:   [streams response from Claude Code]
+
+You:   /model
+Bot:   [interactive model/provider picker]
+
+You:   "Now refactor the parser"
+Bot:   [streams response, same session context]
+```
+
+This single chat is all you need. Everything else below is optional.
+
+### 2. Groups with topics (multiple isolated chats)
+
+Create a Telegram group, enable topics (forum mode), and add your bot. Now every topic becomes its own isolated chat with its own CLI context.
+
+```text
+Group: "My Projects"
+  ├── General           ← own context (isolated from your single chat)
+  ├── Topic: Auth       ← own context
+  ├── Topic: Frontend   ← own context
+  ├── Topic: Database   ← own context
+  └── Topic: Refactor   ← own context
+```
+
+That's 5 independent conversations from a single group. Your private single chat stays separate too — 6 total contexts, all running in parallel.
+
+Each topic can use a different model. Run `/model` inside a topic to change just that topic's provider.
+
+All chats share the same `~/.ductor/` workspace — same tools, same memory, same files. The only thing isolated is the conversation context.
+
+> **Note:** The Telegram Bot API has no method to list existing forum topics. ductor learns topic names from `forum_topic_created` and `forum_topic_edited` events — so only topics created or renamed while the bot is in the group are known by name. Pre-existing topics show as "Topic #N" until they are edited. This is a Telegram limitation, not a ductor limitation.
+
+### 3. Named sessions (extra contexts within any chat)
+
+Need to work on something unrelated without losing your current context? Start a named session. It runs inside the same chat but has its own CLI conversation.
+
+```text
+You:   "Let's work on authentication"        ← main context builds up
+Bot:   [responds about auth]
+
+/session Fix the broken CSV export            ← starts session "firmowl"
+Bot:   [works on CSV in separate context]
+
+You:   "Back to auth — add rate limiting"     ← main context is still clean
+Bot:   [remembers exactly where you left off]
+
+@firmowl Also add error handling              ← follow-up to the session
+```
+
+Sessions work everywhere — in your single chat, in group topics, in sub-agent chats. Think of them as opening a second terminal window next to your current one.
+
+### 4. Background tasks (async delegation)
+
+Any chat can delegate long-running work to a background task. You keep chatting while the task runs autonomously. When it finishes, the result flows back into your conversation.
+
+```text
+You:   "Research the top 5 competitors and write a summary"
+Bot:   → delegates to background task, you keep chatting
+Bot:   → task finishes, result appears in your chat
+
+You:   "Delegate this: generate reports for all Q4 metrics"
+Bot:   → explicitly delegated, runs in background
+Bot:   → task has a question? It asks the agent → agent asks you → you answer → task continues
+```
+
+Each task gets its own memory file (`TASKMEMORY.md`) and can be resumed with follow-ups.
+
+### 5. Sub-agents (fully isolated second agent)
+
+Sub-agents are completely separate bots — own Telegram chat, own workspace, own memory, own CLI auth, own config settings (heartbeat, timeouts, model defaults, etc.). Like having ductor installed twice on different machines.
+
+```bash
+ductor agents add codex-agent    # creates a new bot (needs its own BotFather token)
+```
+
+```text
+Your main chat (Claude):        "Explain the auth flow"
+codex-agent chat (Codex):       "Refactor the parser module"
+```
+
+Sub-agents live under `~/.ductor/agents/<name>/` with their own workspace, tools, and memory — fully isolated from the main agent.
+
+You can delegate tasks between agents:
+
+```text
+Main chat:  "Ask codex-agent to write tests for the API"
+  → Claude sends the task to Codex
+  → Codex works in its own workspace
+  → Result flows back to your main chat
+```
+
+### Comparison
+
+| | Single chat | Group topics | Named sessions | Background tasks | Sub-agents |
+|---|---|---|---|---|---|
+| **What it is** | Your main 1:1 chat | One topic = one chat | Extra context in any chat | "Do this while I keep working" | Separate bot, own everything |
+| **Context** | One per provider | One per topic per provider | Own context per session | Own context, result flows back | Fully isolated |
+| **Workspace** | `~/.ductor/` | Shared with main | Shared with parent chat | Shared with parent agent | Own under `~/.ductor/agents/` |
+| **Config** | Main config | Shared with main | Shared with parent chat | Shared with parent agent | Own config (heartbeat, timeouts, model, ...) |
+| **Setup** | Automatic | Create group + enable topics | `/session <prompt>` | Automatic or "delegate this" | `ductor agents add` + BotFather |
+
+### How it all fits together
+
+```text
+~/.ductor/                          ← shared workspace (tools, memory, files)
+  │
+  ├── Single chat                   ← main agent, private 1:1
+  │     ├── main context
+  │     └── named sessions
+  │
+  ├── Group: "My Projects"          ← same agent, same workspace
+  │     ├── General (own context)
+  │     ├── Topic: Auth (own context, own model)
+  │     ├── Topic: Frontend (own context)
+  │     └── each topic can have named sessions too
+  │
+  └── agents/codex-agent/           ← sub-agent, fully isolated workspace
+        ├── own single chat
+        ├── own group support
+        ├── own named sessions
+        └── own background tasks
+```
 
 ## Features
 
-### Core
-
-- Real-time streaming with live Telegram edits
-- Provider/model switching with `/model` (sessions are preserved per provider)
-- `@model` directives for inline provider targeting
-- Inline callback buttons, queue tracking with per-message cancel
-- Persistent memory in plain Markdown
-- Restart-aware startup with safe auto-recovery for interrupted work
-
-### Named sessions
-
-Start a separate CLI conversation without polluting your main chat's context — like opening a second terminal window next to your current one. Sessions run inside your main chat but each one has its own isolated context.
-
-```text
-/session Fix the login bug              -> starts "firmowl" on default provider
-/session @codex Refactor the parser     -> starts "pureray" on Codex
-/session @opus Analyze the architecture -> starts "goldfly" on Claude (opus)
-/session @flash Check the logs          -> starts "slimelk" on Gemini (flash)
-
-@firmowl Also check the tests           -> foreground follow-up
-/session @firmowl Add error handling     -> background follow-up
-
-/sessions                                -> list/manage active sessions
-```
-
-`@model` shortcuts resolve the provider automatically (`@opus` = Claude, `@flash` = Gemini, `@codex` = Codex).
-
-**Example:**
-
-```text
-You:  "Let's work on the authentication module"
-  → Main conversation — Claude builds up context about auth
-
-/session @codex Fix the broken CSV export
-  → Completely separate context — doesn't pollute the auth discussion
-
-@firmowl Now add proper error messages too
-  → Follow-up goes to the existing "firmowl" session — still separate from main
-
-You:  "Back to auth — now add rate limiting"
-  → Main context is still clean, Claude remembers exactly where you left off
-```
-
-Think of it as keeping your desk organized: your main chat stays focused on one topic, and sessions handle unrelated work without mixing contexts.
-
-### Background tasks
-
-Every chat — main or sub-agent — can delegate long-running work to background tasks. You keep chatting while the task runs autonomously.
-
-The agent decides on its own when to delegate (anything likely taking >30 seconds), but you can also tell it explicitly. When a task finishes, its full result flows back into your chat context — as if the agent had done the work itself.
-
-```text
-You:  "Research the top 5 competitors and write a summary"
-  → Agent delegates this to a background task automatically
-  → You keep chatting: "While that's running, explain our pricing model"
-  → Task finishes → result delivered into your conversation
-
-You:  "Delegate this: generate PDF reports for all Q4 metrics"
-  → Explicitly delegated — task starts, you keep chatting
-  → Task has a question? It asks the agent, agent asks you, you answer, task continues
-
-/tasks                      -> view/manage all background tasks
-```
-
-Each task gets its own memory file (`TASKMEMORY.md`) in the workspace and can be resumed with follow-up prompts. Tasks are isolated per agent — a sub-agent's tasks live in its own workspace.
-
-### Sub-agents
-
-Sub-agents are completely independent Telegram bots — like having ductor installed twice. Each one has its own chat, own workspace, own memory, and own default provider.
-
-**Setup:** Create a second bot via [@BotFather](https://t.me/BotFather), then:
-
-```bash
-ductor agents add codex-agent
-```
-
-**Example: Claude as main, Codex as sub-agent**
-
-```text
-# Two separate Telegram chats — use them independently:
-Main chat (Claude):     "Explain the auth flow in this codebase"
-codex-agent chat:       "Refactor the parser module"
-
-# They can also talk to each other:
-Main chat:  "Ask codex-agent to write tests for the API module"
-  → Claude sends the task to Codex
-  → Codex works in its own workspace
-  → Result flows back into your main chat — Claude sees it and responds
-
-# Background delegation — keep chatting while Codex works:
-Main chat:  "Give codex-agent a task: migrate the database schema"
-  → Returns immediately, you keep talking to Claude
-  → Codex finishes → result delivered to your main chat
-```
-
-All agents share knowledge through `SHAREDMEMORY.md` and can delegate background tasks independently.
-
-```text
-/agents                     # Status of all agents with current model
-/agent_commands             # Full multi-agent command reference
-```
-
-### Sessions vs. Background tasks vs. Sub-agents
-
-| | Named sessions | Background tasks | Sub-agents |
-|---|---|---|---|
-| **Analogy** | Two terminal windows on one desktop | "Work on this while I do something else" | Two separate computers |
-| **Chat** | Same Telegram chat | Same Telegram chat | Own Telegram chat |
-| **Context** | Own context, separate from main | Own context — result flows back into parent chat | Own context, own workspace, own memory |
-| **Workspace** | Shared with main agent | Shared with parent agent (isolated per sub-agent) | Own workspace under `~/.ductor/agents/<name>/` |
-| **Provider** | Any — per session | Inherits from parent | Own default provider/model |
-| **Follow-ups** | `@name` to continue | Resume with follow-up prompt | Chat directly or delegate from main |
-| **Setup** | None — `/session <prompt>` | Automatic — agent decides or you ask | `ductor agents add` + BotFather token |
-| **Best for** | Keeping unrelated work out of your main context | Long-running work you don't want to wait for | Dedicated agent with different CLI/provider |
-
-**When to use what:**
-
-- **Named session** — you need to work on something unrelated without polluting your main conversation. "I'm deep in the auth module, but I also need someone to fix that CSV bug — without mixing the two contexts."
-- **Background task** — anything that takes a while. Just chat normally and the agent delegates when it makes sense. You can also say explicitly: "Delegate this: ..." The result flows back into your chat as if the agent did it inline.
-- **Sub-agent** — you want a dedicated Codex/Gemini/Claude agent with its own workspace, or you want agents that can collaborate across chats.
-
-### Automation
-
-- **Cron jobs:** in-process scheduler with timezone support, per-job overrides, quiet hours
-- **Webhooks:** `wake` (inject into active chat) and `cron_task` (isolated task run) modes
-- **Heartbeat:** proactive checks in active sessions with cooldown + quiet hours
-- **Config hot-reload:** safe fields update without restart (mtime-based watcher)
-
-### Infrastructure
-
-- **Service manager:** Linux (systemd), macOS (launchd), Windows (Task Scheduler)
-- **Docker sandbox:** sidecar container with configurable host mounts
-- **Multi-agent runtime:** main agent + sub-agents, each with own Telegram bot, workspace, background tasks, shared memory
-- **Auto-onboarding:** interactive setup wizard on first run
-- **Cross-tool skill sync:** shared skills across `~/.claude/`, `~/.codex/`, `~/.gemini/`
+- **Real-time streaming** — live Telegram message edits as the CLI produces output
+- **Provider switching** — `/model` to change provider/model, `@model` directives for inline targeting
+- **Persistent memory** — plain Markdown files that survive across sessions
+- **Cron jobs** — in-process scheduler with timezone support, per-job overrides, quiet hours
+- **Webhooks** — `wake` (inject into active chat) and `cron_task` (isolated task run) modes
+- **Heartbeat** — proactive checks in active sessions with cooldown
+- **Config hot-reload** — most settings update without restart
+- **Docker sandbox** — optional sidecar container with configurable host mounts
+- **Service manager** — Linux (systemd), macOS (launchd), Windows (Task Scheduler)
+- **Cross-tool skill sync** — shared skills across `~/.claude/`, `~/.codex/`, `~/.gemini/`
 
 ## Auth
 
-ductor uses a dual-allowlist model. Every message must pass both checks before it reaches the bot logic.
+ductor uses a dual-allowlist model. Every message must pass both checks.
 
 | Chat type | Check |
 |---|---|
 | **Private** | `user_id ∈ allowed_user_ids` |
-| **Group / Supergroup** | `group_id ∈ allowed_group_ids` AND `user_id ∈ allowed_user_ids` |
+| **Group** | `group_id ∈ allowed_group_ids` AND `user_id ∈ allowed_user_ids` |
 
-- **`allowed_user_ids`** — Telegram user IDs that may talk to the bot (private and group chats). At least one ID is required.
-- **`allowed_group_ids`** — Telegram group IDs where the bot is allowed to operate. Default `[]` means no groups (fail-closed).
-- **`group_mention_only`** — When `true`, the bot only responds in groups when @mentioned or replied to. This is a content filter, not an auth bypass — the user and group must still be allowlisted.
+- **`allowed_user_ids`** — Telegram user IDs that may talk to the bot. At least one required.
+- **`allowed_group_ids`** — Telegram group IDs where the bot may operate. Default `[]` = no groups.
+- **`group_mention_only`** — When `true`, the bot only responds in groups when @mentioned or replied to.
 
-```json
-{
-  "allowed_user_ids": [123456789],
-  "allowed_group_ids": [-1001234567890],
-  "group_mention_only": true
-}
-```
+All three are **hot-reloadable** — edit `config.json` and changes take effect within seconds.
 
-Both `allowed_user_ids` and `allowed_group_ids` are **hot-reloadable** — edit `config.json` and changes take effect within seconds, no restart needed.
+> **Privacy Mode:** Telegram bots have Privacy Mode enabled by default and only see `/commands` in groups. To let the bot see all messages, make it a **group admin** or disable Privacy Mode via BotFather (`/setprivacy` → Disable). If changed after joining, remove and re-add the bot.
 
-Sub-agents each have their own `allowed_user_ids` and `allowed_group_ids` in `agents.json` — they do not inherit from the main agent.
-
-> **Important:** By default Telegram bots have **Privacy Mode** enabled and only receive `/commands` in groups — not regular messages or @mentions. To let the bot see all messages, either **make it a group admin** or disable Privacy Mode via BotFather (`/setprivacy` → Disable). If you change the privacy setting after the bot has already joined, remove and re-add the bot for the change to take effect.
-
-### Group management
-
-When the bot is added to a group that is **not** in `allowed_group_ids`, it sends a warning and auto-leaves. If a group is removed from `allowed_group_ids` later, the bot leaves automatically — on config hot-reload, on every restart, and via a periodic 24h audit.
-
-**Getting a group ID:** Add the bot to the group — it will auto-leave but record the ID. Then use `/where` from any private chat to see it.
-
-| Command | Description |
-|---|---|
-| `/where` | Show all tracked chats: active, rejected, and left groups |
-| `/leave <group_id>` | Manually leave a group |
-
-These commands are not listed in the Telegram command popup — they work from any authorized chat.
-
-## How it works
-
-```mermaid
-graph LR
-    A[You on Telegram] --> B[aiogram Middleware]
-    B --> C[Orchestrator]
-    C --> D[CLIService]
-    D --> E[claude]
-    D --> F[codex]
-    D --> G[gemini]
-    E & F & G --> H[Streamed response]
-    H --> A
-
-    C --> I[Background Systems]
-    I --> J[Cron / Webhooks / Heartbeat]
-    I --> K[Named Sessions]
-    I --> L[Background Tasks]
-
-    C --> M[Sub-Agent Supervisor]
-    M --> N[Sub-Agent 1 — own chat + workspace]
-    M --> O[Sub-Agent 2 — own chat + workspace]
-```
-
-The orchestrator routes messages through command dispatch, directive parsing, and conversation flows. Background systems (cron, webhooks, heartbeat, named sessions, background tasks, config reload, model caches) run as in-process asyncio tasks. Sub-agents are managed by a supervisor with crash recovery — each one runs its own full bot stack.
-
-Session behavior:
-- Sessions are keyed by `SessionKey(chat_id, topic_id)` (forum topics are isolated)
-- `/new` resets only the active provider bucket
-- Switching providers preserves each provider's session context
-- `/model` inside a forum topic updates only that topic session
+**Group management:** When the bot is added to a group not in `allowed_group_ids`, it warns and auto-leaves. Use `/where` to see tracked groups and their IDs.
 
 ## Telegram commands
 
 | Command | Description |
 |---|---|
-| `/session <prompt>` | Run named background session |
-| `/sessions` | View/manage active sessions |
-| `/tasks` | View/manage delegated background tasks |
 | `/model` | Interactive model/provider selector |
 | `/new` | Reset active provider session |
 | `/stop` | Abort active run |
-| `/stop_all` | Abort active runs across all agents (main agent; local fallback on sub-agents) |
+| `/stop_all` | Abort runs across all agents |
 | `/status` | Session/provider/auth status |
 | `/memory` | Show persistent memory |
+| `/session <prompt>` | Start a named background session |
+| `/sessions` | View/manage active sessions |
+| `/tasks` | View/manage background tasks |
 | `/cron` | Interactive cron management |
 | `/showfiles` | Browse `~/.ductor/` |
 | `/diagnose` | Runtime diagnostics |
 | `/upgrade` | Check/apply updates |
-| `/agents` | Multi-agent status with current models |
+| `/agents` | Multi-agent status |
 | `/agent_commands` | Multi-agent command reference |
-| `/where` | Show tracked chats/groups (active/rejected/left) |
-| `/leave <group_id>` | Manually leave a group |
+| `/where` | Show tracked chats/groups |
+| `/leave <id>` | Manually leave a group |
 | `/info` | Version + links |
 
 ## CLI commands
@@ -304,41 +247,35 @@ ductor service logs     # View service logs
 
 ductor docker enable    # Enable Docker sandbox
 ductor docker rebuild   # Rebuild sandbox container
-ductor docker mount /path  # Add host mount
+ductor docker mount /p  # Add host mount
 
 ductor agents list      # List configured sub-agents
 ductor agents add NAME  # Add a sub-agent
-ductor agents remove NAME  # Remove a sub-agent
+ductor agents remove NAME
 
 ductor api enable       # Enable WebSocket API (beta)
 ```
-
-Full CLI reference: [`docs/modules/setup_wizard.md`](docs/modules/setup_wizard.md)
 
 ## Workspace layout
 
 ```text
 ~/.ductor/
-  config/config.json        # Bot configuration
-  sessions.json             # Chat session state
-  named_sessions.json       # Named background sessions
-  tasks.json                # Background task registry
-  chat_activity.json        # Group/join/reject/leave tracker for /where
-  startup_state.json        # Startup lifecycle state (restart vs reboot)
-  inflight_turns.json       # In-flight foreground turn tracker
-  cron_jobs.json            # Scheduled tasks
-  webhooks.json             # Webhook definitions
-  SHAREDMEMORY.md           # Shared knowledge across all agents
-  agents.json               # Sub-agent registry (optional)
-  agents/                   # Sub-agent homes/workspaces
+  config/config.json                 # Bot configuration
+  sessions.json                      # Chat session state
+  named_sessions.json                # Named background sessions
+  tasks.json                         # Background task registry
+  cron_jobs.json                     # Scheduled tasks
+  webhooks.json                      # Webhook definitions
+  agents.json                        # Sub-agent registry (optional)
+  SHAREDMEMORY.md                    # Shared knowledge across all agents
   CLAUDE.md / AGENTS.md / GEMINI.md  # Rule files
   logs/agent.log
   workspace/
     memory_system/MAINMEMORY.md      # Persistent memory
-    cron_tasks/ skills/ tools/       # Cron task scripts, skills, tool scripts
-    tasks/                           # Per-task folders (TASKMEMORY.md + task rules)
-    telegram_files/ output_to_user/  # File I/O directories
-    api_files/                       # API uploads (dated folders)
+    cron_tasks/ skills/ tools/       # Scripts and tools
+    tasks/                           # Per-task folders
+    telegram_files/ output_to_user/  # File I/O
+  agents/<name>/                     # Sub-agent workspaces (isolated)
 ```
 
 Full config reference: [`docs/config.md`](docs/config.md)
@@ -347,12 +284,21 @@ Full config reference: [`docs/config.md`](docs/config.md)
 
 | Doc | Content |
 |---|---|
-| [System Overview](docs/system_overview.md) | Fastest end-to-end runtime understanding |
-| [Developer Quickstart](docs/developer_quickstart.md) | Fastest path for contributors |
+| [System Overview](docs/system_overview.md) | End-to-end runtime overview |
+| [Developer Quickstart](docs/developer_quickstart.md) | Quickest path for contributors |
 | [Architecture](docs/architecture.md) | Startup, routing, streaming, callbacks |
 | [Configuration](docs/config.md) | Config schema and merge behavior |
 | [Automation](docs/automation.md) | Cron, webhooks, heartbeat setup |
-| [Module docs](docs/modules/) | Per-module deep dives (incl. bus + cli_commands) |
+| [Module docs](docs/modules/) | Per-module deep dives |
+
+## Why ductor?
+
+Other projects manipulate SDKs or patch CLIs and risk violating provider terms of service. ductor simply runs the official CLI binaries as subprocesses — nothing more.
+
+- Official CLIs only (`claude`, `codex`, `gemini`)
+- Rule files are plain Markdown (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
+- Memory is one Markdown file per agent
+- All state is JSON — no database, no external services
 
 ## Disclaimer
 
