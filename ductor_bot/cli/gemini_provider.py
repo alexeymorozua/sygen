@@ -88,7 +88,6 @@ class GeminiCLI(BaseCLI):
         """Build the CLI command list."""
         cfg = self._config
         cmd = ["node", self._cli_js] if self._cli_js else [self._cli]
-        cmd += ["-p", ""]
         cmd += ["--output-format", "stream-json" if streaming else "json"]
         cmd += ["--include-directories", "."]
 
@@ -366,7 +365,8 @@ class GeminiCLI(BaseCLI):
         """Translate a host path under ``~/.ductor/`` to its container mount."""
         prefix = str(resolve_paths().ductor_home)
         if host_path.startswith(prefix):
-            return _CONTAINER_DUCTOR + host_path[len(prefix) :]
+            suffix = host_path[len(prefix) :].replace("\\", "/")
+            return _CONTAINER_DUCTOR + suffix
         return None
 
     def _resolve_exec(
