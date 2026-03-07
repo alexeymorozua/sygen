@@ -113,7 +113,7 @@ def _to_container_path(host_path: Path, main_home: Path) -> str:
     rel = host_path.relative_to(main_home)
     if str(rel) == ".":
         return _CONTAINER_DUCTOR_MOUNT
-    return f"{_CONTAINER_DUCTOR_MOUNT}/{rel}"
+    return f"{_CONTAINER_DUCTOR_MOUNT}/{rel.as_posix()}"
 
 
 def docker_wrap(

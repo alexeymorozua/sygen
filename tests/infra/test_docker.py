@@ -41,6 +41,17 @@ class TestDockerManager:
             result = await mgr.setup()
         assert result is None
 
+    def test_init_handles_missing_stderr_for_pythonw(
+        self, docker_config: DockerConfig, docker_paths: DuctorPaths, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from ductor_bot.infra.docker import DockerManager
+
+        monkeypatch.setattr("sys.stderr", None)
+
+        mgr = DockerManager(docker_config, docker_paths)
+
+        assert mgr._console is None
+
     async def test_setup_returns_none_when_daemon_unavailable(
         self, docker_config: DockerConfig, docker_paths: DuctorPaths
     ) -> None:
