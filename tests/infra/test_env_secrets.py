@@ -19,7 +19,7 @@ def test_parse_simple_key_value(tmp_path: Path) -> None:
 
 def test_parse_quoted_values(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text('SINGLE=\'hello\'\nDOUBLE="world"\n')
+    env_file.write_text("SINGLE='hello'\nDOUBLE=\"world\"\n")
 
     clear_cache()
     result = load_env_secrets(env_file)
