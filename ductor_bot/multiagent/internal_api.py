@@ -167,6 +167,8 @@ class InternalAgentAPI:
         message = data.get("message", "")
         new_session = bool(data.get("new_session", False))
         summary = str(data.get("summary", ""))
+        chat_id = int(data["chat_id"]) if data.get("chat_id") else 0
+        topic_id = int(data["topic_id"]) if data.get("topic_id") else None
 
         if not recipient or not message:
             return web.json_response(
@@ -182,12 +184,19 @@ class InternalAgentAPI:
                 {"success": False, "error": f"Agent '{recipient}' not found. Available: {names}"},
             )
 
+        from ductor_bot.multiagent.bus import AsyncSendOptions
+
+        opts = AsyncSendOptions(
+            new_session=new_session,
+            summary=summary,
+            chat_id=chat_id,
+            topic_id=topic_id,
+        )
         task_id = self._bus.send_async(
             sender=sender,
             recipient=recipient,
             message=message,
-            new_session=new_session,
-            summary=summary,
+            opts=opts,
         )
         if task_id is None:
             return web.json_response(

@@ -57,6 +57,8 @@ class _FakeInterAgentResult:
     session_name: str = "ia-agent-a"
     provider_switch_notice: str = ""
     original_message: str = "full message"
+    chat_id: int = 0
+    topic_id: int | None = None
 
 
 @dataclass
@@ -153,6 +155,37 @@ def test_from_interagent_error() -> None:
     assert env.lock_mode == LockMode.NONE
     assert not env.needs_injection
     assert env.metadata["error"] == "timeout"
+
+
+def test_from_interagent_result_uses_result_chat_id() -> None:
+    """When result carries chat_id, it overrides the fallback chat_id."""
+    env = from_interagent_result(
+        _FakeInterAgentResult(chat_id=777, topic_id=42),
+        chat_id=100,
+    )
+    assert env.chat_id == 777
+    assert env.topic_id == 42
+
+
+def test_from_interagent_result_falls_back_to_default_chat_id() -> None:
+    """When result has no chat_id (0), falls back to the provided default."""
+    env = from_interagent_result(
+        _FakeInterAgentResult(chat_id=0, topic_id=None),
+        chat_id=100,
+    )
+    assert env.chat_id == 100
+    assert env.topic_id is None
+
+
+def test_from_interagent_error_preserves_topic_id() -> None:
+    """topic_id is preserved on error results too."""
+    env = from_interagent_result(
+        _FakeInterAgentResult(success=False, error="fail", chat_id=555, topic_id=99),
+        chat_id=100,
+    )
+    assert env.chat_id == 555
+    assert env.topic_id == 99
+    assert env.is_error
 
 
 def test_from_task_result_done() -> None:
