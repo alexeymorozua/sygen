@@ -258,7 +258,9 @@ class TestBusNewSessionFlag:
         bus.register("target", stack)
 
         bus.send_async(
-            "sender", "target", "Hello",
+            "sender",
+            "target",
+            "Hello",
             opts=AsyncSendOptions(new_session=True),
         )
         await asyncio.sleep(0.1)

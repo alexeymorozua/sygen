@@ -155,7 +155,8 @@ class BaseModelCache(ABC):
         fallback = cls._fallback_models()
         if fallback:
             logger.warning(
-                "Using hardcoded %s fallback models (not persisted)", name,
+                "Using hardcoded %s fallback models (not persisted)",
+                name,
             )
             return cls(  # type: ignore[call-arg]
                 last_updated=datetime.now(UTC).isoformat(),
