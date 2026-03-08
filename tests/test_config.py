@@ -11,7 +11,7 @@ from ductor_bot.config import (
     ModelRegistry,
     StreamingConfig,
     deep_merge_config,
-    set_gemini_models,
+    reset_gemini_models,
 )
 
 # -- AgentConfig defaults --
@@ -19,7 +19,7 @@ from ductor_bot.config import (
 
 @pytest.fixture(autouse=True)
 def _reset_gemini_models() -> None:
-    set_gemini_models(frozenset())
+    reset_gemini_models()
 
 
 def test_agent_config_defaults() -> None:
@@ -117,7 +117,7 @@ def test_registry_provider_for_codex() -> None:
 
 def test_registry_provider_for_gemini_prefix() -> None:
     reg = ModelRegistry()
-    set_gemini_models(frozenset())
+    reset_gemini_models()
     assert reg.provider_for("gemini-2.5-pro") == "gemini"
 
 

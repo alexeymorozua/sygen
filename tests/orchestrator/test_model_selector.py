@@ -13,7 +13,7 @@ import pytest
 from ductor_bot.cli.auth import AuthResult, AuthStatus
 from ductor_bot.cli.codex_cache import CodexModelCache
 from ductor_bot.cli.codex_discovery import CodexModelInfo
-from ductor_bot.config import set_gemini_models
+from ductor_bot.config import reset_gemini_models, set_gemini_models
 from ductor_bot.orchestrator.core import Orchestrator
 from ductor_bot.orchestrator.selectors.model_selector import (
     handle_model_callback,
@@ -59,9 +59,9 @@ def _patch_auth(auth_map: dict[str, AuthResult]) -> Any:
 
 @pytest.fixture(autouse=True)
 def _reset_gemini_models() -> Any:
-    set_gemini_models(frozenset())
+    reset_gemini_models()
     yield
-    set_gemini_models(frozenset())
+    reset_gemini_models()
 
 
 @contextmanager

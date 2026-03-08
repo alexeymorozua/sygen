@@ -9,6 +9,13 @@ from typing import Any, Self
 from ductor_bot.cli.gemini_utils import discover_gemini_models
 from ductor_bot.cli.model_cache import BaseModelCache
 
+# Hardcoded fallback when discovery and disk cache both fail.
+_FALLBACK_GEMINI_MODELS: tuple[str, ...] = (
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+)
+
 
 @dataclass(frozen=True)
 class GeminiModelCache(BaseModelCache):
@@ -29,6 +36,10 @@ class GeminiModelCache(BaseModelCache):
     @classmethod
     def _empty_models(cls) -> tuple[str, ...]:
         return ()
+
+    @classmethod
+    def _fallback_models(cls) -> tuple[str, ...]:
+        return _FALLBACK_GEMINI_MODELS
 
     def validate_model(self, model_id: str) -> bool:
         """Check if model exists in cache."""

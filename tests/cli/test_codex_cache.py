@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ductor_bot.cli.codex_cache import CodexModelCache
+from ductor_bot.cli.codex_cache import _FALLBACK_CODEX_MODELS, CodexModelCache
 from ductor_bot.cli.codex_discovery import CodexModelInfo
 
 
@@ -222,9 +223,42 @@ def test_validate_reasoning_effort_invalid(fresh_cache: CodexModelCache) -> None
     assert fresh_cache.validate_reasoning_effort("nonexistent", "low") is False
 
 
-async def test_cache_empty_on_discovery_failure(tmp_path: Path) -> None:
-    """Should create empty cache if discovery fails."""
+async def test_discovery_failure_preserves_existing_disk_cache(tmp_path: Path) -> None:
+    """When discovery fails and a non-empty cache exists on disk, keep it."""
     cache_path = tmp_path / "codex_models.json"
+    existing = CodexModelCache(
+        last_updated=datetime.now(UTC).isoformat(),
+        models=[
+            CodexModelInfo(
+                id="gpt-5.2-codex",
+                display_name="gpt-5.2-codex",
+                description="Existing model",
+                supported_efforts=("low", "medium", "high"),
+                default_effort="medium",
+                is_default=True,
+            ),
+        ],
+    )
+    cache_path.write_text(json.dumps(existing.to_json(), indent=2))
+
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(side_effect=Exception("Discovery failed")),
+    ):
+        result = await CodexModelCache.load_or_refresh(cache_path, force_refresh=True)
+
+    assert len(result.models) == 1
+    assert result.models[0].id == "gpt-5.2-codex"
+    # Verify disk file is untouched.
+    disk_data = json.loads(cache_path.read_text())
+    assert len(disk_data["models"]) == 1
+    assert disk_data["models"][0]["id"] == "gpt-5.2-codex"
+
+
+async def test_discovery_failure_uses_fallback_when_no_disk_cache(tmp_path: Path) -> None:
+    """When discovery fails and no disk cache exists, use hardcoded fallback."""
+    cache_path = tmp_path / "codex_models.json"
+    assert not cache_path.exists()
 
     with patch(
         "ductor_bot.cli.codex_cache.discover_codex_models",
@@ -232,7 +266,178 @@ async def test_cache_empty_on_discovery_failure(tmp_path: Path) -> None:
     ):
         result = await CodexModelCache.load_or_refresh(cache_path)
 
-        assert len(result.models) == 0
+    fallback_ids = {m.id for m in _FALLBACK_CODEX_MODELS}
+    result_ids = {m.id for m in result.models}
+    assert result_ids == fallback_ids
+    # Fallback must NOT be persisted to disk.
+    assert not cache_path.exists()
+
+
+async def test_discovery_failure_uses_fallback_when_disk_cache_empty(tmp_path: Path) -> None:
+    """When discovery fails and disk cache is empty, use hardcoded fallback."""
+    cache_path = tmp_path / "codex_models.json"
+    cache_path.write_text(json.dumps({"last_updated": datetime.now(UTC).isoformat(), "models": []}))
+
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(side_effect=Exception("Discovery failed")),
+    ):
+        result = await CodexModelCache.load_or_refresh(cache_path, force_refresh=True)
+
+    assert len(result.models) == len(_FALLBACK_CODEX_MODELS)
+    # Disk still has old empty cache — fallback NOT persisted.
+    disk_data = json.loads(cache_path.read_text())
+    assert disk_data["models"] == []
+
+
+async def test_fallback_replaced_by_successful_discovery(tmp_path: Path) -> None:
+    """After using fallback, a successful discovery must replace it."""
+    cache_path = tmp_path / "codex_models.json"
+
+    # First call: discovery fails → fallback (not on disk)
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(side_effect=Exception("fail")),
+    ):
+        result1 = await CodexModelCache.load_or_refresh(cache_path)
+    assert len(result1.models) == len(_FALLBACK_CODEX_MODELS)
+    assert not cache_path.exists()
+
+    # Second call: discovery succeeds → real models saved to disk
+    real_models = [
+        CodexModelInfo(
+            id="gpt-6",
+            display_name="GPT-6",
+            description="New model",
+            supported_efforts=("low", "medium", "high"),
+            default_effort="medium",
+            is_default=True,
+        ),
+    ]
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(return_value=real_models),
+    ):
+        result2 = await CodexModelCache.load_or_refresh(cache_path)
+    assert len(result2.models) == 1
+    assert result2.models[0].id == "gpt-6"
+    # Real models are persisted.
+    disk_data = json.loads(cache_path.read_text())
+    assert disk_data["models"][0]["id"] == "gpt-6"
+
+
+async def test_empty_discovery_result_preserves_existing_cache(tmp_path: Path) -> None:
+    """When discovery returns zero models (not an exception), keep existing cache."""
+    cache_path = tmp_path / "codex_models.json"
+    existing = CodexModelCache(
+        last_updated=datetime.now(UTC).isoformat(),
+        models=[
+            CodexModelInfo(
+                id="gpt-5.3-codex",
+                display_name="gpt-5.3-codex",
+                description="test",
+                supported_efforts=("medium",),
+                default_effort="medium",
+                is_default=True,
+            ),
+        ],
+    )
+    cache_path.write_text(json.dumps(existing.to_json(), indent=2))
+
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(return_value=[]),
+    ):
+        result = await CodexModelCache.load_or_refresh(cache_path, force_refresh=True)
+
+    assert len(result.models) == 1
+    assert result.models[0].id == "gpt-5.3-codex"
+
+
+async def test_empty_cache_not_saved_to_disk(tmp_path: Path) -> None:
+    """An empty discovery result must not overwrite a non-empty disk cache."""
+    cache_path = tmp_path / "codex_models.json"
+    original = CodexModelCache(
+        last_updated=datetime.now(UTC).isoformat(),
+        models=[
+            CodexModelInfo(
+                id="gpt-5.2-codex",
+                display_name="gpt-5.2-codex",
+                description="test",
+                supported_efforts=("medium", "high"),
+                default_effort="medium",
+                is_default=True,
+            ),
+        ],
+    )
+    cache_path.write_text(json.dumps(original.to_json(), indent=2))
+
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(return_value=[]),
+    ):
+        await CodexModelCache.load_or_refresh(cache_path, force_refresh=True)
+
+    disk_data = json.loads(cache_path.read_text())
+    assert len(disk_data["models"]) == 1
+    assert disk_data["models"][0]["id"] == "gpt-5.2-codex"
+
+
+async def test_successful_discovery_overwrites_disk_cache(tmp_path: Path) -> None:
+    """A successful discovery with models must update the disk cache."""
+    cache_path = tmp_path / "codex_models.json"
+    old = CodexModelCache(
+        last_updated=datetime.now(UTC).isoformat(),
+        models=[
+            CodexModelInfo(
+                id="old-model",
+                display_name="old",
+                description="old",
+                supported_efforts=("medium",),
+                default_effort="medium",
+                is_default=True,
+            ),
+        ],
+    )
+    cache_path.write_text(json.dumps(old.to_json(), indent=2))
+
+    new_models = [
+        CodexModelInfo(
+            id="new-model",
+            display_name="New",
+            description="New model",
+            supported_efforts=("low", "medium", "high"),
+            default_effort="medium",
+            is_default=True,
+        ),
+    ]
+    with patch(
+        "ductor_bot.cli.codex_cache.discover_codex_models",
+        AsyncMock(return_value=new_models),
+    ):
+        result = await CodexModelCache.load_or_refresh(cache_path, force_refresh=True)
+
+    assert len(result.models) == 1
+    assert result.models[0].id == "new-model"
+    disk_data = json.loads(cache_path.read_text())
+    assert disk_data["models"][0]["id"] == "new-model"
+
+
+def test_fallback_models_have_thinking_levels() -> None:
+    """Fallback Codex models must include supported_efforts (thinking levels)."""
+    assert len(_FALLBACK_CODEX_MODELS) >= 3
+    for model in _FALLBACK_CODEX_MODELS:
+        assert model.supported_efforts, f"{model.id} has no supported_efforts"
+        assert model.default_effort, f"{model.id} has no default_effort"
+    # At least one model should have xhigh effort
+    has_xhigh = any("xhigh" in m.supported_efforts for m in _FALLBACK_CODEX_MODELS)
+    assert has_xhigh, "No fallback model supports xhigh effort"
+
+
+def test_fallback_models_have_exactly_one_default() -> None:
+    """Exactly one fallback model must be marked as default."""
+    defaults = [m for m in _FALLBACK_CODEX_MODELS if m.is_default]
+    assert len(defaults) == 1
 
 
 def test_serialize_deserialize(fresh_cache: CodexModelCache) -> None:

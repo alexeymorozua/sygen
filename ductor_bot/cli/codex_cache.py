@@ -8,6 +8,42 @@ from typing import Any, Self
 from ductor_bot.cli.codex_discovery import CodexModelInfo, discover_codex_models
 from ductor_bot.cli.model_cache import BaseModelCache
 
+# Hardcoded fallback when discovery and disk cache both fail.
+_FALLBACK_CODEX_MODELS: tuple[CodexModelInfo, ...] = (
+    CodexModelInfo(
+        id="gpt-5.3-codex",
+        display_name="gpt-5.3-codex",
+        description="Latest frontier agentic coding model.",
+        supported_efforts=("low", "medium", "high", "xhigh"),
+        default_effort="medium",
+        is_default=True,
+    ),
+    CodexModelInfo(
+        id="gpt-5.4",
+        display_name="gpt-5.4",
+        description="Latest frontier agentic coding model.",
+        supported_efforts=("low", "medium", "high", "xhigh"),
+        default_effort="medium",
+        is_default=False,
+    ),
+    CodexModelInfo(
+        id="gpt-5.2-codex",
+        display_name="gpt-5.2-codex",
+        description="Frontier agentic coding model.",
+        supported_efforts=("low", "medium", "high", "xhigh"),
+        default_effort="medium",
+        is_default=False,
+    ),
+    CodexModelInfo(
+        id="gpt-5.1-codex-mini",
+        display_name="gpt-5.1-codex-mini",
+        description="Optimized for codex. Cheaper, faster, but less capable.",
+        supported_efforts=("medium", "high"),
+        default_effort="medium",
+        is_default=False,
+    ),
+)
+
 
 @dataclass(frozen=True)
 class CodexModelCache(BaseModelCache):
@@ -27,6 +63,10 @@ class CodexModelCache(BaseModelCache):
     @classmethod
     def _empty_models(cls) -> list[CodexModelInfo]:
         return []
+
+    @classmethod
+    def _fallback_models(cls) -> list[CodexModelInfo]:
+        return list(_FALLBACK_CODEX_MODELS)
 
     def get_model(self, model_id: str) -> CodexModelInfo | None:
         """Look up model by ID."""
