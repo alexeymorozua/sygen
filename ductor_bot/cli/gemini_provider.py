@@ -365,8 +365,7 @@ class GeminiCLI(BaseCLI):
         """Translate a host path under ``~/.ductor/`` to its container mount."""
         prefix = str(resolve_paths().ductor_home)
         if host_path.startswith(prefix):
-            suffix = host_path[len(prefix) :].replace("\\", "/")
-            return _CONTAINER_DUCTOR + suffix
+            return _CONTAINER_DUCTOR + host_path[len(prefix) :].replace("\\", "/")
         return None
 
     def _resolve_exec(
