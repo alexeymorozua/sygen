@@ -26,7 +26,7 @@ This keeps lifecycle logic testable and prevents command monolith growth.
 - lifecycle: `ductor`, `stop`, `restart`, `upgrade`, `uninstall`, onboarding/reset flow
 - status/help: `ductor status`, `ductor help`
 - service: install/start/stop/logs/uninstall wrapper for platform backends
-- docker: enable/disable/rebuild/mount/unmount/mounts
+- docker: enable/disable/rebuild/mount/unmount/mounts/extras/extras-add/extras-remove
 - api: enable/disable direct WebSocket API block in config
 - agents: list/add/remove sub-agent entries in `agents.json`
 

@@ -67,6 +67,7 @@ class DockerConfig(BaseModel):
     auto_build: bool = True
     mount_host_cache: bool = False
     mounts: list[str] = Field(default_factory=list)
+    extras: list[str] = Field(default_factory=list)
 
 
 _DEFAULT_HEARTBEAT_PROMPT = (

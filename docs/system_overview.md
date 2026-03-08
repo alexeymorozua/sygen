@@ -148,6 +148,6 @@ CLI:
 - `ductor`
 - `ductor status|stop|restart|upgrade|uninstall|onboarding|reset`
 - `ductor service ...`
-- `ductor docker ...`
+- `ductor docker ...` (includes `extras`, `extras-add`, `extras-remove` for optional AI/ML packages)
 - `ductor api ...`
 - `ductor agents ...`

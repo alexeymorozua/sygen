@@ -46,7 +46,7 @@ On first run, onboarding does:
 - checks Claude/Codex/Gemini auth status,
 - asks for Telegram token + user ID,
 - asks timezone,
-- offers Docker sandboxing,
+- offers Docker sandboxing (with optional AI/ML package selection),
 - offers service install,
 - writes config and seeds `~/.ductor/`.
 
@@ -133,6 +133,9 @@ ductor docker rebuild
 ductor docker mount /path/to/project
 ductor docker unmount /path/to/project
 ductor docker mounts
+ductor docker extras
+ductor docker extras-add <id>
+ductor docker extras-remove <id>
 ```
 
 - `enable` / `disable` toggles `docker.enabled` in `config.json` (restart bot afterwards).
@@ -140,6 +143,9 @@ ductor docker mounts
 - `mount` / `unmount` manage `docker.mounts` entries.
 - mounts are available in-container under `/mnt/<name>` (basename-based mapping with collision suffixes).
 - run `ductor docker mounts` to inspect effective mapping and broken paths.
+- `extras` lists all optional packages with their selection status.
+- `extras-add` / `extras-remove` manage optional AI/ML packages (Whisper, PyTorch, OpenCV, etc.) in `config.json`. Transitive dependencies are resolved automatically.
+- after changing extras, run `ductor docker rebuild` to apply. Build output is streamed live to the terminal.
 
 ## Direct API server (optional)
 

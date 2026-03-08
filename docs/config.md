@@ -196,6 +196,7 @@ Behavior notes:
 | `auto_build` | `bool` | `true` | Build image automatically when missing |
 | `mount_host_cache` | `bool` | `false` | Mount host `~/.cache` into container (see below) |
 | `mounts` | `list[str]` | `[]` | Extra host directories mounted into sandbox (`/mnt/...`) |
+| `extras` | `list[str]` | `[]` | Optional AI/ML package IDs to install in the Docker image (see below) |
 
 `Orchestrator.create()` calls `DockerManager.setup()` when enabled. If setup fails, ductor logs warning and falls back to host execution.
 
@@ -226,6 +227,38 @@ Runtime note:
 
 - updates are typically managed via `ductor docker mount|unmount`
 - changing mounts requires bot restart (or `ductor docker rebuild`) to affect container run flags
+
+### `extras`
+
+Optional AI/ML packages installed into the Docker sandbox image at build time. Each entry is an ID from the extras registry (`ductor_bot/infra/docker_extras.py`).
+
+Available extras:
+
+| ID | Name | Category | Size |
+|---|---|---|---|
+| `ffmpeg` | FFmpeg | Audio / Speech | ~100 MB |
+| `whisper` | Faster Whisper | Audio / Speech | ~500 MB |
+| `opencv` | OpenCV | Vision / OCR | ~100 MB |
+| `tesseract` | Tesseract OCR | Vision / OCR | ~40 MB |
+| `easyocr` | EasyOCR | Vision / OCR | ~2.5 GB |
+| `pymupdf` | PyMuPDF | Document Processing | ~50 MB |
+| `pandoc` | Pandoc | Document Processing | ~80 MB |
+| `scipy` | SciPy | Scientific / Data | ~130 MB |
+| `pandas` | pandas | Scientific / Data | ~60 MB |
+| `matplotlib` | Matplotlib | Scientific / Data | ~60 MB |
+| `pytorch-cpu` | PyTorch (CPU) | ML Frameworks | ~800 MB |
+| `transformers` | HF Transformers | ML Frameworks | ~2 GB |
+| `playwright` | Playwright | Web / Browser | ~450 MB |
+
+Dependency resolution:
+
+- `whisper` depends on `ffmpeg`
+- `easyocr` and `transformers` depend on `pytorch-cpu`
+- dependencies are auto-resolved at build time
+
+Managed via `ductor docker extras-add|extras-remove` or during onboarding wizard. Changes require `ductor docker rebuild` to take effect.
+
+When extras are configured, the supervisor startup timeout is dynamically extended to accommodate longer Docker build times.
 
 ## `HeartbeatConfig`
 
