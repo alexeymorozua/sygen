@@ -32,12 +32,24 @@ def _build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
 
     Returns None if no extra vars are needed (avoids inheriting a stripped env).
     For non-Docker execution, the subprocess inherits the parent env plus the
-    agent identification variables.
+    agent identification variables.  User secrets from ``~/.ductor/.env`` are
+    merged in without overriding existing variables.
     """
     import os
     from pathlib import Path
 
+    from ductor_bot.infra.env_secrets import load_env_secrets
+
     env = os.environ.copy()
+
+    # Merge user secrets (low priority — never override existing vars).
+    working_dir = Path(config.working_dir)
+    ductor_home = working_dir.parent if working_dir.name == "workspace" else working_dir
+    env_file = ductor_home / ".env"
+    for key, value in load_env_secrets(env_file).items():
+        if key not in env:
+            env[key] = value
+
     env["DUCTOR_AGENT_NAME"] = config.agent_name
     env["DUCTOR_AGENT_ROLE"] = "main" if config.agent_name == "main" else "sub"
     env["DUCTOR_INTERAGENT_PORT"] = str(config.interagent_port)

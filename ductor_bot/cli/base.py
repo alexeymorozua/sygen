@@ -147,6 +147,20 @@ def docker_wrap(
         container_home = _to_container_path(ductor_home, main_home)
         container_shared = _to_container_path(main_home / "SHAREDMEMORY.md", main_home)
 
+        # Merge user secrets from .env (low priority — never override).
+        import os
+
+        from ductor_bot.infra.env_secrets import load_env_secrets
+
+        merged_extra = dict(load_env_secrets(main_home / ".env"))
+        # Remove keys already in host env (subprocess inherits docker binary env).
+        for key in list(merged_extra):
+            if key in os.environ:
+                del merged_extra[key]
+        if extra_env:
+            merged_extra.update(extra_env)  # Provider-specific overrides win.
+        extra_env = merged_extra or None
+
         env_flags: list[str] = [
             "-e",
             f"DUCTOR_CHAT_ID={config.chat_id}",

@@ -18,6 +18,19 @@ This is the navigation index for workspace tools.
 - background tasks (delegate, list, cancel) -> `task_tools/CLAUDE/GEMINI/AGENTS.md`
 - custom user scripts -> `user_tools/CLAUDE.md`
 
+## External API Secrets
+
+External API keys are loaded from `~/.ductor/.env` and injected into all
+CLI subprocesses (host and Docker). Standard dotenv syntax:
+
+```env
+PPLX_API_KEY=sk-xxx
+DEEPSEEK_API_KEY=sk-yyy
+export MY_VAR="quoted value"
+```
+
+Existing environment variables are never overridden by `.env` values.
+
 ## Bot Restart
 
 To restart the bot (e.g. after config changes or recovery):

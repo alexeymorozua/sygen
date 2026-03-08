@@ -131,6 +131,7 @@ Optional multi-agent system (when `agents.json` is present):
 ## Data Files (`~/.ductor`)
 
 - `config/config.json`
+- `.env` (external API secrets, injected into all CLI subprocesses)
 - `sessions.json`
 - `cron_jobs.json`
 - `webhooks.json`
