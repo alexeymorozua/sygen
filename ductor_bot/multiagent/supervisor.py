@@ -135,10 +135,23 @@ class AgentSupervisor:
         # 2. Wait for main agent startup (Docker, workspace, auth) before
         #    starting sub-agents.  This ensures Docker is set up exactly once
         #    by the main agent; sub-agents reuse the existing container.
+        #    Timeout is extended when Docker extras are configured because the
+        #    first image build can take several minutes.
+        startup_timeout = 120
+        if self._main_config.docker.enabled and self._main_config.docker.extras:
+            from ductor_bot.infra.docker_extras import calculate_build_timeout, resolve_extras
+
+            startup_timeout = max(
+                startup_timeout,
+                calculate_build_timeout(resolve_extras(self._main_config.docker.extras)),
+            )
         try:
-            await asyncio.wait_for(self._main_ready.wait(), timeout=120)
+            await asyncio.wait_for(self._main_ready.wait(), timeout=startup_timeout)
         except TimeoutError:
-            logger.warning("Main agent startup timed out after 120s, starting sub-agents anyway")
+            logger.warning(
+                "Main agent startup timed out after %ds, starting sub-agents anyway",
+                startup_timeout,
+            )
 
         # 3. Load and start sub-agents from agents.json
         await self._sync_sub_agents()

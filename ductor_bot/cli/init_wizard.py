@@ -264,6 +264,101 @@ def _ask_docker(console: Console) -> bool:
     return False
 
 
+def _build_extras_table(console: Console) -> None:
+    """Print a Rich overview table of all available Docker extras."""
+    from rich.table import Table
+
+    from ductor_bot.infra.docker_extras import DOCKER_EXTRAS_BY_ID, extras_for_display
+
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        box=None,
+        padding=(0, 2),
+        title="[bold]Available Docker Extras[/bold]",
+        title_style="bold blue",
+    )
+    table.add_column("Package", style="bold green", min_width=18)
+    table.add_column("What it does", min_width=40)
+    table.add_column("Size", style="cyan", justify="right")
+
+    for category, extras in extras_for_display():
+        table.add_row(f"[bold yellow]{category}[/bold yellow]", "", "")
+        for extra in extras:
+            dep_hint = ""
+            if extra.depends_on:
+                dep_names = ", ".join(
+                    DOCKER_EXTRAS_BY_ID[d].name
+                    for d in extra.depends_on
+                    if d in DOCKER_EXTRAS_BY_ID
+                )
+                if dep_names:
+                    dep_hint = f" [dim](+ {dep_names})[/dim]"
+            table.add_row(
+                f"  {extra.name}",
+                f"{extra.description}{dep_hint}",
+                extra.size_estimate,
+            )
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(
+        "[dim]These packages are optional and increase image build time.\n"
+        "You can change this later with"
+        " [cyan]ductor docker extras-add / extras-remove[/cyan].[/dim]"
+    )
+    console.print()
+
+
+def _ask_docker_extras(console: Console) -> list[str]:
+    """Prompt for optional Docker sandbox packages."""
+    from ductor_bot.infra.docker_extras import (
+        DOCKER_EXTRAS_BY_ID,
+        extras_for_display,
+        resolve_extras,
+    )
+
+    _build_extras_table(console)
+
+    # -- checkbox selection ---------------------------------------------------
+    choices: list[questionary.Choice | questionary.Separator] = []
+    for category, extras in extras_for_display():
+        choices.append(questionary.Separator(f"── {category} ──"))
+        choices.extend(
+            questionary.Choice(
+                title=f"{extra.name}  ({extra.size_estimate})",
+                value=extra.id,
+            )
+            for extra in extras
+        )
+
+    selected: list[str] | None = questionary.checkbox(
+        "Select extras (Space to toggle, Enter to confirm):",
+        choices=choices,
+    ).ask()
+
+    if selected is None:
+        _abort()
+
+    if not selected:
+        return []
+
+    # -- resolve dependencies -------------------------------------------------
+    resolved = resolve_extras(selected)
+    resolved_ids = [e.id for e in resolved]
+
+    added_deps = set(resolved_ids) - set(selected)
+    if added_deps:
+        dep_names = ", ".join(
+            DOCKER_EXTRAS_BY_ID[d].name for d in added_deps if d in DOCKER_EXTRAS_BY_ID
+        )
+        if dep_names:
+            console.print(f"[dim]Auto-added dependencies: {dep_names}[/dim]")
+
+    return resolved_ids
+
+
 def _ask_timezone(console: Console) -> str:
     """Prompt for timezone selection."""
     console.print(
@@ -346,6 +441,7 @@ def _write_config(
     allowed_user_ids: list[int],
     user_timezone: str,
     docker_enabled: bool,
+    docker_extras: list[str] | None = None,
 ) -> Path:
     """Write the config file with wizard values merged into defaults."""
     paths = resolve_paths()
@@ -370,11 +466,15 @@ def _write_config(
     merged["telegram_token"] = telegram_token
     merged["allowed_user_ids"] = allowed_user_ids
     merged["user_timezone"] = user_timezone
-    docker_section = merged.get("docker")
-    if isinstance(docker_section, dict):
-        docker_section["enabled"] = docker_enabled
+    raw_docker = merged.get("docker")
+    if isinstance(raw_docker, dict):
+        docker_section = raw_docker
     else:
-        merged["docker"] = {"enabled": docker_enabled}
+        docker_section = {"enabled": docker_enabled}
+        merged["docker"] = docker_section
+    docker_section["enabled"] = docker_enabled
+    if docker_extras is not None:
+        docker_section["extras"] = docker_extras
 
     from ductor_bot.infra.json_store import atomic_json_save
 
@@ -405,6 +505,11 @@ def run_onboarding() -> bool:
     docker_enabled = _ask_docker(console)
     console.print()
 
+    docker_extras: list[str] = []
+    if docker_enabled:
+        docker_extras = _ask_docker_extras(console)
+        console.print()
+
     timezone = _ask_timezone(console)
     console.print()
 
@@ -413,6 +518,7 @@ def run_onboarding() -> bool:
         allowed_user_ids=user_ids,
         user_timezone=timezone,
         docker_enabled=docker_enabled,
+        docker_extras=docker_extras,
     )
 
     paths = resolve_paths()
