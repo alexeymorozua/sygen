@@ -130,9 +130,7 @@ class TestBuildCommand:
         assert "--extra" in cmd
         assert "flag" in cmd
 
-    def test_uses_stdin_instead_of_empty_prompt_flag(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_uses_stdin_instead_of_empty_prompt_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Gemini should read from stdin instead of sending an empty ``-p`` prompt."""
         cli = _make_cli(monkeypatch)
         cmd = cli._build_command()
@@ -162,9 +160,10 @@ class TestPrepareEnv:
     def test_host_to_container_path_normalizes_windows_separators(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        fake_paths = type("P", (), {"ductor_home": Path(r"C:\Users\ZOZN109\.ductor")})()
         monkeypatch.setattr(
             "ductor_bot.cli.gemini_provider.resolve_paths",
-            lambda: type("P", (), {"ductor_home": Path(r"C:\Users\ZOZN109\.ductor")})(),
+            lambda: fake_paths,
         )
 
         result = GeminiCLI._host_to_container_path(
