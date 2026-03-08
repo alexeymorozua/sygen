@@ -42,7 +42,10 @@ class TestDockerManager:
         assert result is None
 
     def test_init_handles_missing_stderr_for_pythonw(
-        self, docker_config: DockerConfig, docker_paths: DuctorPaths, monkeypatch: pytest.MonkeyPatch
+        self,
+        docker_config: DockerConfig,
+        docker_paths: DuctorPaths,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from ductor_bot.infra.docker import DockerManager
 
