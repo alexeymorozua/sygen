@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import PureWindowsPath
+
 from ductor_bot.cli.base import CLIConfig, docker_wrap
 
 
@@ -131,3 +133,18 @@ def test_docker_wrap_main_agent_container_paths() -> None:
     assert result_cmd[w_idx + 1] == "/ductor/workspace"
     assert "DUCTOR_HOME=/ductor" in result_cmd
     assert "DUCTOR_SHARED_MEMORY_PATH=/ductor/SHAREDMEMORY.md" in result_cmd
+
+
+def test_docker_wrap_sub_agent_windows_paths_are_posix() -> None:
+    """Windows host paths must be normalized to POSIX paths inside Docker."""
+    cmd = ["gemini", "--output-format", "stream-json"]
+    cfg = CLIConfig(
+        docker_container="sandbox",
+        chat_id=1,
+        working_dir=PureWindowsPath(r"C:\Users\me\.ductor\agents\seismic-bot\workspace"),
+        agent_name="seismic-bot",
+    )
+    result_cmd, _ = docker_wrap(cmd, cfg, interactive=True)
+    w_idx = result_cmd.index("-w")
+    assert result_cmd[w_idx + 1] == "/ductor/agents/seismic-bot/workspace"
+    assert "DUCTOR_HOME=/ductor/agents/seismic-bot" in result_cmd

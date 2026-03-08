@@ -130,13 +130,14 @@ class TestBuildCommand:
         assert "--extra" in cmd
         assert "flag" in cmd
 
-    def test_headless_prompt_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Command contains -p '' for headless mode (Windows TTY bypass)."""
+    def test_uses_stdin_instead_of_empty_prompt_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Gemini should read from stdin instead of sending an empty ``-p`` prompt."""
         cli = _make_cli(monkeypatch)
         cmd = cli._build_command()
-        assert "-p" in cmd
-        p_idx = cmd.index("-p")
-        assert cmd[p_idx + 1] == ""
+        assert "-p" not in cmd
+        assert "--prompt" not in cmd
 
 
 class TestPrepareEnv:
@@ -157,6 +158,20 @@ class TestPrepareEnv:
             env = cli._prepare_env()
 
         assert env["PATH"].split(os.pathsep)[0] == "/opt/node/v22.0.0/bin"
+
+    def test_host_to_container_path_normalizes_windows_separators(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "ductor_bot.cli.gemini_provider.resolve_paths",
+            lambda: type("P", (), {"ductor_home": Path(r"C:\Users\ZOZN109\.ductor")})(),
+        )
+
+        result = GeminiCLI._host_to_container_path(
+            r"C:\Users\ZOZN109\.ductor\tmp\gemini_system_abc.md"
+        )
+
+        assert result == "/ductor/tmp/gemini_system_abc.md"
 
     def test_injects_config_api_key_for_gemini_api_key_mode(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
