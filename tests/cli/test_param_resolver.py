@@ -10,7 +10,7 @@ from ductor_bot.cli.param_resolver import (
     TaskOverrides,
     resolve_cli_config,
 )
-from ductor_bot.config import AgentConfig, set_gemini_models
+from ductor_bot.config import AgentConfig, reset_gemini_models, set_gemini_models
 from ductor_bot.errors import DuctorError
 
 
@@ -53,7 +53,7 @@ def codex_cache() -> CodexModelCache:
 
 @pytest.fixture(autouse=True)
 def _reset_gemini_models() -> None:
-    set_gemini_models(frozenset())
+    reset_gemini_models()
 
 
 def test_resolve_global_only(base_config: AgentConfig, codex_cache: CodexModelCache) -> None:

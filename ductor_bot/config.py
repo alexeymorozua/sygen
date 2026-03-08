@@ -378,5 +378,15 @@ def get_gemini_models() -> frozenset[str]:
 
 
 def set_gemini_models(models: frozenset[str]) -> None:
-    """Set runtime Gemini models discovered from local Gemini CLI files."""
+    """Set runtime Gemini models discovered from local Gemini CLI files.
+
+    Refuses to overwrite with an empty set to prevent cache wipe.
+    """
+    if not models:
+        return
     _runtime_gemini[0] = models
+
+
+def reset_gemini_models() -> None:
+    """Clear runtime Gemini models. For test teardown only."""
+    _runtime_gemini[0] = frozenset()

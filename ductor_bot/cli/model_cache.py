@@ -46,6 +46,15 @@ class BaseModelCache(ABC):
     def _empty_models(cls) -> Any:
         """Return the empty sentinel for the models field (e.g. ``[]`` or ``()``)."""
 
+    @classmethod
+    def _fallback_models(cls) -> Any:
+        """Hardcoded fallback models when discovery and disk cache both fail.
+
+        Override in subclasses to provide provider-specific defaults.
+        Returns ``_empty_models()`` by default (no fallback).
+        """
+        return cls._empty_models()
+
     @abstractmethod
     def to_json(self) -> dict[str, Any]: ...
 
@@ -100,7 +109,13 @@ class BaseModelCache(ABC):
 
     @classmethod
     async def _refresh_and_save(cls, cache_path: Path) -> Self:
-        """Discover models and save to disk."""
+        """Discover models and save to disk.
+
+        Never overwrites a non-empty on-disk cache with an empty result.
+        Falls back to hardcoded defaults when both discovery and disk fail.
+        Fallback models are returned in-memory only — NOT persisted — so
+        that the next successful discovery replaces them automatically.
+        """
         name = cls._provider_name()
 
         try:
@@ -108,22 +123,61 @@ class BaseModelCache(ABC):
             model_count = len(models) if isinstance(models, Sequence) else 0
             logger.info("Discovered %d %s models", model_count, name)
         except Exception:
-            logger.exception("Failed to discover %s models, using empty cache", name)
+            logger.exception("Failed to discover %s models", name)
             models = cls._empty_models()
 
-        cache = cls(  # type: ignore[call-arg]
+        # Discovery returned real models — persist and return.
+        if models:
+            cache = cls(  # type: ignore[call-arg]
+                last_updated=datetime.now(UTC).isoformat(),
+                models=models,
+            )
+            try:
+                content = json.dumps(cache.to_json(), indent=2)
+                await asyncio.to_thread(atomic_text_save, cache_path, content)
+                logger.debug("Saved %s cache to %s", name, cache_path)
+            except Exception:
+                logger.exception("Failed to save %s cache to disk", name)
+            return cache
+
+        # Discovery empty — try to preserve existing non-empty disk cache.
+        existing = await cls._try_load_disk(cache_path)
+        if existing is not None and existing.models:
+            count = len(existing.models) if isinstance(existing.models, Sequence) else 0
+            logger.warning(
+                "Discovery returned no %s models; keeping existing cache (%d models)",
+                name,
+                count,
+            )
+            return existing
+
+        # Last resort: hardcoded fallback, in-memory only (NOT saved to disk).
+        fallback = cls._fallback_models()
+        if fallback:
+            logger.warning(
+                "Using hardcoded %s fallback models (not persisted)", name,
+            )
+            return cls(  # type: ignore[call-arg]
+                last_updated=datetime.now(UTC).isoformat(),
+                models=fallback,
+            )
+
+        # Truly empty — no discovery, no disk cache, no fallback.
+        return cls(  # type: ignore[call-arg]
             last_updated=datetime.now(UTC).isoformat(),
-            models=models,
+            models=cls._empty_models(),
         )
 
+    @classmethod
+    async def _try_load_disk(cls, cache_path: Path) -> Self | None:
+        """Try to load existing cache from disk. Returns ``None`` on failure."""
         try:
-            content = json.dumps(cache.to_json(), indent=2)
-            await asyncio.to_thread(atomic_text_save, cache_path, content)
-            logger.debug("Saved %s cache to %s", name, cache_path)
+            if not await asyncio.to_thread(cache_path.exists):
+                return None
+            content = await asyncio.to_thread(cache_path.read_text)
+            return cls.from_json(json.loads(content))
         except Exception:
-            logger.exception("Failed to save %s cache to disk", name)
-
-        return cache
+            return None
 
 
 class BaseModelCacheObserver(BaseObserver, ABC):

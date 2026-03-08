@@ -6,15 +6,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ductor_bot.config import AgentConfig, set_gemini_models
+from ductor_bot.config import AgentConfig, reset_gemini_models, set_gemini_models
 from ductor_bot.orchestrator.providers import ProviderManager
 
 
 @pytest.fixture(autouse=True)
 def _reset_gemini():
-    set_gemini_models(frozenset())
+    reset_gemini_models()
     yield
-    set_gemini_models(frozenset())
+    reset_gemini_models()
 
 
 def _make_provider_manager(
