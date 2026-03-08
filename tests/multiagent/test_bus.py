@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from ductor_bot.multiagent.bus import InterAgentBus
+from ductor_bot.multiagent.bus import AsyncSendOptions, InterAgentBus
 
 
 def _make_stack(
@@ -257,7 +257,10 @@ class TestBusNewSessionFlag:
         stack.bot.orchestrator.handle_interagent_message = capturing_handler
         bus.register("target", stack)
 
-        bus.send_async("sender", "target", "Hello", new_session=True)
+        bus.send_async(
+            "sender", "target", "Hello",
+            opts=AsyncSendOptions(new_session=True),
+        )
         await asyncio.sleep(0.1)
 
         assert len(call_kwargs) == 1
@@ -405,3 +408,99 @@ class TestBusNotifyRecipient:
 
         # Should not raise
         await bus._notify_recipient(task)
+
+
+class TestBusChatTopicPropagation:
+    """Test that chat_id/topic_id are propagated through async results.
+
+    Bug #31: results must route back to the originating group/topic,
+    not the sender's DM.
+    """
+
+    async def test_async_result_carries_chat_and_topic_id(self) -> None:
+        """chat_id and topic_id from send_async appear in the result."""
+        bus = InterAgentBus()
+        bus.register("target", _make_stack("response"))
+
+        delivered: list[object] = []
+        bus.set_async_result_handler("sender", AsyncMock(side_effect=delivered.append))
+
+        bus.send_async(
+            "sender",
+            "target",
+            "Hello",
+            opts=AsyncSendOptions(chat_id=12345, topic_id=678),
+        )
+        await asyncio.sleep(0.1)
+
+        assert len(delivered) == 1
+        result = delivered[0]
+        assert result.chat_id == 12345
+        assert result.topic_id == 678
+        assert result.success is True
+
+    async def test_async_result_defaults_without_context(self) -> None:
+        """When no chat_id/topic_id are provided, defaults are 0/None."""
+        bus = InterAgentBus()
+        bus.register("target", _make_stack("response"))
+
+        delivered: list[object] = []
+        bus.set_async_result_handler("sender", AsyncMock(side_effect=delivered.append))
+
+        bus.send_async("sender", "target", "Hello")
+        await asyncio.sleep(0.1)
+
+        assert len(delivered) == 1
+        result = delivered[0]
+        assert result.chat_id == 0
+        assert result.topic_id is None
+
+    async def test_error_result_carries_chat_and_topic_id(self) -> None:
+        """chat_id/topic_id are preserved even when the task fails."""
+        bus = InterAgentBus()
+        stack = _make_stack()
+        stack.bot.orchestrator.handle_interagent_message = AsyncMock(
+            side_effect=RuntimeError("crash"),
+        )
+        bus.register("target", stack)
+
+        delivered: list[object] = []
+        bus.set_async_result_handler("sender", AsyncMock(side_effect=delivered.append))
+
+        bus.send_async(
+            "sender",
+            "target",
+            "Hello",
+            opts=AsyncSendOptions(chat_id=99999, topic_id=42),
+        )
+        await asyncio.sleep(0.1)
+
+        assert len(delivered) == 1
+        result = delivered[0]
+        assert result.success is False
+        assert result.chat_id == 99999
+        assert result.topic_id == 42
+
+    async def test_no_orchestrator_result_carries_context(self) -> None:
+        """chat_id/topic_id are preserved when orchestrator is None."""
+        bus = InterAgentBus()
+        stack = MagicMock()
+        stack.bot.orchestrator = None
+        bus.register("target", stack)
+
+        delivered: list[object] = []
+        bus.set_async_result_handler("sender", AsyncMock(side_effect=delivered.append))
+
+        bus.send_async(
+            "sender",
+            "target",
+            "Hello",
+            opts=AsyncSendOptions(chat_id=111, topic_id=222),
+        )
+        await asyncio.sleep(0.1)
+
+        assert len(delivered) == 1
+        result = delivered[0]
+        assert result.success is False
+        assert result.chat_id == 111
+        assert result.topic_id == 222

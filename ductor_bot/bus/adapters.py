@@ -111,9 +111,14 @@ def from_webhook_wake(chat_id: int, prompt: str) -> Envelope:
 def from_interagent_result(result: AsyncInterAgentResult, chat_id: int) -> Envelope:
     """Convert an async inter-agent result.
 
+    Uses ``result.chat_id`` / ``result.topic_id`` when available so that
+    results are routed back to the originating group topic.  Falls back to
+    the sender's default *chat_id*.
+
     Error results are delivered without lock or injection.
     Success results acquire the lock and inject into the active session.
     """
+    delivery_chat_id = result.chat_id or chat_id
     meta = {
         "task_id": result.task_id,
         "sender": result.sender,
@@ -126,7 +131,8 @@ def from_interagent_result(result: AsyncInterAgentResult, chat_id: int) -> Envel
     if not result.success:
         return Envelope(
             origin=Origin.INTERAGENT,
-            chat_id=chat_id,
+            chat_id=delivery_chat_id,
+            topic_id=result.topic_id,
             prompt_preview=result.message_preview,
             result_text=result.result_text,
             status="error",
@@ -140,7 +146,8 @@ def from_interagent_result(result: AsyncInterAgentResult, chat_id: int) -> Envel
 
     return Envelope(
         origin=Origin.INTERAGENT,
-        chat_id=chat_id,
+        chat_id=delivery_chat_id,
+        topic_id=result.topic_id,
         prompt_preview=result.message_preview,
         result_text=result.result_text,
         status="success",

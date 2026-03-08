@@ -1216,7 +1216,11 @@ class TelegramBot:
         """Handle async inter-agent result via the message bus."""
         from ductor_bot.bus.adapters import from_interagent_result
 
-        chat_id = self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
+        # Prefer the originating chat context carried by the result;
+        # fall back to the sender agent's default DM.
+        chat_id = result.chat_id or (
+            self._config.allowed_user_ids[0] if self._config.allowed_user_ids else 0
+        )
         if not chat_id:
             logger.warning("No chat_id available for async interagent result delivery")
             return

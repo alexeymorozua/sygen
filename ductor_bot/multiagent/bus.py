@@ -45,6 +45,25 @@ class InterAgentResponse:
     error: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class AsyncSendOptions:
+    """Optional metadata for :meth:`InterAgentBus.send_async`.
+
+    Bundles keyword-only parameters that control session handling and
+    Telegram routing so the public API stays within the argument limit.
+
+    *new_session*: end any existing inter-agent session before processing.
+    *summary*: notification preview shown in the recipient's Telegram chat.
+    *chat_id* / *topic_id*: originating Telegram group/topic context so
+    that results are delivered back to the correct thread.
+    """
+
+    new_session: bool = False
+    summary: str = ""
+    chat_id: int = 0
+    topic_id: int | None = None
+
+
 @dataclass(slots=True)
 class AsyncInterAgentTask:
     """Tracks an in-flight async inter-agent request."""
@@ -57,6 +76,8 @@ class AsyncInterAgentTask:
     summary: str = ""
     timestamp: float = field(default_factory=time.time)
     asyncio_task: asyncio.Task[None] | None = field(default=None, repr=False)
+    chat_id: int = 0
+    topic_id: int | None = None
 
 
 @dataclass(slots=True)
@@ -74,6 +95,8 @@ class AsyncInterAgentResult:
     session_name: str = ""
     provider_switch_notice: str = ""
     original_message: str = ""
+    chat_id: int = 0
+    topic_id: int | None = None
 
 
 AsyncResultCallback = Callable[["AsyncInterAgentResult"], Awaitable[None]]
@@ -203,8 +226,7 @@ class InterAgentBus:
         recipient: str,
         message: str,
         *,
-        new_session: bool = False,
-        summary: str = "",
+        opts: AsyncSendOptions | None = None,
     ) -> str | None:
         """Send a message to another agent asynchronously.
 
@@ -212,23 +234,23 @@ class InterAgentBus:
         sender agent's registered callback when the target agent finishes.
         Returns None if the recipient is not found.
 
-        If *new_session* is True, the recipient agent will end any existing
-        inter-agent session with this sender and start a fresh one.
-
-        If *summary* is provided, it is shown as the notification preview in
-        the recipient's Telegram chat instead of a truncated message excerpt.
+        Optional *opts* controls session handling and Telegram routing.
+        See :class:`AsyncSendOptions` for details.
         """
         if recipient not in self._agents:
             return None
 
+        o = opts or AsyncSendOptions()
         task_id = secrets.token_hex(6)
         task = AsyncInterAgentTask(
             task_id=task_id,
             sender=sender,
             recipient=recipient,
             message=message,
-            new_session=new_session,
-            summary=summary,
+            new_session=o.new_session,
+            summary=o.summary,
+            chat_id=o.chat_id,
+            topic_id=o.topic_id,
         )
         atask = asyncio.create_task(
             self._run_async(task),
@@ -270,6 +292,8 @@ class InterAgentBus:
                         error=f"Agent '{task.recipient}' orchestrator not initialized",
                         elapsed_seconds=time.time() - t0,
                         original_message=task.message,
+                        chat_id=task.chat_id,
+                        topic_id=task.topic_id,
                     )
                 )
                 return
@@ -306,6 +330,8 @@ class InterAgentBus:
                     session_name=session_name,
                     provider_switch_notice=provider_notice,
                     original_message=task.message,
+                    chat_id=task.chat_id,
+                    topic_id=task.topic_id,
                 )
             )
 
@@ -327,6 +353,8 @@ class InterAgentBus:
                     error=f"Timeout after {_ASYNC_TIMEOUT:.0f}s",
                     elapsed_seconds=time.time() - t0,
                     original_message=task.message,
+                    chat_id=task.chat_id,
+                    topic_id=task.topic_id,
                 )
             )
 
@@ -343,6 +371,8 @@ class InterAgentBus:
                     error=f"{type(exc).__name__}: {exc}",
                     elapsed_seconds=time.time() - t0,
                     original_message=task.message,
+                    chat_id=task.chat_id,
+                    topic_id=task.topic_id,
                 )
             )
 
