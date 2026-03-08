@@ -1,4 +1,4 @@
-"""Application configuration and model registry."""
+﻿"""Application configuration and model registry."""
 
 from __future__ import annotations
 
@@ -342,6 +342,8 @@ CLAUDE_MODELS: frozenset[str] = frozenset(CLAUDE_MODELS_ORDERED)
 # "auto" is a Gemini-specific alias (Gemini CLI auto-selects the best model).
 _GEMINI_ALIASES: frozenset[str] = frozenset({"auto", "pro", "flash", "flash-lite"})
 
+DEFAULT_GEMINI_MODELS: frozenset[str] = frozenset({"auto", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-pro-preview"})
+
 _runtime_gemini: list[frozenset[str]] = [frozenset()]
 
 
@@ -368,8 +370,11 @@ class ModelRegistry:
 
 
 def get_gemini_models() -> frozenset[str]:
-    """Return dynamically discovered Gemini models from the local installation."""
-    return _runtime_gemini[0]
+    """Return dynamically discovered Gemini models or hardcoded defaults."""
+    discovered = _runtime_gemini[0]
+    if not discovered:
+        return DEFAULT_GEMINI_MODELS
+    return discovered | DEFAULT_GEMINI_MODELS
 
 
 def set_gemini_models(models: frozenset[str]) -> None:

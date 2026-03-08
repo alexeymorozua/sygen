@@ -117,7 +117,7 @@ class DockerManager:
     @staticmethod
     def _create_console() -> Console | None:
         """Create a Rich console when running interactively."""
-        if not sys.stderr.isatty():
+        if sys.stderr is None or not hasattr(sys.stderr, "isatty") or not sys.stderr.isatty():
             return None
         from rich.console import Console as RichConsole
 
