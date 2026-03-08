@@ -131,6 +131,11 @@ class DuctorPaths:
         return self.ductor_home / "inflight_turns.json"
 
     @property
+    def env_file(self) -> Path:
+        """User-managed ``.env`` for external API secrets."""
+        return self.ductor_home / ".env"
+
+    @property
     def mainmemory_path(self) -> Path:
         return self.memory_system_dir / "MAINMEMORY.md"
 

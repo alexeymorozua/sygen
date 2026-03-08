@@ -71,6 +71,19 @@ Custom skills live in `skills/`. See `skills/CLAUDE/GEMINI/AGENTS.md` for sync r
 - For cron task behavior changes, edit `cron_tasks/<name>/TASK_DESCRIPTION.md`.
 - For cron task folder structure, see `cron_tasks/CLAUDE/GEMINI/AGENTS.md`.
 
+## External API Secrets
+
+Store external API keys in `~/.ductor/.env`:
+
+```env
+PPLX_API_KEY=sk-xxx
+DEEPSEEK_API_KEY=sk-yyy
+```
+
+These secrets are automatically available in all CLI executions (host and Docker).
+Existing environment variables are never overridden.
+After editing `.env`, restart the bot for changes to take effect.
+
 ## Bot Restart
 
 If you need the bot to restart (e.g. after config changes, updates, or recovery):
