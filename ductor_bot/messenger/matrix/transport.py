@@ -58,7 +58,8 @@ class MatrixTransport:
         return self._bot.id_map.int_to_room(env.chat_id)
 
     def _opts(self, env: Envelope) -> MatrixSendOpts:
-        roots = self._bot.file_roots(self._bot._orch.paths) if self._bot.orchestrator else None
+        orch = self._bot.orchestrator
+        roots = self._bot.file_roots(orch.paths) if orch else None
         return MatrixSendOpts(allowed_roots=roots)
 
     # -- Origin handlers (unicast) -----------------------------------------

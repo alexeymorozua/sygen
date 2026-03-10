@@ -85,26 +85,39 @@ def _convert_markdown(text: str) -> str:
 
 
 def _inline_format(text: str) -> str:
-    """Apply inline formatting: bold, italic, strikethrough, code, links."""
+    """Apply inline formatting: bold, italic, strikethrough, code, links.
+
+    Substitution order matters:
+
+    1. Inline code first — prevents formatting inside ``code spans``.
+    2. Bold (``**``) before italic (``*``) — avoids ``**x**`` matching
+       as nested italic.
+    3. Strikethrough and links last — no ordering conflicts.
+    """
     # Escape HTML first (but preserve already-produced tags)
     text = html.escape(text)
 
-    # Inline code (must be before bold/italic to avoid conflicts)
+    # 1. Inline code first — prevents formatting inside `code spans`
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
 
-    # Bold (**text** or __text__)
+    # 2. Bold (**) before italic (*) — avoids **x** matching as
+    #    nested italic
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"__(.+?)__", r"<strong>\1</strong>", text)
 
-    # Italic (*text* or _text_)
     text = re.sub(r"\*(.+?)\*", r"<em>\1</em>", text)
+    # Word boundaries prevent matching snake_case (e.g. my_var)
     text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"<em>\1</em>", text)
 
-    # Strikethrough (~~text~~)
+    # 3. Strikethrough and links last — no ordering conflicts
     text = re.sub(r"~~(.+?)~~", r"<del>\1</del>", text)
 
     # Links [text](url)
-    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
+    return re.sub(
+        r"\[([^\]]+)\]\(([^)]+)\)",
+        r'<a href="\2">\1</a>',
+        text,
+    )
 
 
 def _strip_html(formatted: str) -> str:

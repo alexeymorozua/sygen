@@ -42,7 +42,12 @@ class _PendingButtons:
 
 
 class ButtonTracker:
-    """Per-room reaction-based option tracking for button replacement."""
+    """Per-room reaction-based option tracking for button replacement.
+
+    Thread-safety: this class is **not** thread-safe.  All methods must
+    be called from the same asyncio event loop (single-threaded by
+    design).  No external locking is required.
+    """
 
     def __init__(self) -> None:
         # room_id → pending buttons (only one active set per room)
@@ -80,10 +85,13 @@ class ButtonTracker:
             return text
 
         cleaned = _BUTTON_RE.sub("", text).rstrip()
-        # Store as label-only (no callback_data — comes from agent text, not selectors)
+        # [button:Label] markers from agent text carry only the
+        # display label.  Unlike selector buttons (which have
+        # separate IDs), here the label IS the callback_data —
+        # the label text is routed as the callback.
         self._active[room_id] = _PendingButtons(
             labels=buttons,
-            callback_data=buttons,  # label == callback_data for text buttons
+            callback_data=buttons,
             event_id="",
         )
         numbered = "\n".join(
@@ -103,7 +111,7 @@ class ButtonTracker:
             idx = int(text.strip()) - 1
             if 0 <= idx < len(pending.callback_data):
                 cb = pending.callback_data[idx]
-                del self._active[room_id]
+                self._active.pop(room_id, None)
                 return cb
         except ValueError:
             pass
@@ -125,7 +133,7 @@ class ButtonTracker:
             return None
         if 0 <= idx < len(pending.callback_data):
             cb = pending.callback_data[idx]
-            del self._active[room_id]
+            self._active.pop(room_id, None)
             return cb
         return None
 

@@ -27,7 +27,7 @@ def _make_transport() -> tuple[MatrixTransport, MagicMock]:
     bot.client = MagicMock()
     bot.config.matrix.allowed_rooms = ["!room1:test"]
     bot._last_active_room = "!room1:test"
-    bot._orch.paths = MagicMock()
+    bot.orchestrator.paths = MagicMock()
     bot.file_roots.return_value = [Path("/tmp/roots")]
     bot.orchestrator = MagicMock()
     bot.id_map.int_to_room.return_value = "!room1:test"

@@ -12,6 +12,8 @@ import json
 import logging
 from pathlib import Path
 
+from ductor_bot.infra.atomic_io import atomic_text_save
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,9 +32,14 @@ class MatrixIdMap:
             return self._room_to_int[room_id]
 
         h = int.from_bytes(hashlib.sha256(room_id.encode()).digest()[:8], "big")
-        # Collision guard: if hash maps to a different room, rehash with salt
+        # Collision guard: rehash with salt until unique.
+        # The final (possibly rehashed) value is persisted,
+        # so _load() restores it without recomputing.
         while h in self._int_to_room and self._int_to_room[h] != room_id:
-            h = int.from_bytes(hashlib.sha256(f"{room_id}:{h}".encode()).digest()[:8], "big")
+            h = int.from_bytes(
+                hashlib.sha256(f"{room_id}:{h}".encode()).digest()[:8],
+                "big",
+            )
 
         self._room_to_int[room_id] = h
         self._int_to_room[h] = room_id
@@ -55,8 +62,8 @@ class MatrixIdMap:
             logger.warning("Failed to load room_id_map.json, starting fresh")
 
     def _save(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
+        """Persist mappings to disk atomically."""
+        atomic_text_save(
+            self._path,
             json.dumps(self._room_to_int, indent=2),
-            encoding="utf-8",
         )

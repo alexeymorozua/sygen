@@ -159,6 +159,28 @@ class TestResolveMatrixMedia:
         assert result is None
         callback.assert_awaited_once_with("Could not download that file.")
 
+    async def test_returns_none_when_error_callback_raises(self, tmp_path: Path) -> None:
+        """error_callback failure must not propagate."""
+        client = AsyncMock()
+        event = MagicMock()
+        event.url = "mxc://server/test"
+        callback = AsyncMock(side_effect=OSError("send failed"))
+
+        with patch(
+            "ductor_bot.messenger.matrix.media.download_matrix_media",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = await resolve_matrix_media(
+                client,
+                event,
+                tmp_path,
+                tmp_path,
+                error_callback=callback,
+            )
+
+        assert result is None
+        callback.assert_awaited_once()
+
     async def test_returns_none_when_download_returns_none(self, tmp_path: Path) -> None:
         client = AsyncMock()
         event = MagicMock()

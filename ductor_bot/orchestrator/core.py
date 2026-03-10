@@ -699,11 +699,14 @@ class Orchestrator:
         label: str,
         *,
         topic_id: int | None = None,
+        transport: str = "tg",
     ) -> str:
         """Execute *prompt* in the active session (fulfils ``SessionInjector`` protocol)."""
         from ductor_bot.orchestrator.injection import _inject_prompt
 
-        return await _inject_prompt(self, prompt, chat_id, label, topic_id=topic_id)
+        return await _inject_prompt(
+            self, prompt, chat_id, label, topic_id=topic_id, transport=transport
+        )
 
     async def shutdown(self) -> None:
         """Cleanup on bot shutdown."""
