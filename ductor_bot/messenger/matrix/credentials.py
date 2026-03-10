@@ -58,7 +58,11 @@ async def login_or_restore(
 
     # 3. First login with password
     if not config.password:
-        msg = "Matrix: no access_token, device_id, or password configured"
+        msg = (
+            f"Matrix AUTH FAILED for {config.user_id}\n"
+            f"  No access_token, device_id, or password configured.\n"
+            f"  Set 'password' in the matrix section of config.json."
+        )
         raise RuntimeError(msg)
 
     resp = await client.login(config.password, device_name="ductor")
@@ -66,7 +70,18 @@ async def login_or_restore(
         _save_credentials(creds_file, resp.user_id, resp.device_id, resp.access_token)
         logger.info("Matrix login successful, credentials saved")
     else:
-        msg = f"Matrix login failed: {resp}"
+        logger.error(
+            "Matrix login failed for %s on %s: %s",
+            config.user_id,
+            config.homeserver,
+            resp,
+        )
+        msg = (
+            f"Matrix AUTH FAILED for {config.user_id}\n"
+            f"  Homeserver: {config.homeserver}\n"
+            f"  Error: {resp}\n"
+            f"  Check your credentials in config.json (matrix section)."
+        )
         raise RuntimeError(msg)
 
 

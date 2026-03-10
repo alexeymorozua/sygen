@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ductor_bot.files.tags import guess_mime
+from ductor_bot.files.tags import guess_mime, path_from_file_tag
 from ductor_bot.messenger.matrix.formatting import markdown_to_matrix_html
 
 if TYPE_CHECKING:
@@ -91,7 +91,7 @@ async def send_rich(
 
     # 4. Upload and send files
     for file_path_str in files:
-        file_path = Path(file_path_str)
+        file_path = path_from_file_tag(file_path_str)
         if not _file_accessible(file_path, opts.allowed_roots):
             continue
 
