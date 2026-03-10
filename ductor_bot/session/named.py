@@ -142,6 +142,7 @@ class NamedSession:
     created_at: float
     message_count: int = 0
     last_prompt: str = ""
+    transport: str = "tg"
 
 
 def _session_from_dict(data: dict[str, Any]) -> NamedSession:
@@ -157,6 +158,7 @@ def _session_from_dict(data: dict[str, Any]) -> NamedSession:
         created_at=float(data.get("created_at", 0.0)),
         message_count=int(data.get("message_count", 0)),
         last_prompt=str(data.get("last_prompt", data.get("prompt_preview", ""))),
+        transport=str(data.get("transport", "tg")),
     )
 
 

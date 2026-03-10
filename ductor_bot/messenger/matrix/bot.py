@@ -72,7 +72,7 @@ class MatrixNotificationService:
             await self.notify_all(text)
 
     async def notify_all(self, text: str) -> None:
-        for room_id in resolve_broadcast_rooms(self._bot.config, self._bot._last_active_room):
+        for room_id in self._bot._broadcast_rooms():
             event_id = await matrix_send_rich(self._bot.client, room_id, text)
             self._bot._track_sent_event(event_id)
 
@@ -219,7 +219,10 @@ class MatrixBot:
         except asyncio.CancelledError:
             pass
         except Exception:
-            logger.exception("sync_forever exited with error")
+            logger.exception("sync_forever exited with error, requesting restart")
+            from ductor_bot.infra.restart import EXIT_RESTART
+
+            self._exit_code = EXIT_RESTART
 
         return self._exit_code
 
@@ -245,8 +248,8 @@ class MatrixBot:
 
     def _should_process_event(
         self,
-        room: object,
-        event: object,
+        room: MatrixRoom,
+        event: RoomMessageText | RoomMessageMedia,
         sender: str,
     ) -> bool:
         """Common guard checks for incoming events.
@@ -255,8 +258,7 @@ class MatrixBot:
         """
         if sender == self._client.user_id:
             return False
-        room_id = getattr(room, "room_id", "")
-        if room_id in self._leaving_rooms:
+        if room.room_id in self._leaving_rooms:
             return False
         return self._is_authorized(room, event)
 
@@ -277,13 +279,9 @@ class MatrixBot:
         # Group mention-only filter: in multi-user rooms, ignore
         # messages not addressed to the bot via @mention or reply.
         is_group_room = not self._is_dm_room(room)
-        if (
-            is_group_room
-            and self._config.group_mention_only
-            and not self._is_message_addressed(event)
-        ):
-            return
         if is_group_room and self._config.group_mention_only:
+            if not self._is_message_addressed(event):
+                return
             text = self._strip_mention(text)
 
         room_id = room.room_id
@@ -301,7 +299,7 @@ class MatrixBot:
             await self._handle_command(text, room_id, chat_id, event)
             return
 
-        key = SessionKey(chat_id=chat_id, topic_id=None)
+        key = SessionKey(transport="mx", chat_id=chat_id, topic_id=None)
         await self._dispatch_message(key, text, room_id, event)
 
     async def _on_media(self, room: MatrixRoom | object, event: RoomMessageMedia | object) -> None:
@@ -346,7 +344,7 @@ class MatrixBot:
         if not text:
             return
 
-        key = SessionKey(chat_id=chat_id, topic_id=None)
+        key = SessionKey(transport="mx", chat_id=chat_id, topic_id=None)
         await self._dispatch_message(key, text, room_id, event)
 
     # Commands routed to the orchestrator's CommandRegistry
@@ -374,7 +372,7 @@ class MatrixBot:
         # Ensure text has / prefix for orchestrator compatibility
         if text.startswith("!"):
             text = "/" + text[1:]
-        key = SessionKey(chat_id=chat_id, topic_id=None)
+        key = SessionKey(transport="mx", chat_id=chat_id, topic_id=None)
 
         handler = self._COMMAND_DISPATCH.get(cmd)
         if handler is not None:
@@ -388,15 +386,19 @@ class MatrixBot:
     # -- Individual command handlers ----------------------------------------
 
     async def _cmd_stop(self, *, text: str, room_id: str, key: SessionKey, event: object) -> None:
+        """Stop running processes for this chat."""
         orch = self._orchestrator
         if orch:
             killed = await orch.abort(key.chat_id)
             msg = f"Stopped {killed} process(es)." if killed else "No active processes."
-            await self._send_rich(room_id, msg)
+        else:
+            msg = "No active processes."
+        await self._send_rich(room_id, msg)
 
     async def _cmd_stop_all(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Stop all running processes across all agents."""
         orch = self._orchestrator
         killed = 0
         if orch:
@@ -409,6 +411,7 @@ class MatrixBot:
     async def _cmd_restart(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Request bot restart via restart marker."""
         from ductor_bot.infra.restart import EXIT_RESTART, write_restart_marker
 
         marker = _expand_marker(self._config.ductor_home)
@@ -422,6 +425,7 @@ class MatrixBot:
             self._sync_task.cancel()
 
     async def _cmd_new(self, *, text: str, room_id: str, key: SessionKey, event: object) -> None:
+        """Reset the active provider session."""
         orch = self._orchestrator
         if orch:
             result = await orch.handle_message(key, "/new")
@@ -429,9 +433,11 @@ class MatrixBot:
                 await self._send_rich(room_id, result.text)
 
     async def _cmd_help(self, *, text: str, room_id: str, key: SessionKey, event: object) -> None:
+        """Show command reference."""
         await self._send_rich(room_id, self._build_help_text())
 
     async def _cmd_info(self, *, text: str, room_id: str, key: SessionKey, event: object) -> None:
+        """Show bot version and feature summary."""
         version = get_current_version()
         text_out = fmt(
             "**ductor.dev**",
@@ -445,6 +451,7 @@ class MatrixBot:
     async def _cmd_agent_commands(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Show multi-agent command reference."""
         lines = [
             "The multi-agent system lets you run additional bots as "
             "sub-agents — each with its own workspace and user list. "
@@ -469,6 +476,7 @@ class MatrixBot:
     async def _cmd_showfiles(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Show file browser (not yet supported on Matrix)."""
         await self._send_rich(
             room_id,
             "File browser is not yet supported in Matrix. Use `!status` to see workspace info.",
@@ -477,6 +485,7 @@ class MatrixBot:
     async def _cmd_session(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Start or manage named background sessions."""
         parts = text.split(None, 1)
         if len(parts) < 2 or not parts[1].strip():
             await self._send_rich(
@@ -496,6 +505,7 @@ class MatrixBot:
     async def _cmd_orchestrator(
         self, *, text: str, room_id: str, key: SessionKey, event: object
     ) -> None:
+        """Route a command to the orchestrator."""
         orch = self._orchestrator
         if not orch:
             return
@@ -527,7 +537,12 @@ class MatrixBot:
     }
 
     def _build_help_text(self) -> str:
-        """Build the help text showing all available commands."""
+        """Build help text with commands grouped by category.
+
+        Grouping and ordering are intentional — descriptions
+        come from BOT_COMMANDS but the categories are curated
+        manually.
+        """
         cmd_desc = {**dict(BOT_COMMANDS), **dict(MULTIAGENT_SUB_COMMANDS)}
 
         def _line(c: str) -> str:
@@ -638,7 +653,11 @@ class MatrixBot:
             formatted = self._button_tracker.extract_and_format(room_id, result.text)
             await self._send_rich(room_id, formatted)
 
-    def _is_authorized(self, room: object, event: object) -> bool:
+    def _is_authorized(
+        self,
+        room: MatrixRoom,
+        event: RoomMessageText | RoomMessageMedia,
+    ) -> bool:
         """Check if the sender/room is authorized.
 
         In group rooms with ``group_mention_only``, the user check is
@@ -646,22 +665,19 @@ class MatrixBot:
         Telegram behaviour).
         """
         mx = self._config.matrix
-        room_id = getattr(room, "room_id", "")
-        sender = getattr(event, "sender", "")
-
-        room_ok = not mx.allowed_rooms or room_id in self._allowed_rooms_set
+        room_ok = not mx.allowed_rooms or room.room_id in self._allowed_rooms_set
 
         # In group rooms with group_mention_only, skip user check
         if self._config.group_mention_only and not self._is_dm_room(room):
             return room_ok
 
-        user_ok = not mx.allowed_users or sender in mx.allowed_users
+        user_ok = not mx.allowed_users or event.sender in mx.allowed_users
         return room_ok and user_ok
 
     # --- Group / mention helpers ---
 
     @staticmethod
-    def _is_dm_room(room: object) -> bool:
+    def _is_dm_room(room: MatrixRoom) -> bool:
         """True if the room is a direct message (2 or fewer members).
 
         Named rooms (with a name or canonical alias) are always treated
@@ -669,14 +685,14 @@ class MatrixBot:
         the full member list yet right after joining.
         """
         # Named rooms are never DMs
-        name = getattr(room, "name", None)
-        alias = getattr(room, "canonical_alias", None)
-        if name or alias:
+        if room.name or room.canonical_alias:
             return False
-        member_count = getattr(room, "member_count", 0)
-        return member_count <= 2
+        return room.member_count <= 2
 
-    def _is_message_addressed(self, event: object) -> bool:
+    def _is_message_addressed(
+        self,
+        event: RoomMessageText | RoomMessageMedia,
+    ) -> bool:
         """True if a group message is addressed to this bot.
 
         Checks:
@@ -688,7 +704,8 @@ class MatrixBot:
         if not bot_user_id:
             return False
 
-        body = getattr(event, "body", "") or ""
+        body = event.body or ""
+        # formatted_body exists on RoomMessageText but not media
         formatted_body = getattr(event, "formatted_body", "") or ""
 
         # 1+2: user_id in body or formatted_body
@@ -696,7 +713,7 @@ class MatrixBot:
             return True
 
         # 3: reply to a bot message
-        source = getattr(event, "source", {})
+        source = event.source
         content = source.get("content", {}) if isinstance(source, dict) else {}
         relates_to = content.get("m.relates_to", {})
         if isinstance(relates_to, dict):
@@ -719,6 +736,8 @@ class MatrixBot:
         """Record a sent event ID for reply-to-bot detection."""
         if event_id:
             self._sent_event_ids.append(event_id)
+        else:
+            logger.debug("_track_sent_event: no event_id (send failure?)")
 
     async def _send_rich(self, room_id: str, text: str) -> str | None:
         """Send a message and track the event ID for reply detection."""
@@ -772,7 +791,13 @@ class MatrixBot:
                         },
                     )
                 except Exception:
-                    logger.debug("Failed to send reaction %d", i + 1, exc_info=True)
+                    logger.warning(
+                        "Failed to send reaction %d/%d for room %s",
+                        i + 1,
+                        len(labels),
+                        room_id,
+                        exc_info=True,
+                    )
                     break
 
     # --- Reaction handling ---
@@ -820,7 +845,7 @@ class MatrixBot:
             return
 
         chat_id = self._id_map.room_to_int(room_id)
-        key = SessionKey(chat_id=chat_id, topic_id=None)
+        key = SessionKey(transport="mx", chat_id=chat_id, topic_id=None)
         resp = None
 
         if is_model_selector_callback(callback_data):
@@ -992,9 +1017,13 @@ class MatrixBot:
                     self._sync_task.cancel()
                 break
 
+    def _broadcast_rooms(self) -> list[str]:
+        """Return rooms for broadcast delivery."""
+        return resolve_broadcast_rooms(self._config, self._last_active_room)
+
     async def broadcast(self, text: str) -> None:
         """Send a message to all allowed rooms (falls back to last active room)."""
-        rooms = resolve_broadcast_rooms(self._config, self._last_active_room)
+        rooms = self._broadcast_rooms()
         if not rooms:
             logger.warning("broadcast: no rooms available, message lost: %s", text[:80])
             return

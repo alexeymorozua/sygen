@@ -29,19 +29,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-async def _inject_prompt(
+async def _inject_prompt(  # noqa: PLR0913
     orch: Orchestrator,
     prompt: str,
     chat_id: int,
     process_label: str,
     *,
     topic_id: int | None = None,
+    transport: str = "tg",
 ) -> str:
     """Execute *prompt* in the current active session and update session state.
 
     Shared by ``handle_async_interagent_result`` and ``handle_task_question``.
     """
-    key = SessionKey(chat_id=chat_id, topic_id=topic_id)
+    key = SessionKey(transport=transport, chat_id=chat_id, topic_id=topic_id)
     active = await orch._sessions.get_active(key)
     resume_id = active.session_id if active else None
 

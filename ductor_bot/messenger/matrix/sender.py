@@ -8,12 +8,12 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-import mimetypes
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ductor_bot.files.tags import guess_mime
 from ductor_bot.messenger.matrix.formatting import markdown_to_matrix_html
 
 if TYPE_CHECKING:
@@ -21,7 +21,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MAX_EVENT_SIZE = 60_000  # Matrix allows 65536 bytes per event; leave headroom
+# Matrix spec allows 65536 bytes per event body.
+# Reserve ~5.5 KB for JSON framing overhead (event metadata,
+# content keys, formatting tags).
+_MAX_EVENT_SIZE = 60_000
 _FILE_TAG_RE = re.compile(r"<file:(.*?)>")
 
 
@@ -117,7 +120,7 @@ def _file_accessible(
 
 def _read_file(file_path: Path) -> tuple[str, bytes, str]:
     """Read file data synchronously — returns (mime, data, name)."""
-    mime = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
+    mime = guess_mime(file_path)
     data = file_path.read_bytes()
     return mime, data, file_path.name
 
@@ -173,8 +176,13 @@ async def _upload_and_send_file(
 def _split_text(plain: str, _html_body: str) -> list[tuple[str, str]]:
     """Split text into chunks that fit within the Matrix event size limit.
 
-    Splits the raw plain text by lines and converts each chunk independently
-    so that plain/HTML line counts always match.
+    Splits raw plain text by lines and converts each chunk to HTML
+    independently.  Formatting spanning chunk boundaries (e.g. a very
+    long code block) may be disrupted — acceptable for the rare
+    >60 KB case.
+
+    *_html_body* is intentionally unused; each chunk is converted
+    fresh to guarantee plain/HTML alignment.
     """
     plain_lines = plain.split("\n")
 

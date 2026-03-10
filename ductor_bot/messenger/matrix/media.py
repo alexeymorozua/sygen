@@ -14,6 +14,7 @@ from ductor_bot.files.prompt import build_media_prompt as _build_media_prompt_ge
 from ductor_bot.files.storage import prepare_destination as _prepare_destination
 from ductor_bot.files.storage import sanitize_filename as _sanitize_filename
 from ductor_bot.files.storage import update_index as _update_index
+from ductor_bot.files.tags import guess_mime
 
 if TYPE_CHECKING:
     from nio import AsyncClient
@@ -45,9 +46,12 @@ async def resolve_matrix_media(
     try:
         info = await download_matrix_media(client, event, matrix_files_dir)
     except Exception:
-        logger.exception("Failed to download Matrix media")
+        logger.exception("Failed to resolve Matrix media")
         if error_callback:
-            await error_callback("Could not download that file.")
+            try:
+                await error_callback("Could not download that file.")
+            except Exception:
+                logger.warning("error_callback failed", exc_info=True)
         return None
 
     if info is None:
@@ -148,10 +152,19 @@ _MSGTYPE_ORIGINAL_TYPE: dict[str, str] = {
 
 
 def _mime_from_msgtype(msgtype: str, file_name: str) -> str:
-    """Derive MIME type from Matrix msgtype and filename."""
+    """Derive MIME type from Matrix msgtype and filename.
+
+    Uses ``guess_mime`` for the fallback (magic bytes + extension).
+    Since the file may not exist on disk yet (only a filename from the
+    event metadata), ``FileNotFoundError`` from magic-byte probing is
+    caught and falls through to pure extension guessing.
+    """
     mime = _MSGTYPE_MIME.get(msgtype, "")
     if not mime:
-        mime = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+        try:
+            mime = guess_mime(file_name)
+        except FileNotFoundError:
+            mime = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
     return mime
 
 
