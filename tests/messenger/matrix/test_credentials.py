@@ -116,7 +116,7 @@ class TestLoginOrRestore:
         config.device_id = ""
         config.password = "bad-password"
 
-        with pytest.raises(RuntimeError, match="Matrix login failed"):
+        with pytest.raises(RuntimeError, match="Matrix AUTH FAILED"):
             await login_or_restore(client, config, tmp_path)
 
     async def test_no_credentials_no_password_raises(self, tmp_path: Path) -> None:
@@ -126,7 +126,7 @@ class TestLoginOrRestore:
         config.device_id = ""
         config.password = ""
 
-        with pytest.raises(RuntimeError, match="no access_token"):
+        with pytest.raises(RuntimeError, match="Matrix AUTH FAILED"):
             await login_or_restore(client, config, tmp_path)
 
     async def test_corrupt_saved_credentials_falls_through(self, tmp_path: Path) -> None:
