@@ -25,6 +25,10 @@ def _no_real_process_signals() -> object:
             return_value=None,
         ),
         patch(
+            "ductor_bot.cli.process_registry.interrupt_process",
+            return_value=None,
+        ),
+        patch(
             "ductor_bot.cli.executor.force_kill_process_tree",
             return_value=None,
         ),
