@@ -11,6 +11,7 @@ from __future__ import annotations
 DIRECT_COMMANDS: frozenset[str] = frozenset(
     {
         "stop",
+        "interrupt",
         "stop_all",
         "restart",
         "new",

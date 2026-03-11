@@ -261,6 +261,11 @@ Matrix auth uses room and user allowlists in the `matrix` config block:
 - **`allowed_rooms`** — Room IDs or aliases where the bot may operate.
 - **`allowed_users`** — Matrix user IDs allowed to interact with the bot.
 
+`group_mention_only` nuance on Matrix:
+
+- In non-DM rooms, when `group_mention_only=true`, the bot requires @mention/reply and bypasses `allowed_users` checks for those group messages.
+- Room-level filtering (`allowed_rooms`) still applies.
+
 The bot logs in with password on first start, then persists `access_token` and `device_id` for subsequent runs. E2EE is supported via `matrix-nio[e2e]`.
 
 ## Commands
@@ -270,6 +275,7 @@ The bot logs in with password on first start, then persists `access_token` and `
 | `/model` | Interactive model/provider selector |
 | `/new` | Reset active provider session |
 | `/stop` | Abort active run |
+| `/interrupt` | Soft interrupt current tool (ESC equivalent) |
 | `/stop_all` | Abort runs across all agents |
 | `/status` | Session/provider/auth status |
 | `/memory` | Show persistent memory |

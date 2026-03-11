@@ -426,6 +426,15 @@ class Orchestrator:
         self._named_sessions.end_all(chat_id)
         return killed
 
+    def interrupt(self, chat_id: int) -> int:
+        """Send SIGINT to active CLI processes for *chat_id*.
+
+        Unlike :meth:`abort` this does not kill or unregister the processes.
+        It sends a soft interrupt so the CLI can cancel the current tool
+        execution (equivalent to pressing ESC in the terminal).
+        """
+        return self._process_registry.interrupt_all(chat_id)
+
     async def abort_all(self) -> int:
         """Kill all active CLI processes across all chats on this agent."""
         return await self._process_registry.kill_all_active()
