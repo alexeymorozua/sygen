@@ -49,6 +49,7 @@ from ductor_bot.messenger.telegram.handlers import (
 )
 from ductor_bot.messenger.telegram.media import (
     has_media,
+    is_command_for_others,
     is_media_addressed,
     is_message_addressed,
     resolve_media_text,
@@ -267,6 +268,18 @@ class TelegramBot:
         """Shared lock pool (used by middleware, bus, and API server)."""
         return self._lock_pool
 
+    def _is_addressed(self, message: Message) -> bool:
+        """True if the message is addressed to this bot instance."""
+        if message.chat.type not in ("group", "supergroup"):
+            return True
+        return is_message_addressed(message, self._bot_id, self._bot_username)
+
+    def _is_for_others(self, message: Message) -> bool:
+        """True if the message is a command explicitly for another bot."""
+        if message.chat.type not in ("group", "supergroup"):
+            return False
+        return is_command_for_others(message, self._bot_username)
+
     def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
         """Allowed root directories for ``<file:...>`` tag sends."""
         return resolve_allowed_roots(self._config.file_access, paths.workspace)
@@ -280,6 +293,7 @@ class TelegramBot:
         from ductor_bot.messenger.telegram.startup import run_startup
 
         await run_startup(self)
+        self._sequential.set_bot_username(self._bot_username)
 
     def _register_handlers(self) -> None:
         r = self._router
@@ -604,11 +618,19 @@ class TelegramBot:
 
     async def _on_start(self, message: Message) -> None:
         """Handle /start: always show welcome screen."""
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await self._show_welcome(message)
         await self._send_join_notification(message.chat.id)
 
     async def _on_help(self, message: Message) -> None:
         """Handle /help: show command reference."""
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await send_rich(
             self._bot,
             message.chat.id,
@@ -618,6 +640,10 @@ class TelegramBot:
 
     async def _on_agent_commands(self, message: Message) -> None:
         """Handle /agent_commands: explain multi-agent system + list commands."""
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         chat_id = message.chat.id
         thread_id = get_thread_id(message)
 
@@ -647,6 +673,10 @@ class TelegramBot:
 
     async def _on_info(self, message: Message) -> None:
         """Handle /info: show project links and version."""
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         version = get_current_version()
@@ -748,14 +778,16 @@ class TelegramBot:
         "agent is working" message; otherwise it acquires the lock for an
         atomic model switch.
         """
+        if self._is_for_others(message) or (
+            self._config.group_mention_only and not self._is_addressed(message)
+        ):
+            return False
+
         text_lower = (message.text or "").strip().lower()
 
         direct = await self._dispatch_direct_command(chat_id, message, text_lower)
-        if direct is not None:
-            return direct
-
-        if self._orchestrator is None:
-            return False
+        if direct is not None or self._orchestrator is None:
+            return direct or False
 
         if text_lower.startswith(("/sessions", "/tasks")):
             await handle_command(self._orchestrator, self._bot, message)
@@ -781,6 +813,10 @@ class TelegramBot:
         return True
 
     async def _on_stop_all(self, message: Message) -> None:
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_abort_all(
             self._orchestrator,
             self._bot,
@@ -790,6 +826,10 @@ class TelegramBot:
         )
 
     async def _on_stop(self, message: Message) -> None:
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_abort(
             self._orchestrator,
             self._bot,
@@ -798,9 +838,17 @@ class TelegramBot:
         )
 
     async def _on_command(self, message: Message) -> None:
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_command(self._orch, self._bot, message)
 
     async def _on_new(self, message: Message) -> None:
+        if self._is_for_others(message):
+            return
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_new_session(self._orch, self._bot, message, topic_names=self._topic_names)
 
     async def _on_forum_topic_created(self, message: Message) -> None:
@@ -973,13 +1021,19 @@ class TelegramBot:
 
     async def _on_sessions(self, message: Message) -> None:
         """Handle /sessions: show session management UI."""
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_command(self._orch, self._bot, message)
 
     async def _on_tasks(self, message: Message) -> None:
         """Handle /tasks: show background task management UI."""
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         await handle_command(self._orch, self._bot, message)
 
     async def _on_restart(self, message: Message) -> None:
+        if self._config.group_mention_only and not self._is_addressed(message):
+            return
         from ductor_bot.infra.restart import write_restart_sentinel
 
         chat_id = message.chat.id
@@ -1239,12 +1293,11 @@ class TelegramBot:
             )
         if not message.text:
             return None
-        if (
-            is_group
-            and self._config.group_mention_only
-            and not is_message_addressed(message, self._bot_id, self._bot_username)
-        ):
-            return None
+        if is_group:
+            if self._is_for_others(message):
+                return None
+            if self._config.group_mention_only and not self._is_addressed(message):
+                return None
         return strip_mention(message.text, self._bot_username)
 
     async def _handle_streaming(
