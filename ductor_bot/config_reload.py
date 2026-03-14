@@ -57,6 +57,7 @@ _HOT_RELOADABLE: frozenset[str] = frozenset(
         "group_mention_only",
         "scene",
         "image",
+        "language",
     }
 )
 
