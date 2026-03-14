@@ -74,11 +74,14 @@ reboot_header = "**Бот запущен**"
 reboot_body = "Обнаружена перезагрузка системы — мы снова в строю!"
 
 restart_default = "Перезапуск завершён. Мы вернулись!"
+restart_header = "**Перезапуск**"
+restart_body = "Бот выключается и скоро вернётся."
 
 upgrade_complete = "**Обновление завершено** `{old}` -> `{new}`"
 
 matrix_restart = "**Бот перезапущен** ({reason})"
 matrix_update = "**Доступно обновление:** `{version}`\nИспользуй `/upgrade` для обновления."
+matrix_upgraded_restarting = "Обновлён с {old} до {new}. Перезапуск..."
 
 [recovery]
 named_header = "**Авто-восстановление**"

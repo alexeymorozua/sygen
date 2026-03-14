@@ -474,7 +474,7 @@ class MatrixBot:
         write_restart_marker(marker_path=marker)
         await self._send_rich(
             room_id,
-            fmt("**Restarting**", SEP, "Bot is shutting down and will be back shortly."),
+            fmt(t("startup.restart_header"), SEP, t("startup.restart_body")),
         )
         self._exit_code = EXIT_RESTART
         if self._sync_task and not self._sync_task.done():
@@ -967,7 +967,9 @@ class MatrixBot:
             if changed:
                 marker = _expand_marker(self._config.ductor_home)
                 write_restart_marker(marker_path=marker)
-                await self._send_rich(room_id, f"Upgraded {current} → {installed}. Restarting...")
+                await self._send_rich(
+                    room_id, t("startup.matrix_upgraded_restarting", old=current, new=installed)
+                )
                 self._exit_code = EXIT_RESTART
                 if self._sync_task and not self._sync_task.done():
                     self._sync_task.cancel()

@@ -74,11 +74,14 @@ reboot_header = "**Bot iniciado**"
 reboot_body = "Reinicio del sistema detectado — ¡estamos de vuelta!"
 
 restart_default = "Reinicio completado."
+restart_header = "**Reiniciando**"
+restart_body = "El bot se está apagando y volverá en un momento."
 
 upgrade_complete = "**Actualización completada** `{old}` -> `{new}`"
 
 matrix_restart = "**Bot reiniciado** ({reason})"
 matrix_update = "**Actualización disponible:** `{version}`\nUsa `/upgrade` para actualizar."
+matrix_upgraded_restarting = "Actualizado de {old} a {new}. Reiniciando..."
 
 [recovery]
 named_header = "**Auto-recuperación**"
