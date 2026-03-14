@@ -247,13 +247,15 @@ class CronObserver(BaseTaskObserver):
         except Exception:
             logger.exception("Cron job %s failed unexpectedly", scheduled_job.id)
         if self._running:
-            self._schedule_job(
-                scheduled_job.id,
-                scheduled_job.schedule,
-                scheduled_job.instruction,
-                scheduled_job.task_folder,
-                scheduled_job.timezone,
-            )
+            job = self._manager.get_job(scheduled_job.id)
+            if job and job.enabled:
+                self._schedule_job(
+                    scheduled_job.id,
+                    scheduled_job.schedule,
+                    scheduled_job.instruction,
+                    scheduled_job.task_folder,
+                    scheduled_job.timezone,
+                )
 
     # -- Execution --
 
@@ -301,6 +303,10 @@ class CronObserver(BaseTaskObserver):
         job = self._manager.get_job(job_id)
         job_title = job.title if job else job_id
         routing = (job.chat_id, job.topic_id, job.transport) if job else (0, None, "tg")
+
+        if job and not job.enabled:
+            logger.info("Cron job %s is disabled, skipping execution", job_title)
+            return
 
         if self._is_quiet_hours(job, job_title):
             return
