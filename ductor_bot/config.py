@@ -124,6 +124,14 @@ class CLIParametersConfig(BaseModel):
     gemini: list[str] = Field(default_factory=list)
 
 
+class ImageConfig(BaseModel):
+    """Settings for incoming image processing."""
+
+    max_dimension: int = 2000
+    output_format: str = "webp"
+    quality: int = 85
+
+
 class MatrixConfig(BaseModel):
     """Matrix homeserver connection settings."""
 
@@ -273,6 +281,7 @@ class AgentConfig(BaseModel):
 
     @field_validator("gemini_api_key", mode="before")
     @classmethod
+    image: ImageConfig = Field(default_factory=ImageConfig)
     def _normalize_gemini_api_key(cls, value: object) -> object:
         """Normalize null-like string values to ``None`` for optional key config."""
         if not isinstance(value, str):
