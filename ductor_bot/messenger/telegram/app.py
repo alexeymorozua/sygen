@@ -103,9 +103,23 @@ _CAPTION_LIMIT = 1024
 TypingContext = _TypingContext
 send_files_from_text = _send_files_from_text
 
-_BOT_COMMANDS = [BotCommand(command=cmd, description=desc) for cmd, desc in _COMMAND_DEFS]
+_BOT_COMMANDS: list[BotCommand] = [
+    BotCommand(command=cmd, description=desc) for cmd, desc in _COMMAND_DEFS
+]
 
 _CMD_DESC: dict[str, str] = {**dict(_COMMAND_DEFS), **dict(_MA_SUB_DEFS)}
+
+
+def _rebuild_commands() -> None:
+    """Rebuild module-level command lists from current translations."""
+    global _BOT_COMMANDS  # noqa: PLW0603
+    from ductor_bot.commands import get_bot_commands, get_multiagent_sub_commands
+
+    cmd_defs = get_bot_commands()
+    ma_defs = get_multiagent_sub_commands()
+    _BOT_COMMANDS = [BotCommand(command=cmd, description=desc) for cmd, desc in cmd_defs]
+    _CMD_DESC.clear()
+    _CMD_DESC.update({**dict(cmd_defs), **dict(ma_defs)})
 
 
 def _help_line(command: str) -> str:
@@ -343,7 +357,7 @@ class TelegramBot:
         )
 
     def _on_auth_hot_reload(self, config: AgentConfig, hot: dict[str, object]) -> None:
-        """Update auth sets in-place when config is hot-reloaded."""
+        """Update auth sets and language in-place when config is hot-reloaded."""
         if "allowed_user_ids" in hot:
             self._allowed_users.clear()
             self._allowed_users.update(config.allowed_user_ids)
@@ -353,6 +367,10 @@ class TelegramBot:
             self._allowed_groups.update(config.allowed_group_ids)
             logger.info("Auth hot-reloaded: allowed_group_ids (%d)", len(self._allowed_groups))
             self._group_audit_task = asyncio.create_task(self._fire_audit())
+        if "language" in hot:
+            _rebuild_commands()
+            self._lang_sync_task = asyncio.create_task(self._sync_commands())
+            logger.info("Language hot-reloaded: commands re-synced")
 
     # -- Chat tracker (my_chat_member + /where + /leave) ------------------------
 
@@ -1035,9 +1053,9 @@ class TelegramBot:
         paths = self._orch.paths
         sentinel = paths.ductor_home / "restart-sentinel.json"
         await asyncio.to_thread(
-            write_restart_sentinel, chat_id, "Restart completed.", sentinel_path=sentinel
+            write_restart_sentinel, chat_id, t("startup.restart_default"), sentinel_path=sentinel
         )
-        text = fmt("**Restarting**", SEP, "Bot is shutting down and will be back shortly.")
+        text = fmt(t("startup.restart_header"), SEP, t("startup.restart_body"))
         await send_rich(
             self._bot,
             message.chat.id,

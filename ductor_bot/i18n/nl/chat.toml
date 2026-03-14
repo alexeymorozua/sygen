@@ -74,11 +74,14 @@ reboot_header = "**Bot gestart**"
 reboot_body = "Systeemherstart gedetecteerd — we zijn er weer."
 
 restart_default = "Herstart voltooid."
+restart_header = "**Herstarten**"
+restart_body = "Bot gaat even uit en is zo weer terug."
 
 upgrade_complete = "**Upgrade voltooid** `{old}` -> `{new}`"
 
 matrix_restart = "**Bot herstart** ({reason})"
 matrix_update = "**Update beschikbaar:** `{version}`\nGebruik `/upgrade` om te updaten."
+matrix_upgraded_restarting = "Upgrade van {old} naar {new}. Herstarten..."
 
 [recovery]
 named_header = "**Auto-Recovery**"

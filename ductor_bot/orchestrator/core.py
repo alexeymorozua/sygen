@@ -640,6 +640,11 @@ class Orchestrator:
         if "model" in hot:
             self._providers.refresh_known_model_ids()
 
+        if "language" in hot:
+            from ductor_bot.i18n import init as init_i18n
+
+            init_i18n(config.language)
+
         handler = getattr(self, "_config_hot_reload_handler", None)
         if handler is not None:
             handler(config, hot)
