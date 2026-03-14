@@ -128,6 +128,11 @@ async def _build_page(
         last_run = ""
         if job.last_run_status:
             last_run = f" | last: {job.last_run_status}"
+        routing = ""
+        if job.chat_id:
+            routing = f"\n   → Chat {job.chat_id}"
+            if job.topic_id:
+                routing += f" / Topic {job.topic_id}"
         lines.append(
             t(
                 "cron.job_line",
@@ -137,6 +142,7 @@ async def _build_page(
                 last_run=last_run,
                 schedule=job.schedule,
             )
+            + routing
         )
         button_text = (
             t("cron.btn_disable", number=number)
