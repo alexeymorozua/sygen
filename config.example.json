@@ -4,6 +4,7 @@
     "log_level": "INFO",
     "provider": "claude",
     "model": "sonnet",
+    "language": "en",
     "ductor_home": "~/.ductor",
     "user_timezone": "Europe/Berlin",
     "update_check": true,
@@ -87,7 +88,17 @@
         "quiet_start": 22,
         "quiet_end": 8,
         "prompt": "You are running as a background heartbeat check. Review the current workspace context:\n- Read memory_system/MAINMEMORY.md for user interests and personality\n- Check cron_tasks/ for active projects\n- Think about what might be useful, interesting, or fun for the user\n\nIf you have a creative idea, suggestion, interesting fact, or something the user might enjoy:\nReply with your message directly.\n\nIf nothing needs attention right now:\nReply exactly: HEARTBEAT_OK",
-        "ack_token": "HEARTBEAT_OK"
+        "ack_token": "HEARTBEAT_OK",
+        "group_targets": [
+            {
+                "chat_id": -1001234567890,
+                "topic_id": 5,
+                "prompt": "Check server status and report anomalies.",
+                "interval_minutes": 60,
+                "quiet_start": 23,
+                "quiet_end": 7
+            }
+        ]
     },
 
     "cleanup": {
@@ -120,6 +131,17 @@
         "claude": ["--verbose", "--chrome"],
         "codex": [],
         "gemini": []
+    },
+
+    "image": {
+        "max_dimension": 2000,
+        "output_format": "webp",
+        "quality": 85
+    },
+
+    "scene": {
+        "seen_reaction": false,
+        "technical_footer": false
     },
 
     "timeouts": {
