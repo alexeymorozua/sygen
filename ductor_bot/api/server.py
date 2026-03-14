@@ -43,6 +43,7 @@ from aiohttp import BodyPartReader, WSMsgType, web
 
 from ductor_bot.api.crypto import E2ESession
 from ductor_bot.bus.lock_pool import LockPool
+from ductor_bot.files.image_processor import process_image
 from ductor_bot.files.prompt import MediaInfo, build_media_prompt
 from ductor_bot.files.storage import prepare_destination, sanitize_filename
 from ductor_bot.files.tags import (
@@ -343,6 +344,10 @@ class ApiServer:
 
         # Read optional caption from a second multipart field
         caption: str | None = None
+        dest = await asyncio.to_thread(process_image, dest)
+        if dest.suffix == ".webp":
+            mime = "image/webp"
+
         next_field = await reader.next()
         if isinstance(next_field, BodyPartReader) and next_field.name == "caption":
             caption = (await next_field.read(decode=True)).decode("utf-8", errors="replace")
