@@ -1285,7 +1285,13 @@ class TelegramBot:
         is_group = message.chat.type in ("group", "supergroup")
 
         if has_media(message):
-            if is_group and not is_media_addressed(message, self._bot_id, self._bot_username):
+            if is_group and (
+                self._is_for_others(message)
+                or (
+                    self._config.group_mention_only
+                    and not is_media_addressed(message, self._bot_id, self._bot_username)
+                )
+            ):
                 return None
             paths = self._orch.paths
             return await resolve_media_text(
