@@ -111,7 +111,7 @@ class MatrixTransport:
     async def _deliver_heartbeat(self, env: Envelope) -> None:
         room_id = self._resolve_room(env)
         if room_id and env.result_text:
-            await matrix_send_rich(self._bot.client, room_id, env.result_text)
+            await matrix_send_rich(self._bot.client, room_id, env.result_text, self._opts(env))
 
     async def _deliver_interagent(self, env: Envelope) -> None:
         room_id = self._resolve_room(env)
