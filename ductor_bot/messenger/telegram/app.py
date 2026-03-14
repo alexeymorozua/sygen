@@ -809,9 +809,7 @@ class TelegramBot:
             return True
 
         if text_lower.startswith("/model"):
-            key = get_session_key(message)
-            async with self._sequential.get_lock(key.lock_key):
-                await handle_command(self._orchestrator, self._bot, message)
+            await handle_command(self._orchestrator, self._bot, message)
             return True
 
         await handle_command(self._orchestrator, self._bot, message)
