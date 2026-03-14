@@ -124,14 +124,30 @@ class TelegramTransport:
         )
 
     async def _deliver_heartbeat(self, env: Envelope) -> None:
-        logger.debug("Heartbeat delivery chars=%d topic=%s", len(env.result_text), env.topic_id)
-        await send_rich(
-            self._bot.bot_instance,
-            env.chat_id,
-            env.result_text,
-            SendRichOpts(allowed_roots=self._roots(), thread_id=env.topic_id),
-        )
-        logger.info("Heartbeat delivered")
+        """Deliver heartbeat to chat/topic. Falls back to main user on failure."""
+        from aiogram.exceptions import TelegramAPIError
+
+        opts = SendRichOpts(allowed_roots=self._roots(), thread_id=env.topic_id)
+        try:
+            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
+            logger.info("Heartbeat delivered")
+        except TelegramAPIError:
+            target = f"Chat {env.chat_id}"
+            if env.topic_id:
+                target += f" / Topic {env.topic_id}"
+            logger.warning("Heartbeat delivery failed for %s, falling back to main user", target)
+            fallback_text = (
+                f"**Heartbeat delivery failed**\n\n"
+                f"Could not deliver to {target}.\n\n"
+                f"---\n{env.result_text}"
+            )
+            fallback_id = self._bot._config.allowed_user_ids[0]
+            await send_rich(
+                self._bot.bot_instance,
+                fallback_id,
+                fallback_text,
+                SendRichOpts(allowed_roots=self._roots()),
+            )
 
     async def _deliver_interagent(self, env: Envelope) -> None:
         """Deliver inter-agent result (error notification or injected response)."""
