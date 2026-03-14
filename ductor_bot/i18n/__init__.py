@@ -25,6 +25,11 @@ _store: TranslationStore | None = None
 LANGUAGES: dict[str, str] = {
     "en": "English",
     "de": "Deutsch",
+    "nl": "Nederlands",
+    "es": "Español",
+    "fr": "Français",
+    "pt": "Português",
+    "ru": "Русский",
 }
 
 
