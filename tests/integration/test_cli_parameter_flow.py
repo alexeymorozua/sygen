@@ -48,7 +48,8 @@ def test_main_agent_claude_parameters() -> None:
         cli_parameters=["--claude-flag", "claude-value"],
     )
 
-    provider = ClaudeCodeCLI(config)
+    with patch("sygen_bot.cli.claude_provider.which", return_value="/usr/bin/claude"):
+        provider = ClaudeCodeCLI(config)
     cmd = provider._build_command("test prompt")
 
     # Verify Claude parameters are present before --
@@ -121,7 +122,8 @@ def test_parameter_isolation() -> None:
         cli_parameters=["--claude-flag", "claude-value"],
     )
 
-    claude_provider = ClaudeCodeCLI(claude_config)
+    with patch("sygen_bot.cli.claude_provider.which", return_value="/usr/bin/claude"):
+        claude_provider = ClaudeCodeCLI(claude_config)
     claude_cmd = claude_provider._build_command("test prompt")
 
     # Verify Claude command doesn't contain Codex params
