@@ -7,7 +7,7 @@ Strategies (tried in order):
 3. Local `whisper-cli` (whisper.cpp)
 
 Usage:
-    python tools/media_tools/transcribe_audio.py --file /path/to/audio.ogg
+    python tools/telegram_tools/transcribe_audio.py --file /path/to/audio.ogg
 """
 from __future__ import annotations
 
@@ -98,16 +98,34 @@ def _transcribe_whisper_cpp(path: Path) -> dict:
     if not whisper_cli:
         return {"error": "whisper-cli not found"}
 
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return {"error": "ffmpeg not found"}
+
+    wav_path = path.with_suffix(".temp.wav")
+    try:
+        subprocess.run(
+            [ffmpeg, "-y", "-i", str(path), "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(wav_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        return {"error": f"ffmpeg conversion failed: {exc.stderr[:500] if exc.stderr else ''}"}
+
     try:
         result = subprocess.run(
-            [whisper_cli, "-f", str(path), "--no-timestamps"],
+            [whisper_cli, "-m", str(Path.home() / ".local/share/whisper-cpp/models/ggml-small.bin"), "-f", str(wav_path), "-l", "ru", "--no-timestamps"],
             capture_output=True,
             text=True,
             timeout=300,
             check=False,
         )
     except subprocess.TimeoutExpired:
+        wav_path.unlink(missing_ok=True)
         return {"error": "whisper-cli timed out after 300s"}
+
+    wav_path.unlink(missing_ok=True)
 
     if result.returncode != 0:
         return {"error": f"whisper-cli failed: {result.stderr[:500]}"}
