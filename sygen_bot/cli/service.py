@@ -94,6 +94,7 @@ class CLIServiceConfig:
     gemini_cli_parameters: tuple[str, ...] = ()
     agent_name: str = "main"
     interagent_port: int = 8799
+    mcp_config_path: str = ""
 
     def cli_parameters_for_provider(self, provider: str) -> list[str]:
         """Return CLI parameters for the given provider."""
@@ -101,7 +102,14 @@ class CLIServiceConfig:
             return list(self.codex_cli_parameters)
         if provider == "gemini":
             return list(self.gemini_cli_parameters)
-        return list(self.claude_cli_parameters)
+        params = list(self.claude_cli_parameters)
+        if (
+            provider == "claude"
+            and self.mcp_config_path
+            and "--mcp-config" not in params
+        ):
+            params.extend(["--mcp-config", self.mcp_config_path])
+        return params
 
 
 class CLIService:

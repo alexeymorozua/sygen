@@ -62,7 +62,10 @@ api = [
 matrix = [
     "matrix-nio>=0.25.0",
 ]
-dev = ["sygen[test,lint,api,matrix]"]
+mcp = [
+    "mcp>=1.20.0",
+]
+dev = ["sygen[test,lint,api,matrix,mcp]"]
 
 [project.urls]
 Repository = "https://github.com/alexeymorozua/sygen"
@@ -195,6 +198,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["PIL.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

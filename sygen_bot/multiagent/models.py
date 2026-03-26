@@ -14,6 +14,7 @@ from sygen_bot.config import (
     DockerConfig,
     HeartbeatConfig,
     MatrixConfig,
+    MCPConfig,
     StreamingConfig,
     WebhookConfig,
 )
@@ -63,6 +64,7 @@ class SubAgentConfig(BaseModel):
     webhooks: WebhookConfig | None = None
     api: ApiConfig | None = None
     cli_parameters: CLIParametersConfig | None = None
+    mcp: MCPConfig | None = None
     user_timezone: str | None = None
 
 

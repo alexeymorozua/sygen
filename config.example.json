@@ -128,6 +128,29 @@
         "allow_public": false
     },
 
+    "mcp": {
+        "enabled": false,
+        "servers": [
+            {
+                "name": "filesystem",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/you/projects"],
+                "env": {},
+                "transport": "stdio",
+                "enabled": true,
+                "auto_restart": true,
+                "restart_delay_seconds": 5.0,
+                "startup_timeout_seconds": 30.0
+            },
+            {
+                "name": "remote-api",
+                "transport": "sse",
+                "url": "http://localhost:3001/sse",
+                "enabled": false
+            }
+        ]
+    },
+
     "cli_parameters": {
         "claude": ["--verbose", "--chrome"],
         "codex": [],
