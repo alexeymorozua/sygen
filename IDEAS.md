@@ -4,17 +4,6 @@ Based on competitor research (OpenClaw, ClaudeClaw, Goose, Aider, Cursor, Devin 
 
 ## High Priority
 
-### MCP Integration
-Model Context Protocol — industry standard, 3000+ ready servers (GitHub, Google Drive, Slack, Docker, K8s).
-- Every major competitor supports MCP (Goose, Claude Code, Cline, Codex CLI)
-- Opens massive integration ecosystem without custom code
-- Complexity: HIGH
-
-### WhatsApp Channel
-Add WhatsApp as a messaging transport.
-- Killer feature of OpenClaw — most popular messenger worldwide
-- Complexity: MEDIUM
-
 ### Multi-LLM Support
 Per-chat/per-task model selection (Claude, GPT, Gemini, DeepSeek, local models).
 - Reduces vendor lock-in + cost optimization
@@ -80,7 +69,9 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 Route simple questions to cheaper models (Haiku), complex tasks to Opus.
 Cost optimization without quality loss. ~1-2 hours to implement basic version.
 
-## Already Implemented (removed from backlog)
+## Already Implemented / Rejected
 
+- ~~MCP Integration~~ — native MCP client implemented in sygen_bot/mcp/ (client, manager, tool_router, /mcp command)
 - ~~Verbose Levels~~ — covered by core: reaction_style (off/seen/detailed) + tool names + status tags
 - ~~Conversation Export~~ — not needed, history already in Telegram
+- ~~WhatsApp Channel~~ — API платный, ограниченный (нет edit/streaming/кнопок), для личного use-case не оправдан
