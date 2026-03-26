@@ -50,6 +50,7 @@ from sygen_bot.orchestrator.hooks import (
     DELEGATION_BRIEF,
     DELEGATION_REMINDER,
     MAINMEMORY_REMINDER,
+    MEMORY_REFLECTION,
     MessageHookRegistry,
 )
 from sygen_bot.orchestrator.observers import ObserverManager
@@ -175,6 +176,7 @@ class Orchestrator:
         self._inflight_tracker = InflightTracker(paths.inflight_turns_path)
         self._hook_registry = MessageHookRegistry()
         self._hook_registry.register(MAINMEMORY_REMINDER)
+        self._hook_registry.register(MEMORY_REFLECTION)
         self._hook_registry.register(DELEGATION_BRIEF)
         self._hook_registry.register(DELEGATION_REMINDER)
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
@@ -414,12 +416,8 @@ class Orchestrator:
 
     async def reset_active_provider_session(self, key: SessionKey) -> str:
         """Reset only the active provider session bucket for a given key."""
-        active = await self._sessions.get_active(key)
-        if active is not None:
-            provider = active.provider
-            model = active.model
-        else:
-            model, provider = self.resolve_runtime_target(self._config.model)
+        # Always use config model so /new picks up the current default
+        model, provider = self.resolve_runtime_target(self._config.model)
 
         await self._sessions.reset_provider_session(
             key,

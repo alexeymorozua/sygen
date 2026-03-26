@@ -177,11 +177,16 @@ async def run_streaming_subprocess(
         )
         return
     finally:
+        # Kill subprocess if cancelled (issue #92)
+        if process.returncode is None:
+            force_kill_process_tree(process.pid)
+            await process.wait()
         await _cancel_drain(stderr_drain)
         if tracked and reg:
             reg.unregister(tracked)
 
-    await process.wait()
+    if process.returncode is None:
+        await process.wait()
 
     handler = post_handler or _default_post_handler
     async for event in handler(SubprocessResult(process=process, stderr_bytes=stderr_bytes)):
@@ -312,6 +317,10 @@ async def run_oneshot_subprocess(
         logger.warning("%s timed out after %.0fs", provider_label, spec.timeout_seconds)
         return CLIResponse(result="", is_error=True, timed_out=True)
     finally:
+        # Kill subprocess if cancelled (issue #92)
+        if process.returncode is None:
+            force_kill_process_tree(process.pid)
+            await process.wait()
         if tracked and reg:
             reg.unregister(tracked)
 

@@ -169,6 +169,8 @@ class InternalAgentAPI:
         summary = str(data.get("summary", ""))
         chat_id = int(data["chat_id"]) if data.get("chat_id") else 0
         topic_id = int(data["topic_id"]) if data.get("topic_id") else None
+        reply_to = str(data.get("reply_to", ""))
+        silent = bool(data.get("silent", False))
 
         if not recipient or not message:
             return web.json_response(
@@ -191,6 +193,8 @@ class InternalAgentAPI:
             summary=summary,
             chat_id=chat_id,
             topic_id=topic_id,
+            reply_to=reply_to,
+            silent=silent,
         )
         task_id = self._bus.send_async(
             sender=sender,
