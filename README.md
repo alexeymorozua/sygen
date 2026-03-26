@@ -18,6 +18,13 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Claude Code**, **Codex CLI**, **Gemini CLI** — pluggable AI backends
 - **Streaming output** — real-time response delivery with configurable buffering
 
+### MCP (Model Context Protocol)
+- **Native MCP client** — connects to any MCP server, discovers tools, routes calls
+- **3000+ integrations** — GitHub, Google Drive, Slack, Docker, databases, and more
+- **Auto-lifecycle** — starts servers on boot, health checks every 30s, auto-restart on crash
+- **Hot-reload** — add/remove servers without restarting the bot
+- **`/mcp` command** — list servers, check status, refresh tools from Telegram
+
 ### Automation
 - **Cron scheduler** — recurring tasks with timezone support
 - **Webhook server** — HTTP endpoints that trigger agent actions
@@ -76,6 +83,7 @@ All settings in `~/.ductor/config/config.json`. Key sections:
 | `scene` | Emoji reactions (`reaction_style`), technical footer |
 | `timeouts` | Response timeouts per mode |
 | `media` | Image quality, audio transcription |
+| `mcp` | MCP servers (enabled, server list) |
 
 ## Architecture
 
@@ -92,6 +100,53 @@ Memory        Inter-Agent Bus (sync/async messaging)
   ↓
 Cron / Webhooks / Tools
 ```
+
+## MCP Setup
+
+Sygen includes a native MCP client. To connect MCP servers, add to `config.json`:
+
+```json
+{
+  "mcp": {
+    "enabled": true,
+    "servers": [
+      {
+        "name": "github",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxx" }
+      },
+      {
+        "name": "filesystem",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/you/projects"]
+      }
+    ]
+  }
+}
+```
+
+Per-agent MCP servers can be configured in `agents.json` under the `mcp` field.
+
+**Commands:**
+- `/mcp list` — show connected servers and their tools
+- `/mcp status` — health check of each server
+- `/mcp refresh` — re-discover tools from all servers
+
+**Server options:**
+
+| Field | Default | Description |
+|---|---|---|
+| `name` | required | Unique server identifier |
+| `command` | required | Executable (npx, python3, etc.) |
+| `args` | `[]` | Command arguments |
+| `env` | `{}` | Environment variables |
+| `transport` | `"stdio"` | `"stdio"` for local, `"sse"` for remote |
+| `url` | `""` | Server URL (SSE transport only) |
+| `enabled` | `true` | Enable/disable without removing |
+| `auto_restart` | `true` | Restart on crash |
+
+MCP config supports hot-reload — changes to `config.json` are picked up without restarting the bot.
 
 ## Provider-Neutral Design
 
