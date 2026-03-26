@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -17,6 +18,12 @@ from sygen_bot.config_reload import (
 
 def _make_config(**overrides: Any) -> AgentConfig:
     return AgentConfig(**overrides)
+
+
+def _bump_mtime(path: Path) -> None:
+    """Advance the file mtime so the mtime-based reloader detects a change."""
+    stat = path.stat()
+    os.utime(path, (stat.st_atime, stat.st_mtime + 1))
 
 
 class TestDiffConfigs:
@@ -110,6 +117,7 @@ class TestConfigReloader:
 
         # Mutate the file
         self._write_config(config_path, model="opus")
+        _bump_mtime(config_path)
 
         await reloader._check()
         on_hot.assert_called_once()
@@ -127,6 +135,7 @@ class TestConfigReloader:
         new_data = cfg.model_dump(mode="json")
         new_data["telegram_token"] = "new-token-value"
         config_path.write_text(json.dumps(new_data), encoding="utf-8")
+        _bump_mtime(config_path)
 
         await reloader._check()
         on_restart.assert_called_once()
@@ -141,6 +150,7 @@ class TestConfigReloader:
         reloader = ConfigReloader(config_path, cfg, on_hot_reload=on_hot)
 
         config_path.write_text("{invalid json", encoding="utf-8")
+        _bump_mtime(config_path)
 
         await reloader._check()
         on_hot.assert_not_called()
@@ -153,6 +163,7 @@ class TestConfigReloader:
         reloader = ConfigReloader(config_path, cfg, on_hot_reload=on_hot)
 
         config_path.write_text(json.dumps({"log_level": 12345}), encoding="utf-8")
+        _bump_mtime(config_path)
 
         await reloader._check()
         on_hot.assert_not_called()
@@ -200,6 +211,7 @@ class TestConfigReloader:
         reloader = ConfigReloader(config_path, cfg, on_hot_reload=capture)
 
         self._write_config(config_path, model="opus")
+        _bump_mtime(config_path)
         await reloader._check()
 
         assert cfg.model == "opus"
@@ -214,6 +226,7 @@ class TestConfigReloader:
 
         # Rewrite with same content (mtime changes but no diff)
         self._write_config(config_path, model="sonnet")
+        _bump_mtime(config_path)
 
         await reloader._check()
         on_hot.assert_not_called()

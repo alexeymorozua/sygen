@@ -369,6 +369,11 @@ class TestStopAll:
             patch(
                 "sygen_bot.multiagent.shared_knowledge.SharedKnowledgeSync",
             ) as mock_sks_cls,
+            patch(
+                "sygen_bot.multiagent.internal_api.InternalAgentAPI.start",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
         ):
             mock_sks = MagicMock()
             mock_sks.start = AsyncMock()

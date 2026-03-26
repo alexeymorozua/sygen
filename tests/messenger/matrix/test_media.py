@@ -5,6 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+pytest.importorskip("nio", reason="matrix-nio not installed")
+
 from sygen_bot.messenger.matrix.media import (
     _mime_from_msgtype,
     _original_type_from_msgtype,

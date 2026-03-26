@@ -37,7 +37,7 @@ class TestDockerManager:
         from sygen_bot.infra.docker import DockerManager
 
         mgr = DockerManager(docker_config, docker_paths)
-        with patch("shutil.which", return_value=None):
+        with patch("sygen_bot.infra.docker.which", return_value=None):
             result = await mgr.setup()
         assert result is None
 
@@ -62,7 +62,7 @@ class TestDockerManager:
 
         mgr = DockerManager(docker_config, docker_paths)
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", new_callable=AsyncMock, return_value=(1, "error")),
         ):
             result = await mgr.setup()
@@ -90,7 +90,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             result = await mgr.setup()
@@ -126,7 +126,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
             patch.object(mgr, "_exec_stream", side_effect=mock_exec),
         ):
@@ -151,7 +151,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             result = await mgr.setup()
@@ -232,7 +232,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             await mgr.setup()
@@ -327,7 +327,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
             patch("sygen_bot.infra.docker._needs_uid_mapping", return_value=True),
             patch("os.getuid", return_value=1000),
@@ -363,7 +363,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
             patch("sygen_bot.infra.docker._needs_uid_mapping", return_value=False),
         ):
@@ -417,7 +417,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
             patch("sygen_bot.infra.docker._needs_uid_mapping", return_value=False),
         ):
@@ -458,7 +458,7 @@ class TestDockerManager:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("sygen_bot.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(DockerManager, "_exec", side_effect=mock_exec),
         ):
             r1, r2 = await asyncio.gather(mgr1.setup(), mgr2.setup())

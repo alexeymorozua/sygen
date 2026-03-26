@@ -9,7 +9,7 @@ class TestTimeoutConfigDefaults:
     def test_default_values(self) -> None:
         cfg = TimeoutConfig()
         assert cfg.normal == 600.0
-        assert cfg.background == 1800.0
+        assert cfg.background == 3600.0
         assert cfg.subagent == 3600.0
         assert cfg.warning_intervals == [60.0, 10.0]
         assert cfg.extend_on_activity is True
@@ -19,7 +19,7 @@ class TestTimeoutConfigDefaults:
     def test_agent_config_has_timeouts(self) -> None:
         cfg = AgentConfig()
         assert isinstance(cfg.timeouts, TimeoutConfig)
-        # cli_timeout=1800.0 syncs to timeouts.normal via model_validator
+        # cli_timeout=3600.0 syncs to timeouts.normal via model_validator
         assert cfg.timeouts.normal == cfg.cli_timeout
 
     def test_custom_values(self) -> None:
@@ -43,18 +43,18 @@ class TestCliTimeoutSync:
     def test_default_cli_timeout_syncs(self) -> None:
         """When cli_timeout differs from TimeoutConfig default, it syncs."""
         cfg = AgentConfig()
-        assert cfg.cli_timeout == 1800.0
-        assert cfg.timeouts.normal == 1800.0
+        assert cfg.cli_timeout == 3600.0
+        assert cfg.timeouts.normal == 3600.0
 
 
 class TestResolveTimeout:
     def test_resolve_normal(self) -> None:
         cfg = AgentConfig()
-        assert resolve_timeout(cfg, "normal") == 1800.0
+        assert resolve_timeout(cfg, "normal") == 3600.0
 
     def test_resolve_background(self) -> None:
         cfg = AgentConfig()
-        assert resolve_timeout(cfg, "background") == 1800.0
+        assert resolve_timeout(cfg, "background") == 3600.0
 
     def test_resolve_subagent(self) -> None:
         cfg = AgentConfig()

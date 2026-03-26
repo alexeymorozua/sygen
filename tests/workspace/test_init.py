@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from sygen_bot.workspace.init import init_workspace, inject_runtime_environment
 from sygen_bot.workspace.paths import DuctorPaths
@@ -109,7 +110,8 @@ def test_copies_claude_md(tmp_path: Path) -> None:
     assert target.read_text() == "# Framework CLAUDE.md"
 
 
-def test_copies_agents_md_mirrors_claude_md(tmp_path: Path) -> None:
+@patch("sygen_bot.workspace.init.RulesSelector")
+def test_copies_agents_md_mirrors_claude_md(mock_rs_cls: object, tmp_path: Path) -> None:
     """AGENTS.md (Codex rule file) is a copy of CLAUDE.md, not a separate file."""
     paths = _make_paths(tmp_path)
     init_workspace(paths)
@@ -150,7 +152,8 @@ def test_subdirectory_claude_md_updated_on_reinit(tmp_path: Path) -> None:
     assert mem_claude.read_text() == "# Updated memory_system CLAUDE.md"
 
 
-def test_subdirectory_agents_md_created_from_claude_md(tmp_path: Path) -> None:
+@patch("sygen_bot.workspace.init.RulesSelector")
+def test_subdirectory_agents_md_created_from_claude_md(mock_rs_cls: object, tmp_path: Path) -> None:
     """AGENTS.md is auto-created for every CLAUDE.md in subdirectories."""
     paths = _make_paths(tmp_path)
     init_workspace(paths)
@@ -196,7 +199,8 @@ def test_seeds_tools_claude_md(tmp_path: Path) -> None:
     assert tools_claude.read_text() == "# Tools CLAUDE.md"
 
 
-def test_seeds_tools_agents_md_mirrors_claude_md(tmp_path: Path) -> None:
+@patch("sygen_bot.workspace.init.RulesSelector")
+def test_seeds_tools_agents_md_mirrors_claude_md(mock_rs_cls: object, tmp_path: Path) -> None:
     """tools/AGENTS.md is mirrored from tools/CLAUDE.md, not a separate file."""
     paths = _make_paths(tmp_path)
     init_workspace(paths)
@@ -318,7 +322,8 @@ def test_cleans_orphan_symlinks(tmp_path: Path) -> None:
 # -- runtime environment injection --
 
 
-def test_inject_docker_notice(tmp_path: Path) -> None:
+@patch("sygen_bot.workspace.init.RulesSelector")
+def test_inject_docker_notice(mock_rs_cls: object, tmp_path: Path) -> None:
     paths = _make_paths(tmp_path)
     init_workspace(paths)
     inject_runtime_environment(paths, docker_container="ductor-sandbox")

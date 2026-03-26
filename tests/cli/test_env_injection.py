@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -65,7 +66,9 @@ def test_docker_wrap_injects_secrets(tmp_path: Path) -> None:
         docker_container="test-container",
     )
     clear_cache()
-    with patch.dict("os.environ", {}, clear=False):
+    # Ensure the key is NOT in os.environ so docker_wrap will inject it.
+    env_override = {k: v for k, v in os.environ.items() if k != "PPLX_API_KEY"}
+    with patch.dict("os.environ", env_override, clear=True):
         cmd, cwd = docker_wrap(["gemini"], config)
 
     assert cwd is None  # Docker mode
