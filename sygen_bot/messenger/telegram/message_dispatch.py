@@ -27,6 +27,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_STATUS_EMOJI: dict[str, str] = {
+    "thinking": "\U0001f914",   # 🤔
+    "tool": "\u2699\ufe0f",     # ⚙️
+    "compacting": "\U0001f4e6", # 📦
+    "done": "\u2705",           # ✅
+}
+
+
+async def _set_reaction(bot: Bot, message: Message, emoji: str) -> None:
+    try:
+        from aiogram.types import ReactionTypeEmoji
+        await bot.set_message_reaction(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            reaction=[ReactionTypeEmoji(emoji=emoji)],
+        )
+    except Exception:
+        logger.debug("Failed to set reaction %s", emoji, exc_info=True)
+
 
 def _build_footer(result: OrchestratorResult, scene: SceneConfig | None) -> str:
     """Build technical footer string if enabled and metadata is available."""
@@ -79,6 +98,10 @@ async def run_non_streaming_message(
     async with TypingContext(dispatch.bot, dispatch.key.chat_id, thread_id=dispatch.thread_id):
         result = await dispatch.orchestrator.handle_message(dispatch.key, dispatch.text)
 
+    style = (dispatch.scene_config.reaction_style if dispatch.scene_config else "off")
+    if style != "off" and dispatch.reply_to:
+        await _set_reaction(dispatch.bot, dispatch.reply_to, _STATUS_EMOJI["done"])
+
     footer = _build_footer(result, dispatch.scene_config)
     result.text += footer
     reply_id = dispatch.reply_to.message_id if dispatch.reply_to else None
@@ -118,12 +141,18 @@ async def run_streaming_message(
         on_flush=editor.append_text,
     )
 
+    style = (dispatch.scene_config.reaction_style if dispatch.scene_config else "off")
+    is_detailed = style == "detailed"
+    msg = dispatch.message
+
     async def on_text(delta: str) -> None:
         await coalescer.feed(delta)
 
     async def on_tool(tool_name: str) -> None:
         await coalescer.flush(force=True)
         await editor.append_tool(tool_name)
+        if is_detailed:
+            await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI["tool"])
 
     async def on_system(status: str | None) -> None:
         system_map: dict[str, str] = {
@@ -138,6 +167,8 @@ async def run_streaming_message(
             return
         await coalescer.flush(force=True)
         await editor.append_system(label)
+        if is_detailed and status in _STATUS_EMOJI:
+            await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI[status])
 
     async with TypingContext(dispatch.bot, dispatch.key.chat_id, thread_id=dispatch.thread_id):
         result = await dispatch.orchestrator.handle_message_streaming(
@@ -147,6 +178,9 @@ async def run_streaming_message(
             on_tool_activity=on_tool,
             on_system_status=on_system,
         )
+
+    if style != "off":
+        await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI["done"])
 
     await coalescer.flush(force=True)
     coalescer.stop()

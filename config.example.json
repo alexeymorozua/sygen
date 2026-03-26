@@ -141,7 +141,7 @@
     },
 
     "scene": {
-        "seen_reaction": false,
+        "reaction_style": "seen",
         "technical_footer": false
     },
 

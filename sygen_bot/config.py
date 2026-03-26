@@ -203,9 +203,15 @@ class WebhookConfig(BaseModel):
 
 
 class SceneConfig(BaseModel):
-    """Settings for scene indicators and technical footer."""
+    """Settings for scene indicators and technical footer.
 
-    seen_reaction: bool = False
+    reaction_style:
+        "off"      – no emoji reactions
+        "seen"     – 👀 on receipt, ✅ on completion
+        "detailed" – 👀 → 🤔 thinking → ⚙️ tool use → 📦 compacting → ✅ done
+    """
+
+    reaction_style: str = "seen"
     technical_footer: bool = False
 
 

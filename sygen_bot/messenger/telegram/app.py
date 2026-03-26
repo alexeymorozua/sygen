@@ -1276,26 +1276,26 @@ class TelegramBot:
         thread_id = get_thread_id(message)
         logger.debug("Message text=%s", text[:80])
 
-        if self._config.scene.seen_reaction:
-            await self._set_seen_reaction(message)
+        if self._config.scene.reaction_style != "off":
+            await self._set_reaction(message, "\U0001f440")  # 👀
 
         if self._config.streaming.enabled:
             await self._handle_streaming(message, key, text, thread_id=thread_id)
         else:
             await self._handle_non_streaming(message, key, text, thread_id=thread_id)
 
-    async def _set_seen_reaction(self, message: Message) -> None:
-        """Set a seen reaction on the user message. Graceful degradation on failure."""
+    async def _set_reaction(self, message: Message, emoji: str) -> None:
+        """Set an emoji reaction on *message*. Graceful degradation on failure."""
         try:
             from aiogram.types import ReactionTypeEmoji
 
             await self._bot.set_message_reaction(
                 chat_id=message.chat.id,
                 message_id=message.message_id,
-                reaction=[ReactionTypeEmoji(emoji="\U0001f440")],
+                reaction=[ReactionTypeEmoji(emoji=emoji)],
             )
         except Exception:
-            logger.debug("Failed to set seen reaction", exc_info=True)
+            logger.debug("Failed to set reaction %s", emoji, exc_info=True)
 
     async def _resolve_text(self, message: Message) -> str | None:
         """Extract processable text from *message* (plain text or media prompt)."""
