@@ -67,6 +67,8 @@ if TYPE_CHECKING:
     from sygen_bot.background import BackgroundObserver
     from sygen_bot.bus.bus import MessageBus
     from sygen_bot.config import ModelRegistry
+    from sygen_bot.mcp.manager import MCPManager
+    from sygen_bot.mcp.tool_router import ToolRouter
     from sygen_bot.multiagent.bus import AsyncInterAgentResult
     from sygen_bot.multiagent.supervisor import AgentSupervisor
     from sygen_bot.session.named import NamedSession
@@ -129,6 +131,8 @@ class Orchestrator:
         self._sessions = SessionManager(paths.sessions_path, config)
         self._named_sessions = NamedSessionRegistry(paths.named_sessions_path)
         self._process_registry = ProcessRegistry()
+        # Detect pre-existing --mcp-config in CLI parameters (user override).
+        _has_mcp_param = "--mcp-config" in config.cli_parameters.claude
         self._cli_service = CLIService(
             config=CLIServiceConfig(
                 working_dir=str(paths.workspace),
@@ -181,6 +185,8 @@ class Orchestrator:
         self._hook_registry.register(DELEGATION_REMINDER)
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
         self._task_hub: TaskHub | None = None  # Set by supervisor or __main__.py
+        self._mcp_manager: MCPManager | None = None
+        self._tool_router: ToolRouter | None = None
         self._command_registry = CommandRegistry()
         self._register_commands()
 
@@ -373,6 +379,8 @@ class Orchestrator:
         )
 
     def _register_commands(self) -> None:
+        from sygen_bot.mcp.commands import cmd_mcp
+
         reg = self._command_registry
         reg.register_async("/new", cmd_reset)
         # /stop is handled entirely by the Middleware abort path (before the lock)
@@ -386,6 +394,8 @@ class Orchestrator:
         reg.register_async("/upgrade", cmd_upgrade)
         reg.register_async("/sessions", cmd_sessions)
         reg.register_async("/tasks", cmd_tasks)
+        reg.register_async("/mcp", cmd_mcp)
+        reg.register_async("/mcp ", cmd_mcp)
 
     def register_multiagent_commands(self) -> None:
         """Register /agents, /agent_start, /agent_stop, /agent_restart commands.
@@ -654,11 +664,34 @@ class Orchestrator:
                 task.add_done_callback(lambda _: None)
                 logger.info("Heartbeat observer stopped via hot-reload")
 
+        if "mcp" in hot:
+            task = asyncio.create_task(self._apply_mcp_hot_reload(config))
+            task.add_done_callback(lambda _: None)
+
         handler = getattr(self, "_config_hot_reload_handler", None)
         if handler is not None:
             handler(config, hot)
 
         logger.info("Hot-reload applied to orchestrator services")
+
+    async def _apply_mcp_hot_reload(self, config: AgentConfig) -> None:
+        """Apply MCP config changes via hot-reload."""
+        from sygen_bot.mcp.manager import MCPManager as _MCPMgr
+        from sygen_bot.mcp.tool_router import ToolRouter as _TR
+
+        if config.mcp.enabled:
+            if self._mcp_manager is not None:
+                await self._mcp_manager.stop()
+            mgr = _MCPMgr(config.mcp)
+            await mgr.start()
+            self._mcp_manager = mgr
+            self._tool_router = _TR(mgr, self._paths.workspace)
+            logger.info("MCP manager (re)started via hot-reload")
+        elif self._mcp_manager is not None:
+            await self._mcp_manager.stop()
+            self._mcp_manager = None
+            self._tool_router = None
+            logger.info("MCP manager stopped via hot-reload")
 
     # -- Inter-agent communication ------------------------------------------
 

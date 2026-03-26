@@ -158,6 +158,28 @@ class CLIParametersConfig(BaseModel):
     gemini: list[str] = Field(default_factory=list)
 
 
+class MCPServerConfig(BaseModel):
+    """Configuration for a single MCP server."""
+
+    name: str
+    command: str = ""
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    transport: str = "stdio"  # "stdio" | "sse"
+    url: str = ""
+    enabled: bool = True
+    auto_restart: bool = True
+    restart_delay_seconds: float = 5.0
+    startup_timeout_seconds: float = 30.0
+
+
+class MCPConfig(BaseModel):
+    """Top-level MCP configuration."""
+
+    enabled: bool = False
+    servers: list[MCPServerConfig] = Field(default_factory=list)
+
+
 class MatrixConfig(BaseModel):
     """Matrix homeserver connection settings."""
 
@@ -309,6 +331,7 @@ class AgentConfig(BaseModel):
     timeouts: TimeoutConfig = Field(default_factory=TimeoutConfig)
     tasks: TasksConfig = Field(default_factory=TasksConfig)
     scene: SceneConfig = Field(default_factory=SceneConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
     user_timezone: str = ""
     language: str = "en"
     update_check: bool = False

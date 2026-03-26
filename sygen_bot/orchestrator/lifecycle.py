@@ -106,6 +106,26 @@ async def create_orchestrator(
     orch._providers._codex_cache_fn = lambda: orch._observers.codex_cache
     await orch._observers.start_all(docker_container=docker_container)
 
+    # MCP server management
+    if config.mcp.enabled:
+        from sygen_bot.mcp.manager import MCPManager
+        from sygen_bot.mcp.tool_router import ToolRouter
+
+        mcp_mgr = MCPManager(config.mcp)
+        await mcp_mgr.start()
+        orch._mcp_manager = mcp_mgr
+        router = ToolRouter(mcp_mgr, paths.workspace)
+        orch._tool_router = router
+        # Inject MCP config path into CLI service if user hasn't set --mcp-config manually.
+        if mcp_mgr.get_all_tools() and "--mcp-config" not in config.cli_parameters.claude:
+            from dataclasses import replace as _replace
+
+            cfg_path = router.generate_mcp_config_file()
+            orch._cli_service.update_config(
+                _replace(orch._cli_service._config, mcp_config_path=str(cfg_path))
+            )
+        logger.info("MCP manager started with %d tool(s)", len(mcp_mgr.get_all_tools()))
+
     # Direct API server (WebSocket, designed for Tailscale)
     if config.api.enabled:
         await start_api_server(orch, config, paths)
@@ -193,6 +213,8 @@ async def shutdown(orch: Orchestrator) -> None:
         logger.info("Shutdown terminated %d active CLI process(es)", killed)
     if orch._api_stop is not None:
         await orch._api_stop()
+    if orch._mcp_manager is not None:
+        await orch._mcp_manager.stop()
     await asyncio.to_thread(cleanup_ductor_links, orch._paths)
     await orch._observers.stop_all()
     if orch._docker:
