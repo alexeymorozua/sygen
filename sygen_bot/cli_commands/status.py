@@ -158,7 +158,7 @@ def print_usage() -> None:
     try:
         banner_text = banner_path.read_text(encoding="utf-8").rstrip()
     except OSError:
-        banner_text = "ductor.dev"
+        banner_text = "Sygen"
     _console.print(
         Panel(
             Text(banner_text, style="bold cyan"),

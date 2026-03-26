@@ -96,7 +96,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_WELCOME_IMAGE = Path(__file__).resolve().parent / "ductor_images" / "welcome.png"
+_WELCOME_IMAGE = Path(__file__).resolve().parent / "sygen_images" / "welcome.png"
 _CAPTION_LIMIT = 1024
 
 # Backward-compatible patch points used by tests.

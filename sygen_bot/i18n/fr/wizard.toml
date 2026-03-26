@@ -2,7 +2,7 @@
 
 [common]
 cancelled = "[dim]Configuration annulée.[/dim]"
-subtitle = "ductor.dev"
+subtitle = "Sygen"
 
 [cli_backends]
 title = "Backends CLI"

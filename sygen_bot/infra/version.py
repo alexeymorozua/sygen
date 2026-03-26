@@ -11,9 +11,9 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-_PYPI_URL = "https://pypi.org/pypi/ductor/json"
-_GITHUB_RELEASES_URL = "https://api.github.com/repos/PleasePrompto/ductor/releases"
-_PACKAGE_NAME = "ductor"
+_PYPI_URL = "https://pypi.org/pypi/sygen/json"
+_GITHUB_RELEASES_URL = "https://api.github.com/repos/alexeymorozua/sygen/releases"
+_PACKAGE_NAME = "sygen"
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 
