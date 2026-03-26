@@ -48,7 +48,7 @@ Primary runtime files/directories:
 pytest
 ruff format .
 ruff check .
-mypy ductor_bot
+mypy sygen_bot
 ```
 
 Expected: zero warnings, zero errors.
@@ -73,71 +73,71 @@ background/async results
 
 Entry + command layer:
 
-- `ductor_bot/__main__.py`
-- `ductor_bot/cli_commands/`
+- `sygen_bot/__main__.py`
+- `sygen_bot/cli_commands/`
 
 Runtime hot path:
 
-- `ductor_bot/multiagent/supervisor.py`
-- `ductor_bot/messenger/telegram/app.py`
-- `ductor_bot/messenger/telegram/startup.py`
-- `ductor_bot/orchestrator/core.py`
-- `ductor_bot/orchestrator/lifecycle.py`
-- `ductor_bot/orchestrator/flows.py`
+- `sygen_bot/multiagent/supervisor.py`
+- `sygen_bot/messenger/telegram/app.py`
+- `sygen_bot/messenger/telegram/startup.py`
+- `sygen_bot/orchestrator/core.py`
+- `sygen_bot/orchestrator/lifecycle.py`
+- `sygen_bot/orchestrator/flows.py`
 
 Delivery/task/session core:
 
-- `ductor_bot/bus/`
-- `ductor_bot/session/manager.py`
-- `ductor_bot/tasks/hub.py`
-- `ductor_bot/tasks/registry.py`
+- `sygen_bot/bus/`
+- `sygen_bot/session/manager.py`
+- `sygen_bot/tasks/hub.py`
+- `sygen_bot/tasks/registry.py`
 
 Provider/API/workspace core:
 
-- `ductor_bot/cli/service.py` + provider wrappers
-- `ductor_bot/api/server.py`
-- `ductor_bot/workspace/init.py`
-- `ductor_bot/workspace/rules_selector.py`
-- `ductor_bot/workspace/skill_sync.py`
+- `sygen_bot/cli/service.py` + provider wrappers
+- `sygen_bot/api/server.py`
+- `sygen_bot/workspace/init.py`
+- `sygen_bot/workspace/rules_selector.py`
+- `sygen_bot/workspace/skill_sync.py`
 
 ## 6) Common debug paths
 
 If command behavior is wrong:
 
-1. `ductor_bot/__main__.py`
-2. `ductor_bot/cli_commands/*`
+1. `sygen_bot/__main__.py`
+2. `sygen_bot/cli_commands/*`
 
 If Telegram routing is wrong:
 
-1. `ductor_bot/messenger/telegram/middleware.py`
-2. `ductor_bot/messenger/telegram/app.py`
-3. `ductor_bot/orchestrator/commands.py`
-4. `ductor_bot/orchestrator/flows.py`
+1. `sygen_bot/messenger/telegram/middleware.py`
+2. `sygen_bot/messenger/telegram/app.py`
+3. `sygen_bot/orchestrator/commands.py`
+4. `sygen_bot/orchestrator/flows.py`
 
 If Matrix routing is wrong:
 
-1. `ductor_bot/messenger/matrix/bot.py`
-2. `ductor_bot/messenger/matrix/transport.py`
-3. `ductor_bot/orchestrator/flows.py`
+1. `sygen_bot/messenger/matrix/bot.py`
+2. `sygen_bot/messenger/matrix/transport.py`
+3. `sygen_bot/orchestrator/flows.py`
 
 If background results look wrong:
 
-1. `ductor_bot/bus/adapters.py`
-2. `ductor_bot/bus/bus.py`
-3. `ductor_bot/messenger/telegram/transport.py` (or `ductor_bot/messenger/matrix/transport.py`)
+1. `sygen_bot/bus/adapters.py`
+2. `sygen_bot/bus/bus.py`
+3. `sygen_bot/messenger/telegram/transport.py` (or `sygen_bot/messenger/matrix/transport.py`)
 
 If tasks are wrong:
 
-1. `ductor_bot/tasks/hub.py`
-2. `ductor_bot/tasks/registry.py`
-3. `ductor_bot/multiagent/internal_api.py`
-4. `ductor_bot/_home_defaults/workspace/tools/task_tools/*.py`
+1. `sygen_bot/tasks/hub.py`
+2. `sygen_bot/tasks/registry.py`
+3. `sygen_bot/multiagent/internal_api.py`
+4. `sygen_bot/_home_defaults/workspace/tools/task_tools/*.py`
 
 If API is wrong:
 
-1. `ductor_bot/api/server.py`
-2. `ductor_bot/orchestrator/lifecycle.py` (API startup wiring)
-3. `ductor_bot/files/*` (allowed roots, MIME, prompt building)
+1. `sygen_bot/api/server.py`
+2. `sygen_bot/orchestrator/lifecycle.py` (API startup wiring)
+3. `sygen_bot/files/*` (allowed roots, MIME, prompt building)
 
 ## 7) Behavior details to remember
 

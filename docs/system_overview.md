@@ -130,14 +130,14 @@ Sub-agent home: `~/.ductor/agents/<name>/` with its own config/workspace/session
 
 ## 8) Where to read code first
 
-1. `ductor_bot/__main__.py` (entrypoint + config/load/run)
-2. `ductor_bot/cli_commands/` (actual CLI subcommand logic)
-3. `ductor_bot/multiagent/supervisor.py` (always-on runtime wrapper)
-4. `ductor_bot/messenger/telegram/app.py` + `messenger/telegram/startup.py` (Telegram), `ductor_bot/messenger/matrix/bot.py` (Matrix)
-5. `ductor_bot/orchestrator/core.py` + `orchestrator/lifecycle.py`
-6. `ductor_bot/bus/*` (unified delivery/injection)
-7. `ductor_bot/tasks/hub.py` + `tasks/registry.py`
-8. `ductor_bot/cli/service.py` and provider wrappers
+1. `sygen_bot/__main__.py` (entrypoint + config/load/run)
+2. `sygen_bot/cli_commands/` (actual CLI subcommand logic)
+3. `sygen_bot/multiagent/supervisor.py` (always-on runtime wrapper)
+4. `sygen_bot/messenger/telegram/app.py` + `messenger/telegram/startup.py` (Telegram), `sygen_bot/messenger/matrix/bot.py` (Matrix)
+5. `sygen_bot/orchestrator/core.py` + `orchestrator/lifecycle.py`
+6. `sygen_bot/bus/*` (unified delivery/injection)
+7. `sygen_bot/tasks/hub.py` + `tasks/registry.py`
+8. `sygen_bot/cli/service.py` and provider wrappers
 
 ## 9) Command surface (high level)
 

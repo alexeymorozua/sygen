@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ductor_bot.commands import BOT_COMMANDS, MULTIAGENT_SUB_COMMANDS
-from ductor_bot.messenger.commands import (
+from sygen_bot.commands import BOT_COMMANDS, MULTIAGENT_SUB_COMMANDS
+from sygen_bot.messenger.commands import (
     DIRECT_COMMANDS,
     MULTIAGENT_COMMANDS,
     ORCHESTRATOR_COMMANDS,

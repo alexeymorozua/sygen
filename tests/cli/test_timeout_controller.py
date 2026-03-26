@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from ductor_bot.cli.timeout_controller import (
+from sygen_bot.cli.timeout_controller import (
     TimeoutConfig,
     TimeoutController,
     TimeoutWarning,

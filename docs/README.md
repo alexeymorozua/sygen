@@ -25,22 +25,22 @@ ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`)
 
 ## System in 60 Seconds
 
-- `ductor_bot/__main__.py`: thin CLI entrypoint (dispatch) + config loading.
-- `ductor_bot/cli_commands/`: concrete CLI subcommand implementations (`agents`, `docker`, `service`, `api`, `install`, lifecycle/status helpers).
-- `ductor_bot/messenger/`: transport-agnostic protocols, capabilities, notifications, registry.
-- `ductor_bot/messenger/telegram/`: aiogram handlers, auth/sequencing middleware, streaming dispatch, callback routing, group audit/chat tracking.
-- `ductor_bot/messenger/matrix/`: matrix-nio handlers, segment streaming, reaction buttons, formatting.
-- `ductor_bot/orchestrator/`: command registry, directives/hooks, normal + streaming + heartbeat flows, provider/session/task wiring.
-- `ductor_bot/bus/`: central `MessageBus` + `Envelope` + `LockPool`.
-- `ductor_bot/session/`: provider-isolated session state keyed by `SessionKey(transport, chat_id, topic_id)` plus named-session registry.
-- `ductor_bot/tasks/`: shared background task delegation (`TaskHub`) and persistent task registry.
-- `ductor_bot/api/`: WebSocket ingress (`/ws`) and HTTP file endpoints (`/files`, `/upload`).
-- `ductor_bot/cli/`: Claude/Codex/Gemini wrappers, stream-event normalization, auth checks, model caches, process registry.
-- `ductor_bot/cron/`, `webhook/`, `heartbeat/`, `cleanup/`: in-process automation observers.
-- `ductor_bot/workspace/`: path source-of-truth, home defaults sync, rules deployment/sync, skill sync.
-- `ductor_bot/multiagent/`: supervisor, inter-agent bus, internal localhost API bridge, shared-knowledge sync.
-- `ductor_bot/infra/`: PID lock, restart/update state, Docker manager, service backends, observer/task utilities.
-- `ductor_bot/infra/service_*.py`: platform-specific service installation, control, and log access.
+- `sygen_bot/__main__.py`: thin CLI entrypoint (dispatch) + config loading.
+- `sygen_bot/cli_commands/`: concrete CLI subcommand implementations (`agents`, `docker`, `service`, `api`, `install`, lifecycle/status helpers).
+- `sygen_bot/messenger/`: transport-agnostic protocols, capabilities, notifications, registry.
+- `sygen_bot/messenger/telegram/`: aiogram handlers, auth/sequencing middleware, streaming dispatch, callback routing, group audit/chat tracking.
+- `sygen_bot/messenger/matrix/`: matrix-nio handlers, segment streaming, reaction buttons, formatting.
+- `sygen_bot/orchestrator/`: command registry, directives/hooks, normal + streaming + heartbeat flows, provider/session/task wiring.
+- `sygen_bot/bus/`: central `MessageBus` + `Envelope` + `LockPool`.
+- `sygen_bot/session/`: provider-isolated session state keyed by `SessionKey(transport, chat_id, topic_id)` plus named-session registry.
+- `sygen_bot/tasks/`: shared background task delegation (`TaskHub`) and persistent task registry.
+- `sygen_bot/api/`: WebSocket ingress (`/ws`) and HTTP file endpoints (`/files`, `/upload`).
+- `sygen_bot/cli/`: Claude/Codex/Gemini wrappers, stream-event normalization, auth checks, model caches, process registry.
+- `sygen_bot/cron/`, `webhook/`, `heartbeat/`, `cleanup/`: in-process automation observers.
+- `sygen_bot/workspace/`: path source-of-truth, home defaults sync, rules deployment/sync, skill sync.
+- `sygen_bot/multiagent/`: supervisor, inter-agent bus, internal localhost API bridge, shared-knowledge sync.
+- `sygen_bot/infra/`: PID lock, restart/update state, Docker manager, service backends, observer/task utilities.
+- `sygen_bot/infra/service_*.py`: platform-specific service installation, control, and log access.
 
 Runtime behavior notes:
 

@@ -46,7 +46,7 @@ Both implement `BotProtocol`. Adding a new transport requires only a new factory
 
 ## Startup Flow
 
-### `ductor` entry (`ductor_bot/__main__.py`)
+### `ductor` entry (`sygen_bot/__main__.py`)
 
 1. parse CLI args and dispatch command (implementation in `cli_commands/*`)
 2. default run path:
@@ -253,7 +253,7 @@ Shutdown (`orchestrator/lifecycle.shutdown`):
 
 ## Workspace Seeding Model
 
-Source: `ductor_bot/_home_defaults/`.
+Source: `sygen_bot/_home_defaults/`.
 
 Zone rules (`workspace/init.py`):
 

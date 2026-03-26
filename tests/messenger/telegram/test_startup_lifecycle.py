@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ductor_bot.infra.startup_state import StartupInfo, StartupKind
-from ductor_bot.text.response_format import (
+from sygen_bot.infra.startup_state import StartupInfo, StartupKind
+from sygen_bot.text.response_format import (
     recovery_notification_text,
     startup_notification_text,
 )

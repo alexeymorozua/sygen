@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ductor_bot.cli.types import AgentResponse
-from ductor_bot.orchestrator.core import Orchestrator
-from ductor_bot.orchestrator.flows import (
+from sygen_bot.cli.types import AgentResponse
+from sygen_bot.orchestrator.core import Orchestrator
+from sygen_bot.orchestrator.flows import (
     StreamingCallbacks,
     _finish_normal,
     _strip_ack_token,
@@ -16,9 +16,9 @@ from ductor_bot.orchestrator.flows import (
     normal,
     normal_streaming,
 )
-from ductor_bot.orchestrator.registry import OrchestratorResult
-from ductor_bot.session import SessionData
-from ductor_bot.session.key import SessionKey
+from sygen_bot.orchestrator.registry import OrchestratorResult
+from sygen_bot.session import SessionData
+from sygen_bot.session.key import SessionKey
 
 
 @pytest.fixture

@@ -9,13 +9,13 @@ from unittest.mock import patch
 
 import time_machine
 
-from ductor_bot.cli.codex_cache import CodexModelCache
-from ductor_bot.cli.param_resolver import TaskOverrides
-from ductor_bot.config import AgentConfig, HeartbeatConfig, WebhookConfig
-from ductor_bot.webhook.manager import WebhookManager
-from ductor_bot.webhook.models import WebhookEntry
-from ductor_bot.webhook.observer import WebhookObserver
-from ductor_bot.workspace.paths import DuctorPaths
+from sygen_bot.cli.codex_cache import CodexModelCache
+from sygen_bot.cli.param_resolver import TaskOverrides
+from sygen_bot.config import AgentConfig, HeartbeatConfig, WebhookConfig
+from sygen_bot.webhook.manager import WebhookManager
+from sygen_bot.webhook.models import WebhookEntry
+from sygen_bot.webhook.observer import WebhookObserver
+from sygen_bot.workspace.paths import DuctorPaths
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -102,7 +102,7 @@ async def test_webhook_ignores_heartbeat_quiet_hours(tmp_path: Path) -> None:
     )
     _add_hook(mgr, paths)
 
-    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
+    with patch("sygen_bot.cron.execution.build_cmd", return_value=None):
         result = await obs._dispatch_cron_task(
             "test-hook",
             "Test Hook",
@@ -130,7 +130,7 @@ async def test_webhook_runs_during_active_hours(tmp_path: Path) -> None:
     )
     _add_hook(mgr, paths)
 
-    with patch("ductor_bot.cron.execution.build_cmd", return_value=None):
+    with patch("sygen_bot.cron.execution.build_cmd", return_value=None):
         result = await obs._dispatch_cron_task(
             "test-hook",
             "Test Hook",

@@ -6,17 +6,17 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ductor_bot.cli.types import AgentResponse
-from ductor_bot.orchestrator.core import Orchestrator
-from ductor_bot.orchestrator.flows import normal
-from ductor_bot.orchestrator.hooks import (
+from sygen_bot.cli.types import AgentResponse
+from sygen_bot.orchestrator.core import Orchestrator
+from sygen_bot.orchestrator.flows import normal
+from sygen_bot.orchestrator.hooks import (
     MAINMEMORY_REMINDER,
     HookContext,
     MessageHook,
     MessageHookRegistry,
     every_n_messages,
 )
-from ductor_bot.session.key import SessionKey
+from sygen_bot.session.key import SessionKey
 
 # ---------------------------------------------------------------------------
 # Unit tests: HookContext, conditions, registry

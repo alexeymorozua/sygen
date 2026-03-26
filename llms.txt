@@ -93,13 +93,13 @@ Current operational nuances:
 
 ## Core Entry Points
 
-- `ductor_bot/__main__.py` (CLI entry, load/merge config, run supervisor)
-- `ductor_bot/multiagent/supervisor.py` (main + sub-agent lifecycle)
-- `ductor_bot/messenger/telegram/app.py` + `ductor_bot/messenger/telegram/startup.py` (Telegram startup, handlers, callback routing, recovery)
-- `ductor_bot/messenger/matrix/bot.py` + `ductor_bot/messenger/matrix/startup.py` (Matrix startup, auth, command routing, streaming)
-- `ductor_bot/orchestrator/core.py` (wiring and routing)
-- `ductor_bot/orchestrator/flows.py` (normal/streaming/session/heartbeat flows)
-- `ductor_bot/cli/service.py` + provider wrappers
+- `sygen_bot/__main__.py` (CLI entry, load/merge config, run supervisor)
+- `sygen_bot/multiagent/supervisor.py` (main + sub-agent lifecycle)
+- `sygen_bot/messenger/telegram/app.py` + `sygen_bot/messenger/telegram/startup.py` (Telegram startup, handlers, callback routing, recovery)
+- `sygen_bot/messenger/matrix/bot.py` + `sygen_bot/messenger/matrix/startup.py` (Matrix startup, auth, command routing, streaming)
+- `sygen_bot/orchestrator/core.py` (wiring and routing)
+- `sygen_bot/orchestrator/flows.py` (normal/streaming/session/heartbeat flows)
+- `sygen_bot/cli/service.py` + provider wrappers
 
 ## Canonical Docs For LLMs
 

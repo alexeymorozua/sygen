@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ductor_bot.tasks.models import TaskEntry, TaskResult, TaskSubmit
+from sygen_bot.tasks.models import TaskEntry, TaskResult, TaskSubmit
 
 
 class TestTaskEntry:

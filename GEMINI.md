@@ -30,7 +30,7 @@ pytest -k "pattern"
 # Quality
 ruff format .
 ruff check .
-mypy ductor_bot
+mypy sygen_bot
 ```
 
 ## Runtime Flow
