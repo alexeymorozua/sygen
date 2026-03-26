@@ -1,0 +1,38 @@
+[
+  {
+    "id": "weekly-cleanup",
+    "title": "Weekly Cleanup",
+    "schedule": "0 10 * * 0",
+    "enabled": true,
+    "provider": "claude",
+    "model": "sonnet",
+    "task_dir": "cron_tasks/weekly-cleanup"
+  },
+  {
+    "id": "monthly-memory-cleanup",
+    "title": "Monthly Memory Cleanup",
+    "schedule": "0 10 15 * *",
+    "enabled": true,
+    "provider": "claude",
+    "model": "sonnet",
+    "task_dir": "cron_tasks/monthly-memory-cleanup"
+  },
+  {
+    "id": "monthly-memory-review",
+    "title": "Monthly Memory Review",
+    "schedule": "0 10 1 * *",
+    "enabled": true,
+    "provider": "claude",
+    "model": "opus",
+    "task_dir": "cron_tasks/monthly-memory-review"
+  },
+  {
+    "id": "security-audit",
+    "title": "Daily Security Audit",
+    "schedule": "0 8 * * *",
+    "enabled": true,
+    "provider": "claude",
+    "model": "sonnet",
+    "task_dir": "cron_tasks/security-audit"
+  }
+]
