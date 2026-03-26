@@ -10,7 +10,7 @@ from pathlib import Path
 
 TOOL_PATH = (
     Path(__file__).resolve().parents[2]
-    / "ductor_bot"
+    / "sygen_bot"
     / "_home_defaults"
     / "workspace"
     / "tools"

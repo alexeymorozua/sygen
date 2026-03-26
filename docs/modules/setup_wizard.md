@@ -4,16 +4,16 @@ Covers `ductor` command behavior, onboarding flow, and lifecycle commands.
 
 ## Files
 
-- `ductor_bot/__main__.py`: CLI dispatch + config helpers + `run_bot`
-- `ductor_bot/cli_commands/lifecycle.py`: start/stop/restart/upgrade/uninstall logic
-- `ductor_bot/cli_commands/status.py`: `ductor status` + `ductor help`
-- `ductor_bot/cli_commands/service.py`: service command routing
-- `ductor_bot/cli_commands/docker.py`: docker subcommands
-- `ductor_bot/cli_commands/api_cmd.py`: API enable/disable commands
-- `ductor_bot/cli_commands/agents.py`: sub-agent registry commands
-- `ductor_bot/cli_commands/install.py`: optional extras installer (`ductor install <extra>`)
-- `ductor_bot/infra/docker_extras.py`: optional Docker package registry + Dockerfile generation
-- `ductor_bot/cli/init_wizard.py`: onboarding + smart reset
+- `sygen_bot/__main__.py`: CLI dispatch + config helpers + `run_bot`
+- `sygen_bot/cli_commands/lifecycle.py`: start/stop/restart/upgrade/uninstall logic
+- `sygen_bot/cli_commands/status.py`: `ductor status` + `ductor help`
+- `sygen_bot/cli_commands/service.py`: service command routing
+- `sygen_bot/cli_commands/docker.py`: docker subcommands
+- `sygen_bot/cli_commands/api_cmd.py`: API enable/disable commands
+- `sygen_bot/cli_commands/agents.py`: sub-agent registry commands
+- `sygen_bot/cli_commands/install.py`: optional extras installer (`ductor install <extra>`)
+- `sygen_bot/infra/docker_extras.py`: optional Docker package registry + Dockerfile generation
+- `sygen_bot/cli/init_wizard.py`: onboarding + smart reset
 
 ## CLI commands
 

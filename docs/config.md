@@ -2,7 +2,7 @@
 
 Runtime config file: `~/.ductor/config/config.json`.
 
-Seed source: `<repo>/config.example.json` (source checkout) or packaged fallback `ductor_bot/_config_example.json` (installed mode).
+Seed source: `<repo>/config.example.json` (source checkout) or packaged fallback `sygen_bot/_config_example.json` (installed mode).
 
 ## Config Creation
 
@@ -12,11 +12,11 @@ Primary path: `ductor onboarding` (interactive wizard) writes `config.json` with
 
 Config is merged in two places:
 
-1. `ductor_bot/__main__.py::load_config()`
+1. `sygen_bot/__main__.py::load_config()`
    - creates config on first start (copy from `config.example.json` or Pydantic defaults),
    - deep-merges runtime file with `AgentConfig` defaults,
    - writes back only when new keys were added.
-2. `ductor_bot/workspace/init.py::_smart_merge_config()`
+2. `sygen_bot/workspace/init.py::_smart_merge_config()`
    - shallow merge `{**defaults, **existing}` with `config.example.json`,
    - preserves existing user top-level keys,
    - fills missing top-level keys from `config.example.json`.
@@ -60,7 +60,7 @@ Priority (highest to lowest):
 
 Changes take effect on the next CLI invocation (mtime-based cache invalidation, no restart needed).
 
-## `AgentConfig` (`ductor_bot/config.py`)
+## `AgentConfig` (`sygen_bot/config.py`)
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
@@ -271,7 +271,7 @@ Runtime note:
 
 ### `extras`
 
-Optional AI/ML packages installed into the Docker sandbox image at build time. Each entry is an ID from the extras registry (`ductor_bot/infra/docker_extras.py`).
+Optional AI/ML packages installed into the Docker sandbox image at build time. Each entry is an ID from the extras registry (`sygen_bot/infra/docker_extras.py`).
 
 Available extras:
 
@@ -422,7 +422,7 @@ Restart classification is computed from `AgentConfig` top-level schema fields.
 
 ## Model Resolution
 
-`ModelRegistry` (`ductor_bot/config.py`):
+`ModelRegistry` (`sygen_bot/config.py`):
 
 - Claude models are hardcoded: `haiku`, `sonnet`, `opus`.
 - Gemini aliases are hardcoded: `auto`, `pro`, `flash`, `flash-lite`.
@@ -434,7 +434,7 @@ Restart classification is computed from `AgentConfig` top-level schema fields.
 
 ## Timezone Resolution
 
-`resolve_user_timezone(configured)` in `ductor_bot/config.py`:
+`resolve_user_timezone(configured)` in `sygen_bot/config.py`:
 
 1. valid configured IANA timezone,
 2. `$TZ` env var,

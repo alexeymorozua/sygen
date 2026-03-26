@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ductor_bot.cli.types import AgentResponse
-from ductor_bot.config import SceneConfig
-from ductor_bot.messenger.telegram.message_dispatch import _build_footer
-from ductor_bot.orchestrator.flows import _finish_normal
-from ductor_bot.orchestrator.registry import OrchestratorResult
+from sygen_bot.cli.types import AgentResponse
+from sygen_bot.config import SceneConfig
+from sygen_bot.messenger.telegram.message_dispatch import _build_footer
+from sygen_bot.orchestrator.flows import _finish_normal
+from sygen_bot.orchestrator.registry import OrchestratorResult
 
 
 class TestOrchestratorResultMetadata:

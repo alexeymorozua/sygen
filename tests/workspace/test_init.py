@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ductor_bot.workspace.init import init_workspace, inject_runtime_environment
-from ductor_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.init import init_workspace, inject_runtime_environment
+from sygen_bot.workspace.paths import DuctorPaths
 
 
 def _setup_home_defaults(fw_root: Path) -> None:

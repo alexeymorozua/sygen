@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from ductor_bot.i18n import LANGUAGES, init
-from ductor_bot.i18n.loader import TranslationStore
+from sygen_bot.i18n import LANGUAGES, init
+from sygen_bot.i18n.loader import TranslationStore
 
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
 

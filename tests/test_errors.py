@@ -1,6 +1,6 @@
 """Tests for the exception hierarchy."""
 
-from ductor_bot.errors import (
+from sygen_bot.errors import (
     CLIError,
     DuctorError,
     PathValidationError,

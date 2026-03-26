@@ -6,15 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ductor_bot.cli.types import CLIResponse
-from ductor_bot.config import AgentConfig
-from ductor_bot.multiagent.bus import AsyncInterAgentResult
-from ductor_bot.orchestrator.core import Orchestrator
-from ductor_bot.orchestrator.injection import (
+from sygen_bot.cli.types import CLIResponse
+from sygen_bot.config import AgentConfig
+from sygen_bot.multiagent.bus import AsyncInterAgentResult
+from sygen_bot.orchestrator.core import Orchestrator
+from sygen_bot.orchestrator.injection import (
     _get_or_create_interagent_session,
     _interagent_chat_id,
 )
-from ductor_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import DuctorPaths
 
 
 @pytest.fixture
@@ -275,8 +275,8 @@ class TestHandleAsyncInteragentResult:
         assert "Original task you sent" in request.prompt
 
     async def test_resumes_current_active_session(self, orch_ia: Orchestrator) -> None:
-        from ductor_bot.cli.types import AgentResponse
-        from ductor_bot.session import SessionData
+        from sygen_bot.cli.types import AgentResponse
+        from sygen_bot.session import SessionData
 
         sd = SessionData(12345, session_id="active-session-999")
         orch_ia._sessions.get_active = AsyncMock(return_value=sd)

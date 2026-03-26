@@ -232,7 +232,7 @@ Linux note:
 
 Windows note:
 
-- service install prefers `pythonw.exe -m ductor_bot` (no visible console window),
+- service install prefers `pythonw.exe -m sygen_bot` (no visible console window),
 - installed Task Scheduler service uses logon trigger + restart-on-failure retries,
 - some systems require elevated terminal permissions for Task Scheduler operations.
 

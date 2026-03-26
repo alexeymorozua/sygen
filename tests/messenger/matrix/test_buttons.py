@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ductor_bot.messenger.matrix.buttons import REACTION_DIGITS, ButtonTracker
+from sygen_bot.messenger.matrix.buttons import REACTION_DIGITS, ButtonTracker
 
 
 class TestButtonTracker:
