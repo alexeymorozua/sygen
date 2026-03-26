@@ -65,13 +65,20 @@ Add Discord as a messaging transport.
 ### Plugin System
 Allow users to drop custom tools into a `plugins/` directory with auto-discovery.
 
-### Multi-Model Routing
-Route simple questions to cheaper models (Haiku), complex tasks to Opus.
-Cost optimization without quality loss. ~1-2 hours to implement basic version.
+## Implemented
 
-## Already Implemented / Rejected
+| Feature | Date | Details |
+|---------|------|---------|
+| MCP Integration | 2026-03-27 | Native client in `sygen_bot/mcp/` — MCPClient, MCPManager, ToolRouter, `/mcp` command, 52 tests |
+| CI/CD | 2026-03-27 | GitHub Actions on push/PR, pytest on Python 3.11/3.12/3.13, 3400+ tests |
+| Issue #75 Fix | 2026-03-27 | Cancel orphaned asyncio Tasks in cron reschedule — prevents double job execution |
 
-- ~~MCP Integration~~ — native MCP client implemented in sygen_bot/mcp/ (client, manager, tool_router, /mcp command)
-- ~~Verbose Levels~~ — covered by core: reaction_style (off/seen/detailed) + tool names + status tags
-- ~~Conversation Export~~ — not needed, history already in Telegram
-- ~~WhatsApp Channel~~ — API платный, ограниченный (нет edit/streaming/кнопок), для личного use-case не оправдан
+## Evaluated & Rejected
+
+| Feature | Why rejected | Date |
+|---------|-------------|------|
+| Verbose Levels (`/verbose 0/1/2`) | Already covered by core: `reaction_style` (off/seen/detailed) + tool names + status tags in streaming | 2026-03-27 |
+| Conversation Export | History already available in Telegram. Parsing 3 providers (Claude/Codex/Gemini) not worth the effort | 2026-03-27 |
+| WhatsApp Channel | Official API is paid ($0.005-0.08/msg), 24h window limit, no message editing (kills streaming), no inline buttons (max 3 reply buttons), no forums/topics. Unofficial libs get banned. Not worth it for personal use | 2026-03-27 |
+| Multi-Model Routing | CLI-only architecture makes quality classification impossible without +3-5 sec overhead per message (CLI subprocess startup). Rule-based/keyword approaches are unreliable. LLM classifier needs separate API key, breaking "zero API keys" philosophy. Manual `/model` and `@opus`/`@haiku` covers the use case | 2026-03-27 |
+| Additional Providers (DeepSeek, Ollama) | Three providers (Claude/Codex/Gemini) are sufficient. Each new provider needs ~500 LOC CLI wrapper. No demand yet | 2026-03-27 |
