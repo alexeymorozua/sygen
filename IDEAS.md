@@ -10,6 +10,14 @@ React/Vue web UI for bot management instead of Telegram commands.
 - Auth via Tailscale or token
 - Inspired by: ClaudeClaw web dashboard
 
+### PyPI Public Release
+Publish Sygen to PyPI for `pip install sygen`.
+- Register account on pypi.org
+- `python -m build && twine upload dist/*`
+- Set `update_check: true` in default config
+- Auto-update system already configured: version.py checks pypi.org/pypi/sygen/json, UpdateObserver notifies users about new versions
+- Needs: PyPI account, decide on public vs private release
+
 ## Medium Priority
 
 ### Upstream Monitoring
