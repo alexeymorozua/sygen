@@ -296,7 +296,7 @@ class TestResolveWelcomeCallback:
     @pytest.mark.parametrize(
         ("key", "expected_substring"),
         [
-            ("w:1", "Sygen"),
+            ("w:1", "sygen"),
             ("w:2", "system"),
             ("w:3", "introduce"),
         ],

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -83,7 +83,8 @@ def test_main_agent_codex_parameters() -> None:
         cli_parameters=["--codex-flag", "codex-value"],
     )
 
-    provider = CodexCLI(config)
+    with patch("sygen_bot.cli.codex_provider.which", return_value="/usr/bin/codex"):
+        provider = CodexCLI(config)
     cmd = provider._build_command("test prompt")
 
     # Verify Codex parameters are present before --
@@ -145,7 +146,8 @@ def test_parameter_isolation() -> None:
         cli_parameters=["--codex-flag", "codex-value"],
     )
 
-    codex_provider = CodexCLI(codex_config)
+    with patch("sygen_bot.cli.codex_provider.which", return_value="/usr/bin/codex"):
+        codex_provider = CodexCLI(codex_config)
     codex_cmd = codex_provider._build_command("test prompt")
 
     # Verify Codex command doesn't contain Claude params

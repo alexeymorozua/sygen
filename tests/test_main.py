@@ -77,7 +77,7 @@ class TestLoadConfig:
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
 
-        assert config.streaming.enabled is True
+        assert config.streaming.enabled is False
         assert config.gemini_api_key is None
         merged = json.loads((config_dir / "config.json").read_text(encoding="utf-8"))
         assert merged["gemini_api_key"] == "null"

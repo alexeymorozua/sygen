@@ -1,102 +1,112 @@
-"""Tests for /upgrade Telegram command."""
+"""Tests for /upgrade Telegram command (git pull based)."""
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import subprocess
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from sygen_bot.infra.version import VersionInfo
 from sygen_bot.orchestrator.commands import cmd_upgrade
 from sygen_bot.orchestrator.core import Orchestrator
 
 
+def _make_completed_process(
+    stdout: str = "", stderr: str = "", returncode: int = 0
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(
+        args=["git", "pull"], returncode=returncode, stdout=stdout, stderr=stderr
+    )
+
+
+def _mock_git_dir_exists(exists: bool = True):
+    """Return a patcher that makes the .git dir check return *exists*."""
+    original_truediv = Path.__truediv__
+
+    def _patched_truediv(self: Path, key: str) -> Path:
+        result = original_truediv(self, key)
+        if key == ".git":
+            mock = MagicMock(spec=Path)
+            mock.is_dir.return_value = exists
+            return mock
+        return result
+
+    return patch.object(Path, "__truediv__", _patched_truediv)
+
+
 class TestCmdUpgrade:
-    """Test /upgrade command handler."""
+    """Test /upgrade command handler (git pull logic)."""
 
-    async def test_shows_update_with_buttons(self, orch: Orchestrator) -> None:
-        info = VersionInfo(
-            current="1.0.0", latest="2.0.0", update_available=True, summary="Big update"
-        )
+    async def test_already_up_to_date(self, orch: Orchestrator) -> None:
+        proc = _make_completed_process(stdout="Already up to date.\n")
         with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=info),
-        ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
-
-        assert "Update Available" in result.text
-        assert "1.0.0" in result.text
-        assert "2.0.0" in result.text
-        assert result.buttons is not None
-
-        all_buttons = [b for row in result.buttons.rows for b in row]
-        callback_values = [b.callback_data for b in all_buttons]
-        assert "upg:yes:2.0.0" in callback_values
-        assert "upg:no" in callback_values
-        assert "upg:cl:2.0.0" in callback_values
-
-    async def test_shows_up_to_date_with_changelog_button(self, orch: Orchestrator) -> None:
-        info = VersionInfo(current="2.0.0", latest="2.0.0", update_available=False, summary="")
-        with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pip"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=info),
+            _mock_git_dir_exists(True),
+            patch("subprocess.run", return_value=proc),
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
         assert "up to date" in result.text.lower()
-        assert "2.0.0" in result.text
-        assert result.buttons is not None
-        buttons = result.buttons.rows[0]
-        assert any(b.callback_data == "upg:cl:2.0.0" for b in buttons)
-
-    async def test_handles_pypi_failure(self, orch: Orchestrator) -> None:
-        with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=None),
-        ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
-
-        assert "could not reach" in result.text.lower() or "pypi" in result.text.lower()
         assert result.buttons is None
 
-    async def test_button_text_is_user_friendly(self, orch: Orchestrator) -> None:
-        info = VersionInfo(current="1.0.0", latest="1.1.0", update_available=True, summary="Patch")
+    async def test_successful_update(self, orch: Orchestrator) -> None:
+        proc = _make_completed_process(
+            stdout="Updating abc1234..def5678\nFast-forward\n src/main.py | 2 +-\n"
+        )
         with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=info),
+            _mock_git_dir_exists(True),
+            patch("subprocess.run", return_value=proc),
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        all_buttons = [b for row in result.buttons.rows for b in row]
-        labels = [b.text for b in all_buttons]
-        assert any("upgrade" in label.lower() or "yes" in label.lower() for label in labels)
-        assert any("not" in label.lower() or "no" in label.lower() for label in labels)
-        assert any("changelog" in label.lower() for label in labels)
+        assert "Updated" in result.text or "updated" in result.text.lower()
+        assert "restart" in result.text.lower() or "/restart" in result.text
 
-    async def test_version_info_in_up_to_date(self, orch: Orchestrator) -> None:
-        info = VersionInfo(current="3.5.1", latest="3.5.1", update_available=False, summary="")
+    async def test_repo_not_found(self, orch: Orchestrator) -> None:
+        with _mock_git_dir_exists(False):
+            result = await cmd_upgrade(orch, 1, "/upgrade")
+
+        assert "not found" in result.text.lower()
+
+    async def test_git_pull_exception(self, orch: Orchestrator) -> None:
         with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pip"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=info),
+            _mock_git_dir_exists(True),
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="git pull", timeout=30),
+            ),
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        assert "3.5.1" in result.text
-        assert "latest" in result.text.lower()
+        assert "failed" in result.text.lower()
 
-    async def test_update_available_has_changelog_button(self, orch: Orchestrator) -> None:
-        info = VersionInfo(current="1.0.0", latest="2.0.0", update_available=True, summary="Update")
+    async def test_no_buttons_on_up_to_date(self, orch: Orchestrator) -> None:
+        proc = _make_completed_process(stdout="Already up to date.\n")
         with (
-            patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
-            patch("sygen_bot.orchestrator.commands.check_pypi", return_value=info),
+            _mock_git_dir_exists(True),
+            patch("subprocess.run", return_value=proc),
         ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        all_buttons = [b for row in result.buttons.rows for b in row]
-        assert any(b.callback_data == "upg:cl:2.0.0" for b in all_buttons)
-        assert any(b.callback_data == "upg:yes:2.0.0" for b in all_buttons)
+        assert result.buttons is None
 
-    async def test_dev_mode_rejects_upgrade(self, orch: Orchestrator) -> None:
-        with patch("sygen_bot.infra.install.detect_install_mode", return_value="dev"):
+    async def test_no_buttons_on_successful_update(self, orch: Orchestrator) -> None:
+        proc = _make_completed_process(stdout="Updating abc..def\nFast-forward\n")
+        with (
+            _mock_git_dir_exists(True),
+            patch("subprocess.run", return_value=proc),
+        ):
             result = await cmd_upgrade(orch, 1, "/upgrade")
 
-        assert "source" in result.text.lower() or "git pull" in result.text.lower()
+        assert result.buttons is None
+
+    async def test_no_buttons_on_error(self, orch: Orchestrator) -> None:
+        with (
+            _mock_git_dir_exists(True),
+            patch(
+                "subprocess.run",
+                side_effect=OSError("git not found"),
+            ),
+        ):
+            result = await cmd_upgrade(orch, 1, "/upgrade")
+
+        assert "failed" in result.text.lower()
         assert result.buttons is None

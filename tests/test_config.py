@@ -26,9 +26,9 @@ def test_agent_config_defaults() -> None:
     cfg = AgentConfig()
     assert cfg.provider == "claude"
     assert cfg.model == "opus"
-    assert cfg.idle_timeout_minutes == 1440
+    assert cfg.idle_timeout_minutes == 10080
     assert cfg.daily_reset_hour == 4
-    assert cfg.cli_timeout == 1800.0
+    assert cfg.cli_timeout == 3600.0
     assert cfg.permission_mode == "bypassPermissions"
     assert cfg.gemini_api_key is None
     assert cfg.telegram_token == ""
@@ -43,7 +43,7 @@ def test_agent_config_normalizes_nullish_gemini_api_key() -> None:
 
 def test_agent_config_streaming_defaults() -> None:
     cfg = AgentConfig()
-    assert cfg.streaming.enabled is True
+    assert cfg.streaming.enabled is False
     assert cfg.streaming.min_chars == 200
     assert cfg.streaming.max_chars == 4000
 

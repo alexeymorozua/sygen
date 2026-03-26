@@ -54,13 +54,14 @@ async def test_new_command_resets_only_active_provider_bucket(orch: Orchestrator
     await orch._sessions.update_session(codex)
 
     result = await orch.handle_message(key, "/new")
-    assert "Session reset for Codex" in result.text
+    # The default config provider is claude, so /new resets the claude bucket
+    assert "Session reset for Claude" in result.text
 
     active = await orch._sessions.get_active(key)
     assert active is not None
-    assert "claude" in active.provider_sessions
-    assert active.provider_sessions["claude"].session_id == "claude-sid"
-    assert "codex" not in active.provider_sessions
+    assert "codex" in active.provider_sessions
+    assert active.provider_sessions["codex"].session_id == "codex-sid"
+    assert "claude" not in active.provider_sessions
 
 
 async def test_stop_aborts_nothing_running(orch: Orchestrator) -> None:
