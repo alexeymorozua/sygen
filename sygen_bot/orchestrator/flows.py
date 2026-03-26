@@ -21,7 +21,7 @@ from sygen_bot.orchestrator.hooks import HookContext
 from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session import SessionData, SessionKey
 from sygen_bot.text.response_format import session_error_text, timeout_error_text
-from sygen_bot.workspace.loader import read_mainmemory
+from sygen_bot.workspace.loader import read_always_load_modules, read_mainmemory
 
 if TYPE_CHECKING:
     from sygen_bot.orchestrator.core import Orchestrator
@@ -95,6 +95,12 @@ async def _prepare_normal(
         mainmemory = await asyncio.to_thread(read_mainmemory, orch.paths)
         if mainmemory.strip():
             append_prompt = mainmemory
+
+        # --- Inject Always Load memory modules at session start ---
+        always_load = await asyncio.to_thread(read_always_load_modules, orch.paths)
+        if always_load.strip():
+            append_prompt = f"{append_prompt}\n\n{always_load}" if append_prompt else always_load
+        # --- End ---
 
         roster = _build_agent_roster(orch)
         if roster:

@@ -120,6 +120,20 @@ DELEGATION_BRIEF = MessageHook(
     ),
 )
 
+MEMORY_REFLECTION = MessageHook(
+    name="memory_reflection",
+    condition=every_n_messages(10),
+    suffix=(
+        "## MEMORY REFLECTION\n"
+        "Review the last several messages in this conversation.\n"
+        "Check: were there any new decisions, corrections, error solutions, "
+        "user preferences, or important facts that you did NOT yet write to "
+        "memory_system/MAINMEMORY.md?\n"
+        "If yes — update MAINMEMORY.md now, silently.\n"
+        "If everything is already recorded — do nothing."
+    ),
+)
+
 DELEGATION_REMINDER = MessageHook(
     name="delegation_reminder",
     condition=_is_delegation_reminder_due,

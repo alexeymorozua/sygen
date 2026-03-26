@@ -59,6 +59,8 @@ class AsyncSendOptions:
     summary: str = ""
     chat_id: int = 0
     topic_id: int | None = None
+    reply_to: str = ""
+    silent: bool = False
 
 
 @dataclass(slots=True)
@@ -75,6 +77,8 @@ class AsyncInterAgentTask:
     asyncio_task: asyncio.Task[None] | None = field(default=None, repr=False)
     chat_id: int = 0
     topic_id: int | None = None
+    reply_to: str = ""
+    silent: bool = False
 
 
 @dataclass(slots=True)
@@ -94,6 +98,7 @@ class AsyncInterAgentResult:
     original_message: str = ""
     chat_id: int = 0
     topic_id: int | None = None
+    reply_to: str = ""
 
 
 AsyncResultCallback = Callable[["AsyncInterAgentResult"], Awaitable[None]]
@@ -243,6 +248,8 @@ class InterAgentBus:
             summary=o.summary,
             chat_id=o.chat_id,
             topic_id=o.topic_id,
+            reply_to=o.reply_to,
+            silent=o.silent,
         )
         atask = asyncio.create_task(
             self._run_async(task),
@@ -286,6 +293,7 @@ class InterAgentBus:
                         original_message=task.message,
                         chat_id=task.chat_id,
                         topic_id=task.topic_id,
+                        reply_to=task.reply_to,
                     )
                 )
                 return
@@ -324,6 +332,7 @@ class InterAgentBus:
                     original_message=task.message,
                     chat_id=task.chat_id,
                     topic_id=task.topic_id,
+                    reply_to=task.reply_to,
                 )
             )
 
@@ -347,6 +356,7 @@ class InterAgentBus:
                     original_message=task.message,
                     chat_id=task.chat_id,
                     topic_id=task.topic_id,
+                    reply_to=task.reply_to,
                 )
             )
 
@@ -365,6 +375,7 @@ class InterAgentBus:
                     original_message=task.message,
                     chat_id=task.chat_id,
                     topic_id=task.topic_id,
+                    reply_to=task.reply_to,
                 )
             )
 
@@ -374,8 +385,11 @@ class InterAgentBus:
         This makes async task delegation visible — the recipient's user sees
         what task was received and from whom before processing begins.
         Best-effort: failures are logged but never block execution.
+        Suppressed when *silent* or *reply_to* is set (automated flows).
         """
         try:
+            if task.silent or task.reply_to:
+                return
             target = self._agents.get(task.recipient)
             if target is None:
                 return
@@ -410,12 +424,13 @@ class InterAgentBus:
             )
 
     async def _deliver_async_result(self, result: AsyncInterAgentResult) -> None:
-        """Deliver an async result to the sender agent's callback handler."""
-        handler = self._async_result_handlers.get(result.sender)
+        """Deliver an async result to the sender (or reply_to) agent's callback handler."""
+        deliver_to = result.reply_to or result.sender
+        handler = self._async_result_handlers.get(deliver_to)
         if handler is None:
             logger.warning(
-                "No async result handler for sender '%s' task=%s — result lost",
-                result.sender,
+                "No async result handler for '%s' task=%s — result lost",
+                deliver_to,
                 result.task_id,
             )
             return
@@ -425,7 +440,7 @@ class InterAgentBus:
             logger.exception(
                 "Error delivering async result task=%s to '%s' — result lost",
                 result.task_id,
-                result.sender,
+                deliver_to,
             )
 
     async def cancel_all_async(self) -> int:
