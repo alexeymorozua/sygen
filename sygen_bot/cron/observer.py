@@ -190,6 +190,14 @@ class CronObserver(BaseTaskObserver):
         CronSim iterates in the resolved local timezone so that ``0 9 * * *``
         means 09:00 in the user's wall-clock time.
         """
+        # Cancel any existing task for this job to prevent double execution
+        # (Issue #75: orphaned asyncio Tasks cause duplicate cron runs)
+        if job_id in self._scheduled:
+            old_task = self._scheduled[job_id]
+            if not old_task.done():
+                old_task.cancel()
+            del self._scheduled[job_id]
+
         try:
             tz = resolve_user_timezone(job_timezone or self._config.user_timezone)
             now_local = datetime.now(tz)
