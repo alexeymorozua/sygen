@@ -3,16 +3,16 @@ requires = ["hatchling>=1.28.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ductor"
-version = "0.15.0"
-description = "Control Claude Code and Codex CLI from Telegram. Live streaming, sessions, cron jobs, webhooks, Docker sandboxing."
+name = "sygen"
+version = "1.0.0"
+description = "AI assistant framework with multi-agent orchestration, background tasks, and persistent memory."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "PleasePrompto" }]
+authors = [{ name = "TIME DESIGN LLC" }]
 keywords = [
-    "ductor", "ai", "telegram", "bot", "agent",
+    "sygen", "ai", "telegram", "bot", "agent",
     "claude", "codex", "cli", "automation", "streaming",
 ]
 classifiers = [
@@ -62,17 +62,14 @@ api = [
 matrix = [
     "matrix-nio>=0.25.0",
 ]
-dev = ["ductor[test,lint,api,matrix]"]
+dev = ["sygen[test,lint,api,matrix]"]
 
 [project.urls]
-Homepage = "https://ductor.dev"
-Repository = "https://github.com/PleasePrompto/ductor"
-Documentation = "https://ductor.dev"
-Issues = "https://github.com/PleasePrompto/ductor/issues"
-Changelog = "https://github.com/PleasePrompto/ductor/releases"
+Repository = "https://github.com/alexeymorozua/sygen"
+Issues = "https://github.com/alexeymorozua/sygen/issues"
 
 [project.scripts]
-ductor = "ductor_bot.__main__:main"
+sygen = "ductor_bot.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ductor_bot"]
