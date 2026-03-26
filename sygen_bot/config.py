@@ -311,7 +311,7 @@ class AgentConfig(BaseModel):
     scene: SceneConfig = Field(default_factory=SceneConfig)
     user_timezone: str = ""
     language: str = "en"
-    update_check: bool = True
+    update_check: bool = False
     group_mention_only: bool = False
     interagent_port: int = 8799
     transport: str = "telegram"  # "telegram" | "matrix"

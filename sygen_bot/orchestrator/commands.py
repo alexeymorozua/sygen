@@ -107,73 +107,29 @@ async def cmd_cron(orch: Orchestrator, _key: SessionKey, _text: str) -> Orchestr
 
 
 async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
-    """Handle /upgrade: check for updates and offer upgrade."""
+    """Handle /upgrade: pull latest changes from git."""
     logger.info("Upgrade check requested")
+    import subprocess
 
-    from sygen_bot.infra.install import detect_install_mode
+    sygen_dir = Path.home() / "Agents" / "sygen"
+    if not (sygen_dir / ".git").is_dir():
+        return OrchestratorResult(text="Sygen repository not found at ~/Agents/sygen/")
 
-    if detect_install_mode() == "dev":
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(sygen_dir), "pull", "--ff-only", "origin", "main"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        output = result.stdout.strip()
+        if "Already up to date" in output:
+            return OrchestratorResult(text="\u2705 Sygen is up to date.")
         return OrchestratorResult(
-            text=fmt(
-                t("upgrade.dev_header"),
-                SEP,
-                t("upgrade.dev_body"),
-            ),
+            text=f"\u2705 Updated:\n```\n{output}\n```\nRestart to apply: /restart",
         )
-
-    info = await check_pypi(fresh=True)
-
-    if info is None:
-        return OrchestratorResult(
-            text=t("upgrade.pypi_unreachable"),
-        )
-
-    if not info.update_available:
-        keyboard = ButtonGrid(
-            rows=[
-                [
-                    Button(
-                        text=t("upgrade.btn_changelog", version=info.current),
-                        callback_data=f"upg:cl:{info.current}",
-                    )
-                ],
-            ]
-        )
-        return OrchestratorResult(
-            text=fmt(
-                t("upgrade.up_to_date_header"),
-                SEP,
-                t("upgrade.up_to_date_body", current=info.current, latest=info.latest),
-            ),
-            buttons=keyboard,
-        )
-
-    keyboard = ButtonGrid(
-        rows=[
-            [
-                Button(
-                    text=t("upgrade.btn_changelog", version=info.latest),
-                    callback_data=f"upg:cl:{info.latest}",
-                )
-            ],
-            [
-                Button(
-                    text=t("upgrade.btn_yes"),
-                    callback_data=f"upg:yes:{info.latest}",
-                ),
-                Button(text=t("upgrade.btn_not_now"), callback_data="upg:no"),
-            ],
-        ]
-    )
-
-    return OrchestratorResult(
-        text=fmt(
-            t("upgrade.available_header"),
-            SEP,
-            t("upgrade.available_body", current=info.current, latest=info.latest),
-        ),
-        buttons=keyboard,
-    )
+    except Exception as e:
+        return OrchestratorResult(text=f"\u274c Update failed: {e}")
 
 
 def _build_codex_cache_block(orch: Orchestrator) -> str:

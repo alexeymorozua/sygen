@@ -32,7 +32,7 @@ def _load_banner() -> str:
     try:
         return _BANNER_PATH.read_text(encoding="utf-8").rstrip()
     except OSError:
-        return "ductor.dev"
+        return "Sygen"
 
 
 _TOKEN_PATTERN = re.compile(r"^\d{8,}:[A-Za-z0-9_-]{30,}$")

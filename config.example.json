@@ -7,7 +7,7 @@
     "language": "en",
     "ductor_home": "~/.ductor",
     "user_timezone": "Europe/Berlin",
-    "update_check": true,
+    "update_check": false,
 
     "idle_timeout_minutes": 10080,
     "session_age_warning_hours": 0,
