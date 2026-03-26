@@ -237,6 +237,33 @@ class TestCronObserverScheduling:
         assert idle_task.cancelled()
         await observer.stop()
 
+    async def test_schedule_job_cancels_orphaned_task(self, tmp_path: Path) -> None:
+        """Scheduling a job that already has a task must cancel the old task (Issue #75)."""
+        paths = _make_paths(tmp_path)
+        mgr = _make_manager(paths)
+        job = _make_job("test-job")
+        mgr.add_job(job)
+
+        observer = _make_observer(paths, mgr)
+        await observer.start()
+        assert "test-job" in observer._scheduled
+
+        old_task = observer._scheduled["test-job"]
+
+        # Reschedule the same job — old task must be cancelled
+        observer._schedule_job(
+            job.id, job.schedule, job.agent_instruction, job.task_folder,
+        )
+
+        new_task = observer._scheduled["test-job"]
+        assert old_task is not new_task
+        assert old_task.cancelling()
+        # Let event loop process the cancellation
+        await asyncio.sleep(0)
+        assert old_task.cancelled()
+        assert not new_task.done()
+        await observer.stop()
+
     async def test_stop_cancels_executing_jobs(self, tmp_path: Path) -> None:
         """stop() must cancel ALL tasks including currently executing ones."""
         paths = _make_paths(tmp_path)
