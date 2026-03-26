@@ -342,7 +342,7 @@ Applied to incoming images across all transports (Telegram, Matrix, API). See `f
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `seen_reaction` | `bool` | `false` | Enables "seen" indicator on incoming messages (Telegram: emoji reaction, Matrix: read receipt) |
+| `reaction_style` | `str` | `"seen"` | Emoji reactions: `"off"` = none, `"seen"` = 👀 on receipt + ✅ on done, `"detailed"` = 👀→🤔→⚙️→📦→✅ real-time status |
 | `technical_footer` | `bool` | `false` | Appends model/token/cost/time footer to agent responses |
 
 ## `CleanupConfig`

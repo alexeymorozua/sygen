@@ -314,7 +314,7 @@ class MatrixBot:
         self._last_active_room = room_id
         chat_id = self._id_map.room_to_int(room_id)
 
-        if self._config.scene.seen_reaction:
+        if self._config.scene.reaction_style != "off":
             await self._set_seen_read_receipt(room_id, event.event_id)
 
         # Check button match (text-input fallback for reactions)
@@ -360,7 +360,7 @@ class MatrixBot:
         self._last_active_room = room_id
         chat_id = self._id_map.room_to_int(room_id)
 
-        if self._config.scene.seen_reaction:
+        if self._config.scene.reaction_style != "off":
             await self._set_seen_read_receipt(room_id, event.event_id)
 
         # Download and build prompt
