@@ -48,7 +48,7 @@ except (ZoneInfoNotFoundError, KeyError):
 class StreamingConfig(BaseModel):
     """Settings for streaming response output."""
 
-    enabled: bool = True
+    enabled: bool = False
     min_chars: int = 200
     max_chars: int = 4000
     idle_ms: int = 800
@@ -175,15 +175,15 @@ class TasksConfig(BaseModel):
     """Settings for background task delegation."""
 
     enabled: bool = True
-    max_parallel: int = 5
-    timeout_seconds: float = 3600.0
+    max_parallel: int = 10
+    timeout_seconds: float = 7200.0
 
 
 class TimeoutConfig(BaseModel):
     """Per-execution-path timeout settings."""
 
     normal: float = 600.0
-    background: float = 1800.0
+    background: float = 3600.0
     subagent: float = 3600.0
     warning_intervals: list[float] = Field(default_factory=lambda: [60.0, 10.0])
     extend_on_activity: bool = True
@@ -286,15 +286,15 @@ class AgentConfig(BaseModel):
     provider: str = "claude"
     model: str = "opus"
     ductor_home: str = "~/.ductor"
-    idle_timeout_minutes: int = 1440
-    session_age_warning_hours: int = 12
+    idle_timeout_minutes: int = 10080
+    session_age_warning_hours: int = 0
     daily_reset_hour: int = 4
     daily_reset_enabled: bool = False
     max_budget_usd: float | None = None
     max_turns: int | None = None
     max_session_messages: int | None = None
     permission_mode: str = "bypassPermissions"
-    cli_timeout: float = 1800.0
+    cli_timeout: float = 3600.0
     reasoning_effort: str = "medium"
     file_access: str = "all"
     gemini_api_key: str | None = None

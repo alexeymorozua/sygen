@@ -9,8 +9,8 @@
     "user_timezone": "Europe/Berlin",
     "update_check": true,
 
-    "idle_timeout_minutes": 1440,
-    "session_age_warning_hours": 12,
+    "idle_timeout_minutes": 10080,
+    "session_age_warning_hours": 0,
     "daily_reset_hour": 4,
     "daily_reset_enabled": false,
 
@@ -19,7 +19,7 @@
     "max_session_messages": null,
 
     "permission_mode": "bypassPermissions",
-    "cli_timeout": 600.0,
+    "cli_timeout": 3600.0,
     "reasoning_effort": "medium",
     "file_access": "all",
     "gemini_api_key": "null",
@@ -54,7 +54,7 @@
     },
 
     "streaming": {
-        "enabled": true,
+        "enabled": false,
         "min_chars": 200,
         "max_chars": 4000,
         "idle_ms": 800,
@@ -147,7 +147,7 @@
 
     "timeouts": {
         "normal": 600.0,
-        "background": 1800.0,
+        "background": 3600.0,
         "subagent": 3600.0,
         "warning_intervals": [60.0, 10.0],
         "extend_on_activity": true,
@@ -157,8 +157,8 @@
 
     "tasks": {
         "enabled": true,
-        "max_parallel": 5,
-        "timeout_seconds": 3600.0
+        "max_parallel": 10,
+        "timeout_seconds": 7200.0
     },
 
     "interagent_port": 8799
