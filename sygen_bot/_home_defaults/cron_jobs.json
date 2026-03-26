@@ -4,8 +4,8 @@
     "title": "Weekly Cleanup",
     "schedule": "0 10 * * 0",
     "enabled": true,
-    "provider": "claude",
-    "model": "sonnet",
+    "provider": null,
+    "model": null,
     "task_dir": "cron_tasks/weekly-cleanup"
   },
   {
@@ -13,8 +13,8 @@
     "title": "Monthly Memory Cleanup",
     "schedule": "0 10 15 * *",
     "enabled": true,
-    "provider": "claude",
-    "model": "sonnet",
+    "provider": null,
+    "model": null,
     "task_dir": "cron_tasks/monthly-memory-cleanup"
   },
   {
@@ -22,8 +22,8 @@
     "title": "Monthly Memory Review",
     "schedule": "0 10 1 * *",
     "enabled": true,
-    "provider": "claude",
-    "model": "opus",
+    "provider": null,
+    "model": null,
     "task_dir": "cron_tasks/monthly-memory-review"
   },
   {
@@ -31,8 +31,8 @@
     "title": "Daily Security Audit",
     "schedule": "0 8 * * *",
     "enabled": true,
-    "provider": "claude",
-    "model": "sonnet",
+    "provider": null,
+    "model": null,
     "task_dir": "cron_tasks/security-audit"
   }
 ]
