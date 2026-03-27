@@ -4,12 +4,6 @@ Based on competitor research (OpenClaw, ClaudeClaw, Goose, Aider, Cursor, Devin 
 
 ## High Priority
 
-### Multi-LLM Support
-Per-chat/per-task model selection (Claude, GPT, Gemini, DeepSeek, local models).
-- Reduces vendor lock-in + cost optimization
-- OpenClaw, Goose, Aider all support this
-- Complexity: MEDIUM
-
 ### Skill Marketplace
 Community skill sharing + agent self-writing skills.
 - OpenClaw's viral growth mechanism
@@ -83,3 +77,4 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 | WhatsApp Channel | Official API is paid ($0.005-0.08/msg), 24h window limit, no message editing (kills streaming), no inline buttons (max 3 reply buttons), no forums/topics. Unofficial libs get banned. Not worth it for personal use | 2026-03-27 |
 | Multi-Model Routing (rule-based) | Rule-based/keyword approaches are unreliable. CLI subprocess startup adds 3-5 sec if using CLI for classification. Solved via optional API classifier instead (see Implemented) | 2026-03-27 |
 | Additional Providers (DeepSeek, Ollama) | Three providers (Claude/Codex/Gemini) are sufficient. Each new provider needs ~500 LOC CLI wrapper. No demand yet | 2026-03-27 |
+| Multi-LLM Support | CLI architecture — each provider needs its own CLI tool. DeepSeek/Ollama have no CLI. Writing API wrappers = hybrid architecture (3 CLI + N API), hard to maintain. 3 providers sufficient, Multi-Model Routing covers complexity-based selection | 2026-03-27 |
