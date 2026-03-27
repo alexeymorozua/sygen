@@ -2,8 +2,8 @@ This file gives coding agents a current map of the repository.
 
 ## Project Overview
 
-ductor is a multi-transport chat orchestrator for the official provider CLIs (`claude`, `codex`, `gemini`).
-It runs Telegram and/or Matrix, can expose an optional direct WebSocket API, keeps state under `~/.ductor`, and supervises the main agent plus optional sub-agents in one asyncio process.
+sygen is a multi-transport chat orchestrator for the official provider CLIs (`claude`, `codex`, `gemini`).
+It runs Telegram and/or Matrix, can expose an optional direct WebSocket API, keeps state under `~/.sygen`, and supervises the main agent plus optional sub-agents in one asyncio process.
 
 Stack:
 
@@ -22,8 +22,8 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Run
-ductor
-ductor -v
+sygen
+sygen -v
 
 # Tests
 pytest
@@ -77,14 +77,14 @@ Observer / TaskHub / InterAgentBus callback
 | `multiagent/` | supervisor, inter-agent bus, internal localhost API bridge, shared knowledge sync |
 | `api/` | optional direct WebSocket API and authenticated file endpoints |
 | `cron/`, `webhook/`, `heartbeat/`, `cleanup/` | in-process automation observers |
-| `workspace/` | `~/.ductor` path model, seeding, rule deployment/sync, skill sync |
+| `workspace/` | `~/.sygen` path model, seeding, rule deployment/sync, skill sync |
 | `infra/` | PID lock, service backends, Docker manager, restart/update/recovery helpers |
 | `files/` | shared file/path safety, MIME detection, image processing (`image_processor.py`: resize/convert incoming images) |
 | `security/`, `text/` | prompt safety, formatting helpers |
 
 ## Key Runtime Patterns
 
-- `DuctorPaths` in `workspace/paths.py` is the single source of truth for runtime paths.
+- `SygenPaths` in `workspace/paths.py` is the single source of truth for runtime paths.
 - Session identity is `SessionKey(transport, chat_id, topic_id)` across Telegram chats/topics, Matrix rooms (mapped int), and API channel isolation.
 - `/new` resets only the active provider bucket for the active session key.
 - `MessageBus` is the single async delivery path for observers, task callbacks, webhook wake results, and async inter-agent responses. Delivery is transport-aware: UNICAST envelopes route to the matching transport only, with cascading fallback when the target transport is unavailable.
@@ -93,10 +93,10 @@ Observer / TaskHub / InterAgentBus callback
   - Zone 2 overwrite: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, framework-managed tool scripts
   - Zone 3 seed-once: user-owned files
 - Rule sync is mtime-based for sibling `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`; cron task folders additionally get missing rule backfill.
-- Skill sync spans `~/.ductor/workspace/skills`, `~/.claude/skills`, `~/.codex/skills`, `~/.gemini/skills`:
+- Skill sync spans `~/.sygen/workspace/skills`, `~/.claude/skills`, `~/.codex/skills`, `~/.gemini/skills`:
   - normal mode: links/junctions
-  - Docker mode: managed copies (`.ductor_managed`)
-- `ductor agents add` is a Telegram-focused scaffold; Matrix sub-agents are supported through `agents.json` or the bundled agent tool scripts.
+  - Docker mode: managed copies (`.sygen_managed`)
+- `sygen agents add` is a Telegram-focused scaffold; Matrix sub-agents are supported through `agents.json` or the bundled agent tool scripts.
 
 ## Background Systems
 
@@ -126,31 +126,31 @@ Operational notes:
 
 - onboarding offers service install when a backend is available
 - `stop_bot()` stops the installed service first so it does not immediately respawn the process
-- `ductor service logs` behavior:
-  - Linux: `journalctl --user -u ductor -f`
-  - macOS/Windows: recent lines from `~/.ductor/logs/agent.log` (fallback newest `*.log`)
+- `sygen service logs` behavior:
+  - Linux: `journalctl --user -u sygen -f`
+  - macOS/Windows: recent lines from `~/.sygen/logs/agent.log` (fallback newest `*.log`)
 
 ## CLI Surface
 
 Core:
 
-- `ductor`, `ductor onboarding`, `ductor reset`
-- `ductor status`, `ductor stop`, `ductor restart`, `ductor upgrade`, `ductor uninstall`
+- `sygen`, `sygen onboarding`, `sygen reset`
+- `sygen status`, `sygen stop`, `sygen restart`, `sygen upgrade`, `sygen uninstall`
 
 Groups:
 
-- `ductor service <install|status|start|stop|logs|uninstall>`
-- `ductor docker <rebuild|enable|disable|mount|unmount|mounts|extras|extras-add|extras-remove>`
-- `ductor api <enable|disable>`
-- `ductor agents <list|add|remove>`
-- `ductor install <matrix|api>`
+- `sygen service <install|status|start|stop|logs|uninstall>`
+- `sygen docker <rebuild|enable|disable|mount|unmount|mounts|extras|extras-add|extras-remove>`
+- `sygen api <enable|disable>`
+- `sygen agents <list|add|remove>`
+- `sygen install <matrix|api>`
 
 Nuances:
 
-- `ductor agents add` interactively scaffolds Telegram sub-agents only
+- `sygen agents add` interactively scaffolds Telegram sub-agents only
 - Matrix sub-agents are still first-class at runtime; define them in `agents.json` or via the bundled agent tools
 
-## Key Data Files (`~/.ductor`)
+## Key Data Files (`~/.sygen`)
 
 - `config/config.json`
 - `.env`
