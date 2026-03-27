@@ -380,6 +380,7 @@ class AgentConfig(BaseModel):
     update_check: bool = True
     group_mention_only: bool = False
     interagent_port: int = 8799
+    agent_name: str = "main"
     transport: str = "telegram"  # "telegram" | "matrix"
     transports: list[str] = Field(default_factory=list)
     telegram_token: str = ""
