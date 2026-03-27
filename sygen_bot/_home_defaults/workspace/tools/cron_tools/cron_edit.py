@@ -43,6 +43,9 @@ CHANGES:
   --description "<text>"     Update metadata description
   --schedule "<cron-expr>"   Update execution schedule
   --timezone "<iana>"        Set per-job timezone override (e.g. 'Europe/Berlin')
+  --chat-id <id>             Override target Telegram chat ID
+  --topic-id <id>            Override target forum topic ID
+  --clear-topic-id           Remove topic_id (deliver to main chat instead of topic)
   --quiet-start <hour>       Start of quiet hours (0-23, job won't run during this time)
   --quiet-end <hour>         End of quiet hours (0-23, exclusive)
   --dependency "<name>"      Resource dependency for sequential execution (e.g. 'chrome_browser')
@@ -56,6 +59,8 @@ EXAMPLES:
   python tools/cron_tools/cron_edit.py "weather-check" --title "Weather 08:30"
   python tools/cron_tools/cron_edit.py "weather-check" --name "weather-morning"
   python tools/cron_tools/cron_edit.py "weather-check" --disable
+  python tools/cron_tools/cron_edit.py "web-scraper" --topic-id 42
+  python tools/cron_tools/cron_edit.py "web-scraper" --clear-topic-id
   python tools/cron_tools/cron_edit.py "web-scraper" --quiet-start 22 --quiet-end 7
   python tools/cron_tools/cron_edit.py "web-scraper" --dependency chrome_browser
   python tools/cron_tools/cron_edit.py "web-scraper" --clear-quiet-hours
@@ -87,6 +92,21 @@ def _parse_args() -> argparse.Namespace:
         choices=range(24),
         metavar="HOUR",
         help="End of quiet hours (0-23, exclusive).",
+    )
+    parser.add_argument(
+        "--chat-id",
+        type=int,
+        help="Override target Telegram chat ID.",
+    )
+    parser.add_argument(
+        "--topic-id",
+        type=int,
+        help="Override target forum topic ID.",
+    )
+    parser.add_argument(
+        "--clear-topic-id",
+        action="store_true",
+        help="Remove topic_id (deliver to main chat instead of topic).",
     )
     parser.add_argument(
         "--dependency",
@@ -186,6 +206,21 @@ def _apply_updates(args: argparse.Namespace, job: dict[str, Any]) -> tuple[list[
             job["timezone"] = tz_val
             updated_fields.append("timezone")
 
+    if args.chat_id is not None:
+        if job.get("chat_id") != args.chat_id:
+            job["chat_id"] = args.chat_id
+            updated_fields.append("chat_id")
+
+    if args.topic_id is not None:
+        if job.get("topic_id") != args.topic_id:
+            job["topic_id"] = args.topic_id
+            updated_fields.append("topic_id")
+
+    if args.clear_topic_id:
+        if "topic_id" in job:
+            job.pop("topic_id", None)
+            updated_fields.append("topic_id (cleared)")
+
     if args.quiet_start is not None:
         if job.get("quiet_start") != args.quiet_start:
             job["quiet_start"] = args.quiet_start
@@ -241,6 +276,9 @@ def main() -> None:
             args.description is not None,
             args.schedule is not None,
             args.timezone is not None,
+            args.chat_id is not None,
+            args.topic_id is not None,
+            args.clear_topic_id,
             args.quiet_start is not None,
             args.quiet_end is not None,
             args.dependency is not None,

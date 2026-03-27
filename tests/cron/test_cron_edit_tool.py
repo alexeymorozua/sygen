@@ -145,3 +145,42 @@ def test_cron_edit_nonexistent_exits_1(tmp_path: Path) -> None:
     assert result.returncode == 1
     output = json.loads(result.stdout)
     assert "not found" in output["error"]
+
+
+def test_cron_edit_set_topic_id(tmp_path: Path) -> None:
+    _add_job(tmp_path, "topic-job")
+    result = _run(tmp_path, TOOL_EDIT, ["topic-job", "--topic-id", "42"])
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["updated"] is True
+    assert "topic_id" in output["updated_fields"]
+
+    job = _job(tmp_path, "topic-job")
+    assert job["topic_id"] == 42
+
+
+def test_cron_edit_set_chat_id(tmp_path: Path) -> None:
+    _add_job(tmp_path, "chat-job")
+    result = _run(tmp_path, TOOL_EDIT, ["chat-job", "--chat-id", "12345"])
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "chat_id" in output["updated_fields"]
+
+    job = _job(tmp_path, "chat-job")
+    assert job["chat_id"] == 12345
+
+
+def test_cron_edit_clear_topic_id(tmp_path: Path) -> None:
+    _add_job(tmp_path, "clear-topic")
+    # First set a topic_id
+    _run(tmp_path, TOOL_EDIT, ["clear-topic", "--topic-id", "99"])
+    assert _job(tmp_path, "clear-topic")["topic_id"] == 99
+
+    # Now clear it
+    result = _run(tmp_path, TOOL_EDIT, ["clear-topic", "--clear-topic-id"])
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "topic_id (cleared)" in output["updated_fields"]
+
+    job = _job(tmp_path, "clear-topic")
+    assert "topic_id" not in job
