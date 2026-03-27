@@ -1,6 +1,6 @@
 """Automatic model routing based on message complexity."""
 
-from sygen_bot.routing.classifier import MessageClassifier
-from sygen_bot.routing.router import ModelRouter
+from sygen_bot.routing.classifier import ClassificationResult, MessageClassifier
+from sygen_bot.routing.router import ModelRouter, RoutingDecision
 
-__all__ = ["MessageClassifier", "ModelRouter"]
+__all__ = ["ClassificationResult", "MessageClassifier", "ModelRouter", "RoutingDecision"]
