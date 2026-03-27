@@ -242,6 +242,7 @@ class WebhookObserver(BaseTaskObserver):
             summary=result_text[:200] if result_text else None,
             retention_days=self._config.trace_retention_days,
             max_files=self._config.trace_max_files,
+            agent_name=self._config.agent_name,
         )
 
     async def _dispatch_wake(

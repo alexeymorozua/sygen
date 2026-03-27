@@ -122,6 +122,7 @@ class ObserverManager:
             cli_service=cli_service,
             trace_retention_days=config.trace_retention_days,
             trace_max_files=config.trace_max_files,
+            agent_name=config.agent_name,
         )
         self.cron = CronObserver(paths, cron_manager, config=config, codex_cache=codex_cache)
         self.webhook = WebhookObserver(

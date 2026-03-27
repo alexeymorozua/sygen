@@ -24,13 +24,20 @@ CREATE TABLE IF NOT EXISTS traces (
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     error TEXT,
-    summary TEXT
+    summary TEXT,
+    agent_name TEXT NOT NULL DEFAULT '',
+    job_id TEXT NOT NULL DEFAULT ''
 )
 """
 
 _CREATE_INDEX = """\
 CREATE INDEX IF NOT EXISTS idx_traces_started ON traces (started DESC)
 """
+
+_MIGRATE_COLUMNS = [
+    ("agent_name", "TEXT NOT NULL DEFAULT ''"),
+    ("job_id", "TEXT NOT NULL DEFAULT ''"),
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +53,8 @@ class Trace:
     model: str
     error: str | None = None
     summary: str | None = None
+    agent_name: str = ""
+    job_id: str = ""
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -54,6 +63,11 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(_CREATE_TABLE)
     conn.execute(_CREATE_INDEX)
+    for col_name, col_def in _MIGRATE_COLUMNS:
+        try:
+            conn.execute(f"ALTER TABLE traces ADD COLUMN {col_name} {col_def}")
+        except sqlite3.OperationalError:
+            pass
     return conn
 
 
@@ -84,6 +98,8 @@ def record_trace(
     summary: str | None = None,
     retention_days: int = 30,
     max_files: int = 1000,
+    agent_name: str = "",
+    job_id: str = "",
 ) -> None:
     normalized = _normalize_status(status)
     ts = started.strftime("%Y%m%d-%H%M%S")
@@ -99,8 +115,8 @@ def record_trace(
     try:
         conn.execute(
             "INSERT OR REPLACE INTO traces "
-            "(id, type, name, started, finished, duration_sec, status, provider, model, error, summary) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(id, type, name, started, finished, duration_sec, status, provider, model, error, summary, agent_name, job_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 trace_id,
                 trace_type,
@@ -113,6 +129,8 @@ def record_trace(
                 model or "",
                 error if normalized != "ok" else None,
                 summary[:200] if summary else None,
+                agent_name or "",
+                job_id or "",
             ),
         )
         conn.commit()
@@ -165,7 +183,7 @@ def read_traces(
             params.append(since.isoformat())
 
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-        query = f"SELECT id, type, name, started, finished, duration_sec, status, provider, model, error, summary FROM traces{where} ORDER BY started DESC LIMIT ?"
+        query = f"SELECT id, type, name, started, finished, duration_sec, status, provider, model, error, summary, agent_name, job_id FROM traces{where} ORDER BY started DESC LIMIT ?"
         params.append(limit)
 
         rows = conn.execute(query, params).fetchall()
@@ -173,7 +191,7 @@ def read_traces(
             Trace(
                 id=r[0], type=r[1], name=r[2], started=r[3], finished=r[4],
                 duration_sec=r[5], status=r[6], provider=r[7], model=r[8],
-                error=r[9], summary=r[10],
+                error=r[9], summary=r[10], agent_name=r[11], job_id=r[12],
             )
             for r in rows
         ]
