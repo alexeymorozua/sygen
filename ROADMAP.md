@@ -5,9 +5,6 @@
 ### AutoMemory Consolidation
 Programmatic memory deduplication, contradiction detection, and staleness pruning. Cron-based cleanup tasks exist; goal is automated algorithms in core.
 
-### Discord Channel
-Discord as an additional messaging transport.
-
 ### Plugin System
 Drop-in custom tools with auto-discovery from a `plugins/` directory.
 
