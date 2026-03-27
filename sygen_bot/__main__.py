@@ -103,7 +103,7 @@ def load_config() -> AgentConfig:
     """Load, auto-create, and smart-merge the bot config.
 
     Resolution order:
-    1. ``~/.ductor/config/config.json`` (canonical location)
+    1. ``~/.sygen/config/config.json`` (canonical location)
     2. Copy from ``config.example.json`` in the framework root on first start
     3. Fall back to Pydantic defaults if example file is missing
 
@@ -125,7 +125,7 @@ def load_config() -> AgentConfig:
         else:
             defaults = AgentConfig().model_dump(mode="json")
             defaults["gemini_api_key"] = DEFAULT_EMPTY_GEMINI_API_KEY
-            defaults.pop("api", None)  # Beta: only written by `ductor api enable`
+            defaults.pop("api", None)  # Beta: only written by `sygen api enable`
             atomic_json_save(config_path, defaults)
             logger.info("Created default config at %s", config_path)
 
@@ -142,7 +142,7 @@ def load_config() -> AgentConfig:
 
     defaults = AgentConfig().model_dump(mode="json")
     defaults["gemini_api_key"] = DEFAULT_EMPTY_GEMINI_API_KEY
-    defaults.pop("api", None)  # Beta: only written by `ductor api enable`
+    defaults.pop("api", None)  # Beta: only written by `sygen api enable`
     merged, changed = deep_merge_config(user_data, defaults)
     changed = changed or normalized_existing
 
@@ -176,13 +176,13 @@ async def run_bot(config: AgentConfig) -> int:
 
     Returns the exit code from the bot (``0`` = clean, ``42`` = restart requested).
     """
-    paths = resolve_paths(ductor_home=config.ductor_home)
+    paths = resolve_paths(sygen_home=config.sygen_home)
     _validate_transports(config)
 
     from sygen_bot.infra.pidlock import acquire_lock, release_lock
     from sygen_bot.multiagent.supervisor import AgentSupervisor
 
-    acquire_lock(pid_file=paths.ductor_home / "bot.pid", kill_existing=True)
+    acquire_lock(pid_file=paths.sygen_home / "bot.pid", kill_existing=True)
 
     supervisor = AgentSupervisor(config)
     exit_code = 0
@@ -212,7 +212,7 @@ async def run_bot(config: AgentConfig) -> int:
         for sig in installed_signals:
             loop.remove_signal_handler(sig)
         await supervisor.stop_all()
-        release_lock(pid_file=paths.ductor_home / "bot.pid")
+        release_lock(pid_file=paths.sygen_home / "bot.pid")
     return exit_code
 
 
@@ -284,7 +284,7 @@ def _cmd_setup(verbose: bool) -> None:
     _stop_bot()
     paths = resolve_paths()
     if _is_configured():
-        run_smart_reset(paths.ductor_home)
+        run_smart_reset(paths.sygen_home)
     service_installed = run_onboarding()
     if service_installed:
         return

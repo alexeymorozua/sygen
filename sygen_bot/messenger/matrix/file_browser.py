@@ -14,17 +14,17 @@ from sygen_bot.security.paths import is_path_safe
 from sygen_bot.text.response_format import SEP, fmt
 
 if TYPE_CHECKING:
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 _MAX_RECENT_FILES = 5
 
 
-def format_file_listing(paths: DuctorPaths, subdir: str = "") -> str:
+def format_file_listing(paths: SygenPaths, subdir: str = "") -> str:
     """Format a text listing of the workspace directory structure.
 
     Args:
         paths: Resolved workspace paths.
-        subdir: Optional subdirectory relative to ``ductor_home`` to list.
+        subdir: Optional subdirectory relative to ``sygen_home`` to list.
             When empty, shows an overview of key workspace directories
             with file counts and recent files.
 
@@ -36,7 +36,7 @@ def format_file_listing(paths: DuctorPaths, subdir: str = "") -> str:
     return _format_overview(paths)
 
 
-def _format_overview(paths: DuctorPaths) -> str:
+def _format_overview(paths: SygenPaths) -> str:
     """Build an overview listing of key workspace directories."""
     lines: list[str] = []
 
@@ -82,9 +82,9 @@ def _format_overview(paths: DuctorPaths) -> str:
     )
 
 
-def _format_subdir(paths: DuctorPaths, subdir: str) -> str:
+def _format_subdir(paths: SygenPaths, subdir: str) -> str:
     """Build a detailed listing for a specific subdirectory."""
-    base = paths.ductor_home.resolve()
+    base = paths.sygen_home.resolve()
     target = (base / subdir).resolve()
 
     if not is_path_safe(target, [base]) or not target.is_dir():
@@ -96,7 +96,7 @@ def _format_subdir(paths: DuctorPaths, subdir: str) -> str:
 
     dirs, files = list_directory(target)
 
-    display_path = f"~/.ductor/{subdir}"
+    display_path = f"~/.sygen/{subdir}"
     if not display_path.endswith("/"):
         display_path += "/"
 

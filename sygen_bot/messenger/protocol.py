@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from sygen_bot.multiagent.bus import AsyncInterAgentResult
     from sygen_bot.orchestrator.core import Orchestrator
     from sygen_bot.tasks.models import TaskResult
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 
 @runtime_checkable
@@ -67,6 +67,6 @@ class BotProtocol(Protocol):
         """Handle background task question delivery."""
         ...
 
-    def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
+    def file_roots(self, paths: SygenPaths) -> list[Path] | None:
         """Allowed root directories for file sends."""
         ...

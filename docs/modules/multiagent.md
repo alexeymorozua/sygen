@@ -1,6 +1,6 @@
 # multiagent/
 
-Multi-agent runtime: run multiple independent ductor agents in one process.
+Multi-agent runtime: run multiple independent sygen agents in one process.
 
 ## Files
 
@@ -82,7 +82,7 @@ Merge behavior:
 - base: main `AgentConfig`
 - override: non-null `SubAgentConfig` fields
 - always forced:
-  - `ductor_home=~/.ductor/agents/<name>/`
+  - `sygen_home=~/.sygen/agents/<name>/`
   - sub-agent `telegram_token`, `allowed_user_ids`, `allowed_group_ids`
   - `api.enabled=false` unless explicitly provided for sub-agent
 
@@ -91,7 +91,7 @@ Merge behavior:
 Isolated per sub-agent:
 
 - transport credentials and auth (Telegram token or Matrix account)
-- workspace and files under `~/.ductor/agents/<name>/`
+- workspace and files under `~/.sygen/agents/<name>/`
 - `sessions.json`, `named_sessions.json`, cron/webhook state
 
 Shared across process:
@@ -99,8 +99,8 @@ Shared across process:
 - `InterAgentBus`
 - `InternalAgentAPI`
 - optional shared `TaskHub`
-- central log file (`~/.ductor/logs/agent.log`)
-- shared knowledge source (`~/.ductor/SHAREDMEMORY.md`)
+- central log file (`~/.sygen/logs/agent.log`)
+- shared knowledge source (`~/.sygen/SHAREDMEMORY.md`)
 
 ## Inter-agent communication
 
@@ -155,7 +155,7 @@ This enables task submission from any agent while preserving owner routing.
 
 ## Shared knowledge sync
 
-`SharedKnowledgeSync` watches `~/.ductor/SHAREDMEMORY.md` and mirrors content into each agent's `MAINMEMORY.md` block.
+`SharedKnowledgeSync` watches `~/.sygen/SHAREDMEMORY.md` and mirrors content into each agent's `MAINMEMORY.md` block.
 
 Legacy HTML marker format is migrated to current block markers when rewritten.
 
@@ -168,14 +168,14 @@ Main-agent chat commands:
 
 CLI:
 
-- `ductor agents`
-- `ductor agents list`
-- `ductor agents add <name>`
-- `ductor agents remove <name>`
+- `sygen agents`
+- `sygen agents list`
+- `sygen agents add <name>`
+- `sygen agents remove <name>`
 
-`ductor agents list` fetches live health from internal API when main bot is running.
+`sygen agents list` fetches live health from internal API when main bot is running.
 
 Important CLI nuance:
 
-- `ductor agents add <name>` currently prompts for Telegram token/user/group data only.
+- `sygen agents add <name>` currently prompts for Telegram token/user/group data only.
 - Matrix sub-agents are supported by the runtime and merge logic, but are created via manual `agents.json` editing or the bundled `create_agent.py --transport matrix` tool script.

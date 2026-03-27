@@ -1,4 +1,4 @@
-"""API server management CLI subcommands (``ductor api ...``)."""
+"""API server management CLI subcommands (``sygen api ...``)."""
 
 from __future__ import annotations
 
@@ -38,8 +38,8 @@ def print_api_help() -> None:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="bold green", min_width=30)
     table.add_column()
-    table.add_row("ductor api enable", "Enable the WebSocket API server")
-    table.add_row("ductor api disable", "Disable the WebSocket API server")
+    table.add_row("sygen api enable", "Enable the WebSocket API server")
+    table.add_row("sygen api disable", "Disable the WebSocket API server")
 
     # Show current status
     paths = resolve_paths()
@@ -81,8 +81,8 @@ def api_install_hint() -> str:
 
     mode = detect_install_mode()
     if mode == "pipx":
-        return "pipx inject ductor PyNaCl"
-    return "pip install ductor[api]"
+        return "pipx inject sygen PyNaCl"
+    return "pip install sygen[api]"
 
 
 def api_enable() -> None:
@@ -155,7 +155,7 @@ def api_disable() -> None:
 
 
 def cmd_api(args: list[str]) -> None:
-    """Handle 'ductor api <subcommand>'."""
+    """Handle 'sygen api <subcommand>'."""
     sub = _parse_api_subcommand(args)
     if sub is None:
         print_api_help()

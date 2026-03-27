@@ -11,7 +11,7 @@ import pytest
 
 from sygen_bot.config import DockerConfig
 from sygen_bot.infra.docker import resolve_mount_target
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 # ---------------------------------------------------------------------------
 # resolve_mount_target
@@ -119,21 +119,21 @@ class TestResolveMountTarget:
 
 
 @pytest.fixture
-def docker_paths(tmp_path: Path) -> DuctorPaths:
-    home = tmp_path / ".ductor"
+def docker_paths(tmp_path: Path) -> SygenPaths:
+    home = tmp_path / ".sygen"
     home.mkdir()
     ws = home / "workspace"
     ws.mkdir()
     (ws / "tools").mkdir()
     fw = tmp_path / "framework"
     fw.mkdir()
-    return DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+    return SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
 
 
 class TestDockerManagerMounts:
     """Integration tests: verify mounts appear in the docker run command."""
 
-    async def test_single_mount_in_run_cmd(self, tmp_path: Path, docker_paths: DuctorPaths) -> None:
+    async def test_single_mount_in_run_cmd(self, tmp_path: Path, docker_paths: SygenPaths) -> None:
         proj = tmp_path / "myapp"
         proj.mkdir()
 
@@ -168,7 +168,7 @@ class TestDockerManagerMounts:
         assert f"{proj}:/mnt/myapp:rw" in run_str
 
     async def test_multiple_mounts_in_run_cmd(
-        self, tmp_path: Path, docker_paths: DuctorPaths
+        self, tmp_path: Path, docker_paths: SygenPaths
     ) -> None:
         proj_a = tmp_path / "alpha"
         proj_a.mkdir()
@@ -207,7 +207,7 @@ class TestDockerManagerMounts:
         assert f"{proj_b}:/mnt/beta:rw" in run_str
 
     async def test_duplicate_basenames_get_suffix(
-        self, tmp_path: Path, docker_paths: DuctorPaths
+        self, tmp_path: Path, docker_paths: SygenPaths
     ) -> None:
         a = tmp_path / "x" / "proj"
         a.mkdir(parents=True)
@@ -246,7 +246,7 @@ class TestDockerManagerMounts:
         assert f"{b}:/mnt/proj_2:rw" in run_str
 
     async def test_nonexistent_mount_silently_skipped(
-        self, tmp_path: Path, docker_paths: DuctorPaths
+        self, tmp_path: Path, docker_paths: SygenPaths
     ) -> None:
         config = DockerConfig(enabled=True, mounts=["/does/not/exist"])
         from sygen_bot.infra.docker import DockerManager
@@ -279,7 +279,7 @@ class TestDockerManagerMounts:
         run_str = " ".join(run_args)
         assert "/mnt/" not in run_str  # No user mount appeared.
 
-    async def test_empty_mounts_list(self, docker_paths: DuctorPaths) -> None:
+    async def test_empty_mounts_list(self, docker_paths: SygenPaths) -> None:
         config = DockerConfig(enabled=True, mounts=[])
         from sygen_bot.infra.docker import DockerManager
 

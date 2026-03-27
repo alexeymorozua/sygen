@@ -20,9 +20,9 @@ from sygen_bot.multiagent.supervisor import (
 
 @pytest.fixture
 def main_config(tmp_path: Path) -> AgentConfig:
-    """Create a main config with tmp_path as ductor_home."""
+    """Create a main config with tmp_path as sygen_home."""
     return AgentConfig(
-        ductor_home=str(tmp_path),
+        sygen_home=str(tmp_path),
         telegram_token="main-token",
         allowed_user_ids=[1],
     )
@@ -222,7 +222,7 @@ class TestOnAgentsChanged:
         """When token changes in agents.json, the agent is restarted."""
         # Current state: sub1 running with old token
         old_config = AgentConfig(
-            telegram_token="old-token", ductor_home=str(tmp_path / "agents/sub1")
+            telegram_token="old-token", sygen_home=str(tmp_path / "agents/sub1")
         )
         supervisor._stacks["sub1"] = MagicMock(config=old_config)
 

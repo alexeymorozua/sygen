@@ -9,8 +9,8 @@ The response ALWAYS comes back to YOU (the calling agent). There is no way
 to make the sub-agent reply in its own Telegram chat via this tool.
 
 Uses the internal localhost HTTP API to communicate with the bus.
-Environment variables DUCTOR_AGENT_NAME, DUCTOR_INTERAGENT_PORT, and
-DUCTOR_INTERAGENT_HOST are automatically set by the Ductor framework.
+Environment variables SYGEN_AGENT_NAME, SYGEN_INTERAGENT_PORT, and
+SYGEN_INTERAGENT_HOST are automatically set by the Sygen framework.
 
 Usage:
     python3 ask_agent_async.py [--new] [--summary "Short description"] TARGET_AGENT "Your message here"
@@ -60,9 +60,9 @@ def main() -> None:
 
     target = args[0]
     message = args[1]
-    port = os.environ.get("DUCTOR_INTERAGENT_PORT", "8799")
-    host = os.environ.get("DUCTOR_INTERAGENT_HOST", "127.0.0.1")
-    sender = os.environ.get("DUCTOR_AGENT_NAME", "unknown")
+    port = os.environ.get("SYGEN_INTERAGENT_PORT", "8799")
+    host = os.environ.get("SYGEN_INTERAGENT_HOST", "127.0.0.1")
+    sender = os.environ.get("SYGEN_AGENT_NAME", "unknown")
 
     url = f"http://{host}:{port}/interagent/send_async"
     body: dict[str, object] = {"from": sender, "to": target, "message": message}
@@ -70,8 +70,8 @@ def main() -> None:
         body["new_session"] = True
     if summary:
         body["summary"] = summary
-    chat_id = os.environ.get("DUCTOR_CHAT_ID", "")
-    topic_id = os.environ.get("DUCTOR_TOPIC_ID", "")
+    chat_id = os.environ.get("SYGEN_CHAT_ID", "")
+    topic_id = os.environ.get("SYGEN_TOPIC_ID", "")
     if chat_id:
         body["chat_id"] = int(chat_id)
     if topic_id:
@@ -91,7 +91,7 @@ def main() -> None:
     except urllib.error.URLError as e:
         print(f"Error: Cannot reach inter-agent API at {url}: {e}", file=sys.stderr)
         print(
-            "Make sure the Ductor supervisor is running with multi-agent support.", file=sys.stderr
+            "Make sure the Sygen supervisor is running with multi-agent support.", file=sys.stderr
         )
         sys.exit(1)
     except Exception as e:

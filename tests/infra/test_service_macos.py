@@ -23,37 +23,37 @@ from tests.infra.conftest import make_completed
 
 class TestGeneratePlistData:
     def test_contains_binary_path(self) -> None:
-        data = _generate_plist_data("/usr/local/bin/ductor")
-        assert data["ProgramArguments"] == ["/usr/local/bin/ductor"]
+        data = _generate_plist_data("/usr/local/bin/sygen")
+        assert data["ProgramArguments"] == ["/usr/local/bin/sygen"]
 
     def test_has_label(self) -> None:
-        data = _generate_plist_data("ductor")
-        assert data["Label"] == "dev.ductor"
+        data = _generate_plist_data("sygen")
+        assert data["Label"] == "dev.sygen"
 
     def test_has_run_at_load(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         assert data["RunAtLoad"] is True
 
     def test_keep_alive_only_on_crash(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         assert data["KeepAlive"] == {"SuccessfulExit": False}
 
     def test_has_throttle_interval(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         assert data["ThrottleInterval"] == 10
 
     def test_has_background_process_type(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         assert data["ProcessType"] == "Background"
 
     def test_has_environment_variables(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         env = data["EnvironmentVariables"]
         assert "PATH" in env
         assert "HOME" in env
 
     def test_path_includes_homebrew_dirs(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         path_value = data["EnvironmentVariables"]["PATH"]
         assert "/opt/homebrew/bin" in path_value
         assert "/usr/local/bin" in path_value
@@ -63,24 +63,24 @@ class TestGeneratePlistData:
         (tmp_path / ".nvm" / "versions" / "node" / "v22.0.0" / "bin").mkdir(parents=True)
 
         with patch("sygen_bot.infra.service_macos.Path.home", return_value=tmp_path):
-            data = _generate_plist_data("ductor")
+            data = _generate_plist_data("sygen")
 
         path_value = data["EnvironmentVariables"]["PATH"]
         assert f"{tmp_path}/.nvm/versions/node/v24.0.0/bin" in path_value
         assert f"{tmp_path}/.nvm/versions/node/v22.0.0/bin" in path_value
 
     def test_has_log_paths(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         assert "StandardOutPath" in data
         assert "StandardErrorPath" in data
         assert "service.log" in data["StandardOutPath"]
         assert "service.err" in data["StandardErrorPath"]
 
     def test_generates_valid_plist(self) -> None:
-        data = _generate_plist_data("ductor")
+        data = _generate_plist_data("sygen")
         plist_bytes = plistlib.dumps(data, fmt=plistlib.FMT_XML)
         parsed = plistlib.loads(plist_bytes)
-        assert parsed["Label"] == "dev.ductor"
+        assert parsed["Label"] == "dev.sygen"
         assert parsed["RunAtLoad"] is True
 
 
@@ -106,7 +106,7 @@ class TestIsServiceRunning:
     def test_running_when_pid_present(self, _installed: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = make_completed(
             0,
-            stdout='{\n\t"PID" = 12345;\n\t"Label" = "dev.ductor";\n};',
+            stdout='{\n\t"PID" = 12345;\n\t"Label" = "dev.sygen";\n};',
         )
         assert is_service_running() is True
 
@@ -115,7 +115,7 @@ class TestIsServiceRunning:
     def test_not_running_when_no_pid(self, _installed: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = make_completed(
             0,
-            stdout='{\n\t"Label" = "dev.ductor";\n\t"LastExitStatus" = 0;\n};',
+            stdout='{\n\t"Label" = "dev.sygen";\n\t"LastExitStatus" = 0;\n};',
         )
         assert is_service_running() is False
 
@@ -133,7 +133,7 @@ class TestInstallService:
     @patch("sygen_bot.infra.service_macos.is_service_installed", return_value=False)
     @patch("sygen_bot.infra.service_macos.is_service_available", return_value=True)
     @patch(
-        "sygen_bot.infra.service_macos.find_ductor_binary", return_value="/usr/local/bin/ductor"
+        "sygen_bot.infra.service_macos.find_sygen_binary", return_value="/usr/local/bin/sygen"
     )
     @patch("sygen_bot.infra.service_macos._plist_path")
     @patch("sygen_bot.infra.service_macos.resolve_paths")
@@ -147,7 +147,7 @@ class TestInstallService:
         mock_run: MagicMock,
         tmp_path: Path,
     ) -> None:
-        plist_file = tmp_path / "dev.ductor.plist"
+        plist_file = tmp_path / "dev.sygen.plist"
         mock_plist_path.return_value = plist_file
         paths_obj = MagicMock()
         paths_obj.logs_dir = tmp_path / "logs"
@@ -160,7 +160,7 @@ class TestInstallService:
 
         # Verify the plist is valid
         plist_data = plistlib.loads(plist_file.read_bytes())
-        assert plist_data["Label"] == "dev.ductor"
+        assert plist_data["Label"] == "dev.sygen"
 
     @patch("sygen_bot.infra.service_macos.is_service_available", return_value=False)
     def test_install_fails_without_launchctl(self, _avail: MagicMock) -> None:
@@ -168,7 +168,7 @@ class TestInstallService:
         assert install_service(console) is False
 
     @patch("sygen_bot.infra.service_macos.is_service_available", return_value=True)
-    @patch("sygen_bot.infra.service_macos.find_ductor_binary", return_value=None)
+    @patch("sygen_bot.infra.service_macos.find_sygen_binary", return_value=None)
     def test_install_fails_without_binary(self, _binary: MagicMock, _avail: MagicMock) -> None:
         console = MagicMock()
         assert install_service(console) is False
@@ -248,7 +248,7 @@ class TestPrintServiceLogs:
     ) -> None:
         logs_dir = tmp_path / "logs"
         logs_dir.mkdir()
-        log_file = logs_dir / "ductor_2026-02-22.log"
+        log_file = logs_dir / "sygen_2026-02-22.log"
         log_file.write_text("line1\nline2\nline3\n", encoding="utf-8")
 
         paths_obj = MagicMock()

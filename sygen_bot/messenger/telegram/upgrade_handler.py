@@ -128,7 +128,7 @@ async def handle_upgrade_callback(
         # Write sentinel for post-restart message (use actual installed version)
         await asyncio.to_thread(
             write_upgrade_sentinel,
-            bot._orch.paths.ductor_home,
+            bot._orch.paths.sygen_home,
             chat_id=chat_id,
             old_version=current_version,
             new_version=installed_version,

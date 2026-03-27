@@ -13,16 +13,20 @@ from sygen_bot.workspace.init import sync_rule_files as sync_rule_files
 from sygen_bot.workspace.init import watch_rule_files as watch_rule_files
 from sygen_bot.workspace.loader import read_file as read_file
 from sygen_bot.workspace.loader import read_mainmemory as read_mainmemory
-from sygen_bot.workspace.paths import DuctorPaths as DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths as SygenPaths
+from sygen_bot.workspace.paths import SygenPaths as SygenPaths
 from sygen_bot.workspace.paths import resolve_paths as resolve_paths
-from sygen_bot.workspace.skill_sync import cleanup_ductor_links as cleanup_ductor_links
+from sygen_bot.workspace.skill_sync import cleanup_sygen_links as cleanup_sygen_links
+from sygen_bot.workspace.skill_sync import cleanup_sygen_links as cleanup_sygen_links
 from sygen_bot.workspace.skill_sync import sync_bundled_skills as sync_bundled_skills
 from sygen_bot.workspace.skill_sync import sync_skills as sync_skills
 from sygen_bot.workspace.skill_sync import watch_skill_sync as watch_skill_sync
 
 __all__ = [
-    "DuctorPaths",
-    "cleanup_ductor_links",
+    "SygenPaths",
+    "SygenPaths",
+    "cleanup_sygen_links",
+    "cleanup_sygen_links",
     "create_cron_task",
     "delete_cron_task",
     "ensure_task_rule_files",

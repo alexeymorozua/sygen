@@ -1,4 +1,4 @@
-"""CLI command: ductor install <extra>."""
+"""CLI command: sygen install <extra>."""
 
 from __future__ import annotations
 
@@ -46,11 +46,11 @@ def _install_extra(name: str) -> None:
     mode = detect_install_mode()
 
     if mode == "pipx":
-        cmd = [sys.executable, "-m", "pip", "install", f"ductor[{name}]"]
+        cmd = [sys.executable, "-m", "pip", "install", f"sygen[{name}]"]
     elif mode == "dev":
         cmd = [sys.executable, "-m", "pip", "install", "-e", f".[{name}]"]
     else:
-        cmd = [sys.executable, "-m", "pip", "install", f"ductor[{name}]"]
+        cmd = [sys.executable, "-m", "pip", "install", f"sygen[{name}]"]
 
     console.print(t_rich("install.installing", description=description))
     console.print(t_rich("install.command", cmd=" ".join(cmd)))
@@ -80,11 +80,11 @@ def print_install_help() -> None:
         )
         table.add_row(name, desc, status)
 
-    Console().print(Panel(table, title="ductor install <extra>"))
+    Console().print(Panel(table, title="sygen install <extra>"))
 
 
 def cmd_install(args: list[str]) -> None:
-    """Handle `ductor install <extra>`."""
+    """Handle `sygen install <extra>`."""
     if len(args) < 2 or args[1] not in _EXTRAS:
         print_install_help()
         return

@@ -96,7 +96,7 @@ Current scope nuance:
 
 Upload target:
 
-- `~/.ductor/workspace/api_files/YYYY-MM-DD/...`
+- `~/.sygen/workspace/api_files/YYYY-MM-DD/...`
 
 ## File safety model
 
@@ -104,7 +104,7 @@ Upload target:
 
 - `all` -> unrestricted
 - `home` -> home-root limited
-- `workspace` -> `~/.ductor/workspace` limited
+- `workspace` -> `~/.sygen/workspace` limited
 
 MIME and file-tag parsing share helpers from `sygen_bot/files/`.
 

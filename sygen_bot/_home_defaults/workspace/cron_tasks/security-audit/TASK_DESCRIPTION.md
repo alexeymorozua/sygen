@@ -5,23 +5,23 @@ You are a security audit agent. Check for common security issues in the agent en
 ### 1. Check sensitive file permissions
 
 Verify these files exist and have correct permissions (600):
-- `~/.ductor/.env`
-- `~/.ductor/agents.json`
+- `~/.sygen/.env`
+- `~/.sygen/agents.json`
 
 Use `stat` to check permissions. If a file doesn't exist, note it but don't treat it as a critical issue (it may not be configured yet).
 
 If permissions are wrong, fix them:
 ```bash
-chmod 600 ~/.ductor/.env
-chmod 600 ~/.ductor/agents.json
+chmod 600 ~/.sygen/.env
+chmod 600 ~/.sygen/agents.json
 ```
 
 ### 2. Scan for leaked secrets in workspace files
 
 Scan files with extensions: .py, .md, .json, .sh, .toml, .yaml, .yml
 In these directories:
-- `~/.ductor/workspace/`
-- `~/.ductor/agents/*/workspace/` (discover agents via `ls ~/.ductor/agents/`)
+- `~/.sygen/workspace/`
+- `~/.sygen/agents/*/workspace/` (discover agents via `ls ~/.sygen/agents/`)
 
 Search for these patterns:
 - GitHub tokens: `ghp_[A-Za-z0-9]{36}`
@@ -32,8 +32,8 @@ Search for these patterns:
 - Generic high-entropy strings assigned to variables named `token`, `secret`, `password`, `api_key` (use judgment)
 
 **Exclude from scanning:**
-- `~/.ductor/.env` (secrets belong there)
-- `~/.ductor/agents.json` (tokens belong there)
+- `~/.sygen/.env` (secrets belong there)
+- `~/.sygen/agents.json` (tokens belong there)
 - This task's own TASK_DESCRIPTION.md (contains the patterns as examples)
 - Any file inside `cron_tasks/security-audit/`
 
@@ -45,9 +45,9 @@ Run `df -h /` and check if usage exceeds 90%. If so, warn.
 
 ### 4. Check logs directory size
 
-Check the size of `~/.ductor/logs/`:
+Check the size of `~/.sygen/logs/`:
 ```bash
-du -sh ~/.ductor/logs/
+du -sh ~/.sygen/logs/
 ```
 Warn if it exceeds 500MB.
 
@@ -62,7 +62,7 @@ If issues were found, report them clearly:
 Security audit — issues found:
 
 ⚠️ Permissions:
-- ~/.ductor/.env had permissions 644, fixed to 600
+- ~/.sygen/.env had permissions 644, fixed to 600
 
 🔴 Leaked secrets:
 - workspace/tools/example.py:15 — possible GitHub token (ghp_...)
@@ -71,7 +71,7 @@ Security audit — issues found:
 - Root filesystem at 92% usage
 
 ⚠️ Logs:
-- ~/.ductor/logs/ is 750MB, consider cleanup
+- ~/.sygen/logs/ is 750MB, consider cleanup
 ```
 
 Only report actual findings. Do not include checks that passed.

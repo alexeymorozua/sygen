@@ -1,4 +1,4 @@
-"""macOS launchd Launch Agent service management for ductor."""
+"""macOS launchd Launch Agent service management for sygen."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sygen_bot.i18n import t_rich
 from sygen_bot.infra.service_base import (
     collect_nvm_bin_dirs,
     ensure_console,
-    find_ductor_binary,
+    find_sygen_binary,
     print_binary_not_found,
     print_install_success,
     print_no_service,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LABEL = "dev.ductor"
+_LABEL = "dev.sygen"
 _PLIST_NAME = f"{_LABEL}.plist"
 
 
@@ -91,7 +91,7 @@ def _generate_plist_data(binary_path: str) -> dict[str, Any]:
         "EnvironmentVariables": {
             "PATH": ":".join(path_dirs),
             "HOME": str(home),
-            "DUCTOR_SUPERVISOR": "1",
+            "SYGEN_SUPERVISOR": "1",
         },
         "StandardOutPath": str(paths.logs_dir / "service.log"),
         "StandardErrorPath": str(paths.logs_dir / "service.err"),
@@ -104,12 +104,12 @@ def is_service_available() -> bool:
 
 
 def is_service_installed() -> bool:
-    """Check if the ductor Launch Agent plist exists."""
+    """Check if the sygen Launch Agent plist exists."""
     return _plist_path().exists()
 
 
 def is_service_running() -> bool:
-    """Check if the ductor Launch Agent is currently running."""
+    """Check if the sygen Launch Agent is currently running."""
     if not is_service_installed():
         return False
     result = _run_launchctl("list", _LABEL)
@@ -119,7 +119,7 @@ def is_service_running() -> bool:
 
 
 def install_service(console: Console | None = None) -> bool:
-    """Install and start the ductor Launch Agent.
+    """Install and start the sygen Launch Agent.
 
     Returns True on success.
     """
@@ -129,7 +129,7 @@ def install_service(console: Console | None = None) -> bool:
         console.print(t_rich("service.macos.no_launchctl"))
         return False
 
-    binary = find_ductor_binary()
+    binary = find_sygen_binary()
     if not binary:
         print_binary_not_found(console)
         return False
@@ -166,7 +166,7 @@ def install_service(console: Console | None = None) -> bool:
 
 
 def uninstall_service(console: Console | None = None) -> bool:
-    """Stop and remove the ductor Launch Agent."""
+    """Stop and remove the sygen Launch Agent."""
     console = ensure_console(console)
 
     if not is_service_installed():

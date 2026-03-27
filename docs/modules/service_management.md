@@ -1,6 +1,6 @@
 # service_management
 
-Platform-specific background service management for `ductor service ...`.
+Platform-specific background service management for `sygen service ...`.
 
 ## Dispatch model
 
@@ -29,7 +29,7 @@ This keeps `cli_commands/service.py` platform-agnostic.
 - onboarding offers service install whenever the active platform backend is available
 - `stop_bot()` stops the installed service before killing the current process tree, so the service manager does not immediately respawn it
 - restart semantics still come from the process exit code (`42`) and the surrounding backend policy
-- file logs live under `~/.ductor/logs/`
+- file logs live under `~/.sygen/logs/`
 
 ## Linux backend
 
@@ -38,22 +38,22 @@ Implementation: `sygen_bot/infra/service_linux.py`
 Mechanism:
 
 - systemd user service
-- unit file: `~/.config/systemd/user/ductor.service`
+- unit file: `~/.config/systemd/user/sygen.service`
 - enable + start via `systemctl --user`
 
 Service unit details:
 
-- `ExecStart=<ductor binary>`
+- `ExecStart=<sygen binary>`
 - `Restart=on-failure`
 - `RestartSec=5`
-- sets `PATH`, `HOME`, and `DUCTOR_SUPERVISOR=1`
+- sets `PATH`, `HOME`, and `SYGEN_SUPERVISOR=1`
 - `WantedBy=default.target`
 
 Operational notes:
 
 - installer attempts `sudo loginctl enable-linger <user>` when linger is missing
 - without linger, the user service may stop after logout
-- `ductor service logs` follows `journalctl --user -u ductor -f --no-hostname`
+- `sygen service logs` follows `journalctl --user -u sygen -f --no-hostname`
 
 ## macOS backend
 
@@ -62,7 +62,7 @@ Implementation: `sygen_bot/infra/service_macos.py`
 Mechanism:
 
 - launchd Launch Agent
-- plist: `~/Library/LaunchAgents/dev.ductor.plist`
+- plist: `~/Library/LaunchAgents/dev.sygen.plist`
 - loaded via `launchctl load -w`
 
 Launch Agent details:
@@ -72,13 +72,13 @@ Launch Agent details:
 - `ThrottleInterval=10`
 - `ProcessType=Background`
 - extends `PATH` with common system paths plus discovered NVM bin directories
-- sets `HOME` and `DUCTOR_SUPERVISOR=1`
-- stdout/stderr go to `~/.ductor/logs/service.log` and `service.err`
+- sets `HOME` and `SYGEN_SUPERVISOR=1`
+- stdout/stderr go to `~/.sygen/logs/service.log` and `service.err`
 
 Operational notes:
 
-- `ductor service logs` tails file logs from `~/.ductor/logs/` rather than using `launchctl`
-- status uses `launchctl list dev.ductor`
+- `sygen service logs` tails file logs from `~/.sygen/logs/` rather than using `launchctl`
+- status uses `launchctl list dev.sygen`
 
 ## Windows backend
 
@@ -86,7 +86,7 @@ Implementation: `sygen_bot/infra/service_windows.py`
 
 Mechanism:
 
-- Task Scheduler task named `ductor`
+- Task Scheduler task named `sygen`
 - created through `schtasks.exe` with an XML definition
 
 Task details:
@@ -95,13 +95,13 @@ Task details:
 - restart-on-failure enabled: 3 retries, 1 minute apart
 - runs with `InteractiveToken` and `LeastPrivilege`
 - prefers `pythonw.exe -m sygen_bot` for windowless execution
-- falls back to the `ductor` binary when `pythonw.exe` is unavailable
+- falls back to the `sygen` binary when `pythonw.exe` is unavailable
 
 Operational notes:
 
 - some systems require an elevated terminal for task creation/removal; backend detects common access-denied variants and shows an admin hint panel
-- `ductor service logs` tails file logs from `~/.ductor/logs/`
-- the backend writes a temporary XML file under `~/.ductor/ductor_task.xml` during install and removes it after task creation
+- `sygen service logs` tails file logs from `~/.sygen/logs/`
+- the backend writes a temporary XML file under `~/.sygen/sygen_task.xml` during install and removes it after task creation
 
 ## Why junior devs should care
 

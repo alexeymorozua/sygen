@@ -61,8 +61,8 @@ def _no_real_service_management() -> object:
     """Prevent tests from stopping/starting the real systemd service.
 
     ``lifecycle.stop_bot()`` calls ``_stop_service_if_running()`` which runs
-    ``systemctl --user stop ductor.service`` — killing the live service on any
-    machine where ductor is installed and running.
+    ``systemctl --user stop sygen.service`` — killing the live service on any
+    machine where sygen is installed and running.
     """
     with patch(
         "sygen_bot.cli_commands.lifecycle._stop_service_if_running",

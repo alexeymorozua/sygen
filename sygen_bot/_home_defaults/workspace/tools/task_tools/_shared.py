@@ -13,8 +13,8 @@ from pathlib import Path
 def detect_agent_name() -> str:
     """Detect the agent name from script path or env var.
 
-    Sub-agent tools live at ``~/.ductor/agents/<name>/workspace/tools/task_tools/``.
-    Main agent tools live at ``~/.ductor/workspace/tools/task_tools/``.
+    Sub-agent tools live at ``~/.sygen/agents/<name>/workspace/tools/task_tools/``.
+    Main agent tools live at ``~/.sygen/workspace/tools/task_tools/``.
     The path is the most reliable source — env var is used as fallback.
     """
     # Derive from script path: .../agents/<name>/workspace/tools/task_tools/
@@ -27,13 +27,13 @@ def detect_agent_name() -> str:
         if agent_home.parent.name == "agents":
             return agent_home.name
     # Fallback to env var
-    return os.environ.get("DUCTOR_AGENT_NAME", "main")
+    return os.environ.get("SYGEN_AGENT_NAME", "main")
 
 
 def get_api_url(path: str) -> str:
     """Build internal API URL from environment."""
-    port = os.environ.get("DUCTOR_INTERAGENT_PORT", "8799")
-    host = os.environ.get("DUCTOR_INTERAGENT_HOST", "127.0.0.1")
+    port = os.environ.get("SYGEN_INTERAGENT_PORT", "8799")
+    host = os.environ.get("SYGEN_INTERAGENT_HOST", "127.0.0.1")
     return f"http://{host}:{port}{path}"
 
 
@@ -51,7 +51,7 @@ def post_json(url: str, body: dict[str, object], *, timeout: int = 300) -> dict[
             return json.loads(resp.read().decode())  # type: ignore[no-any-return]
     except urllib.error.URLError as e:
         print(f"Error: Cannot reach task API at {url}: {e}", file=sys.stderr)
-        print("Make sure the Ductor bot is running with tasks enabled.", file=sys.stderr)
+        print("Make sure the Sygen bot is running with tasks enabled.", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

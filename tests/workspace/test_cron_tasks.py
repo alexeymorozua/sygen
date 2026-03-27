@@ -12,13 +12,13 @@ from sygen_bot.workspace.cron_tasks import (
     ensure_task_rule_files,
     list_cron_tasks,
 )
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
     )
     paths.cron_tasks_dir.mkdir(parents=True)
     return paths

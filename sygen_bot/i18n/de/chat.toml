@@ -341,7 +341,7 @@ Alle Agents teilen sich einen Prozess und können \
 über den Inter-Agent-Bus kommunizieren."""
 commands_header = "**Befehle**"
 setup_header = "**Einrichtung**"
-setup_instruction = "Bitte deinen Agent, einen neuen Sub-Agent zu erstellen, oder bearbeite `agents.json` in deinem ductor Home-Verzeichnis."
+setup_instruction = "Bitte deinen Agent, einen neuen Sub-Agent zu erstellen, oder bearbeite `agents.json` in deinem sygen Home-Verzeichnis."
 
 # -- Fehler (generisch) -------------------------------------------------------
 
@@ -354,10 +354,10 @@ check_logs = "Fehler: Logs prüfen für Details."
 [gemini]
 missing_key = """\
 Gemini ist auf API-Key-Auth eingestellt, aber `gemini_api_key` in \
-`~/.ductor/config/config.json` ist `"null"` oder leer.
-Warum das nötig ist: Wenn ductor die Gemini CLI als externen Prozess aufruft, \
+`~/.sygen/config/config.json` ist `"null"` oder leer.
+Warum das nötig ist: Wenn sygen die Gemini CLI als externen Prozess aufruft, \
 gibt die Gemini CLI einen intern eingegebenen API-Key nicht an den Aufrufer weiter.
-Setze einen echten API-Key in `gemini_api_key` und starte `ductor` neu."""
+Setze einen echten API-Key in `gemini_api_key` und starte `sygen` neu."""
 
 # -- Neue Session (Handler) ---------------------------------------------------
 

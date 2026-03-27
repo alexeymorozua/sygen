@@ -1,13 +1,13 @@
 {
-    "_comment": "Full example config showing all features. Copy to ~/.ductor/config/config.json and adjust.",
+    "_comment": "Full example config showing all features. Copy to ~/.sygen/config/config.json and adjust.",
 
     "log_level": "INFO",
     "provider": "claude",
     "model": "sonnet",
     "language": "en",
-    "ductor_home": "~/.ductor",
+    "sygen_home": "~/.sygen",
     "user_timezone": "Europe/Berlin",
-    "update_check": false,
+    "update_check": true,
 
     "idle_timeout_minutes": 10080,
     "session_age_warning_hours": 0,
@@ -66,8 +66,8 @@
 
     "docker": {
         "enabled": true,
-        "image_name": "ductor-sandbox",
-        "container_name": "ductor-sandbox",
+        "image_name": "sygen-sandbox",
+        "container_name": "sygen-sandbox",
         "auto_build": true,
         "mount_host_cache": false,
         "mounts": [

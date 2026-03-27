@@ -13,15 +13,15 @@ from shutil import which
 from typing import TYPE_CHECKING, ClassVar
 
 from sygen_bot.config import DockerConfig
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 if TYPE_CHECKING:
     from rich.console import Console
 
 logger = logging.getLogger(__name__)
 
-_DUCTOR_MOUNT = "/ductor"
-_CONTAINER_WS = f"{_DUCTOR_MOUNT}/workspace"
+_SYGEN_MOUNT = "/sygen"
+_CONTAINER_WS = f"{_SYGEN_MOUNT}/workspace"
 _MOUNT_PREFIX = "/mnt"
 
 
@@ -103,7 +103,7 @@ class DockerManager:
 
     _setup_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
-    def __init__(self, config: DockerConfig, paths: DuctorPaths) -> None:
+    def __init__(self, config: DockerConfig, paths: SygenPaths) -> None:
         self._config = config
         self._paths = paths
         self._container: str | None = None
@@ -296,13 +296,13 @@ class DockerManager:
         await self._exec("docker", "rm", "-f", name)
 
     async def _start_container(self, name: str, image: str) -> bool:
-        # Always mount the root ductor home, even when called from a sub-agent.
+        # Always mount the root sygen home, even when called from a sub-agent.
         # Sub-agent homes live at <root>/agents/<name>/; the container must see
         # the full tree so every agent can access its own workspace via paths
-        # like /ductor/agents/<name>/workspace.
-        ductor_home = self._paths.ductor_home
-        if ductor_home.parent.name == "agents":
-            ductor_home = ductor_home.parent.parent
+        # like /sygen/agents/<name>/workspace.
+        sygen_home = self._paths.sygen_home
+        if sygen_home.parent.name == "agents":
+            sygen_home = sygen_home.parent.parent
 
         cmd: list[str] = [
             "docker",
@@ -312,11 +312,11 @@ class DockerManager:
             name,
             "-w",
             _CONTAINER_WS,
-            # Mount the ENTIRE ~/.ductor so the CLI sees all framework files.
+            # Mount the ENTIRE ~/.sygen so the CLI sees all framework files.
             "-v",
-            f"{ductor_home}:{_DUCTOR_MOUNT}",
+            f"{sygen_home}:{_SYGEN_MOUNT}",
             "-e",
-            f"DUCTOR_HOME={_DUCTOR_MOUNT}",
+            f"SYGEN_HOME={_SYGEN_MOUNT}",
             # Allow inter-agent communication from inside the container back
             # to the host's InternalAgentAPI (127.0.0.1:8799).
             "--add-host=host.docker.internal:host-gateway",
@@ -382,7 +382,7 @@ class DockerManager:
         return True
 
     def _env_secret_flags(self) -> list[str]:
-        """Return ``-e`` flags for user secrets from ``~/.ductor/.env``."""
+        """Return ``-e`` flags for user secrets from ``~/.sygen/.env``."""
         from sygen_bot.infra.env_secrets import load_env_secrets
 
         flags: list[str] = []

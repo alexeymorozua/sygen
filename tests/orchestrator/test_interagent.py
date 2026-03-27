@@ -14,11 +14,11 @@ from sygen_bot.orchestrator.injection import (
     _get_or_create_interagent_session,
     _interagent_chat_id,
 )
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
 @pytest.fixture
-def orch_ia(workspace: tuple[DuctorPaths, AgentConfig]) -> Orchestrator:
+def orch_ia(workspace: tuple[SygenPaths, AgentConfig]) -> Orchestrator:
     """Orchestrator with mocked CLIService for inter-agent tests."""
     paths, config = workspace
     config.allowed_user_ids = [12345]
@@ -38,7 +38,7 @@ class TestInteragentChatId:
     def test_returns_first_allowed_user(self, orch_ia: Orchestrator) -> None:
         assert _interagent_chat_id(orch_ia) == 12345
 
-    def test_returns_zero_when_no_users(self, workspace: tuple[DuctorPaths, AgentConfig]) -> None:
+    def test_returns_zero_when_no_users(self, workspace: tuple[SygenPaths, AgentConfig]) -> None:
         paths, config = workspace
         config.allowed_user_ids = []
         o = Orchestrator(config, paths)

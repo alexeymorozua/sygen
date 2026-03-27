@@ -20,7 +20,7 @@ TOOL_PATH = (
 
 
 def _run_tool(tmp_path: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "DUCTOR_HOME": str(tmp_path)}
+    env = {**os.environ, "SYGEN_HOME": str(tmp_path)}
     return subprocess.run(
         [sys.executable, str(TOOL_PATH), *args],
         capture_output=True,

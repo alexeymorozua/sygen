@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 async def _handle_restart_sentinel(bot: TelegramBot) -> dict[str, object] | None:
     """Consume and handle the restart sentinel file. Returns sentinel dict or None."""
-    sentinel_path = bot._orch.paths.ductor_home / "restart-sentinel.json"
+    sentinel_path = bot._orch.paths.sygen_home / "restart-sentinel.json"
     sentinel = await asyncio.to_thread(consume_restart_sentinel, sentinel_path=sentinel_path)
     if sentinel:
         chat_id = int(sentinel.get("chat_id", 0))
@@ -32,7 +32,7 @@ async def _handle_restart_sentinel(bot: TelegramBot) -> dict[str, object] | None
 
 async def _handle_recovery(bot: TelegramBot, sentinel: dict[str, object] | None) -> None:
     """Handle upgrade sentinel, startup lifecycle, and auto-recovery of interrupted work."""
-    upgrade = await asyncio.to_thread(consume_upgrade_sentinel, bot._orch.paths.ductor_home)
+    upgrade = await asyncio.to_thread(consume_upgrade_sentinel, bot._orch.paths.sygen_home)
     if upgrade:
         uid = int(upgrade.get("chat_id", 0))
         old_v = upgrade.get("old_version", "?")

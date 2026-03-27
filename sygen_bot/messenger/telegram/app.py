@@ -87,7 +87,7 @@ from sygen_bot.multiagent.bus import AsyncInterAgentResult
 from sygen_bot.session.key import SessionKey
 from sygen_bot.tasks.models import TaskResult
 from sygen_bot.text.response_format import SEP, fmt
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 if TYPE_CHECKING:
     from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
@@ -296,7 +296,7 @@ class TelegramBot:
             return False
         return is_command_for_others(message, self._bot_username)
 
-    def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
+    def file_roots(self, paths: SygenPaths) -> list[Path] | None:
         """Allowed root directories for ``<file:...>`` tag sends."""
         return resolve_allowed_roots(self._config.file_access, paths.workspace)
 
@@ -706,14 +706,14 @@ class TelegramBot:
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="GitHub", url="https://github.com/PleasePrompto/ductor"
+                        text="GitHub", url="https://github.com/PleasePrompto/sygen"
                     ),
                     InlineKeyboardButton(
                         text="Changelog",
-                        url="https://github.com/PleasePrompto/ductor/releases",
+                        url="https://github.com/PleasePrompto/sygen/releases",
                     ),
                 ],
-                [InlineKeyboardButton(text="PyPI", url="https://pypi.org/project/ductor/")],
+                [InlineKeyboardButton(text="PyPI", url="https://pypi.org/project/sygen/")],
             ],
         )
         await send_rich(
@@ -728,7 +728,7 @@ class TelegramBot:
         )
 
     async def _on_showfiles(self, message: Message) -> None:
-        """Handle /showfiles: interactive file browser for ~/.ductor."""
+        """Handle /showfiles: interactive file browser for ~/.sygen."""
         text, keyboard = await file_browser_start(self._orch.paths)
         await send_rich(
             self._bot,
@@ -1039,7 +1039,7 @@ class TelegramBot:
 
         chat_id = message.chat.id
         paths = self._orch.paths
-        sentinel = paths.ductor_home / "restart-sentinel.json"
+        sentinel = paths.sygen_home / "restart-sentinel.json"
         await asyncio.to_thread(
             write_restart_sentinel, chat_id, t("startup.restart_default"), sentinel_path=sentinel
         )
@@ -1478,7 +1478,7 @@ class TelegramBot:
     async def _watch_restart_marker(self) -> None:
         """Poll for restart-requested marker file."""
         paths = self._orch.paths
-        marker = paths.ductor_home / "restart-requested"
+        marker = paths.sygen_home / "restart-requested"
         try:
             while True:
                 await asyncio.sleep(2.0)

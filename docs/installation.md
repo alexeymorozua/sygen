@@ -50,7 +50,7 @@ On first run, onboarding does:
 - asks timezone,
 - offers Docker sandboxing (with optional AI/ML package selection),
 - offers service install,
-- writes config and seeds `~/.ductor/`.
+- writes config and seeds `~/.sygen/`.
 
 Multiple transports can run in parallel (e.g. Telegram + Matrix
 simultaneously). After initial setup, configure the `transports` array
@@ -222,8 +222,8 @@ Backend details and platform quirks: [Service Management](modules/service_manage
 
 Backends:
 
-- Linux: `systemd --user` service `~/.config/systemd/user/ductor.service`
-- macOS: Launch Agent `~/Library/LaunchAgents/dev.ductor.plist`
+- Linux: `systemd --user` service `~/.config/systemd/user/sygen.service`
+- macOS: Launch Agent `~/Library/LaunchAgents/dev.sygen.plist`
 - Windows: Task Scheduler task `sygen`
 
 Linux note:
@@ -238,8 +238,8 @@ Windows note:
 
 Log command behavior:
 
-- Linux: live `journalctl --user -u ductor -f`
-- macOS/Windows: recent lines from `~/.ductor/logs/agent.log` (fallback newest `*.log`)
+- Linux: live `journalctl --user -u sygen -f`
+- macOS/Windows: recent lines from `~/.sygen/logs/agent.log` (fallback newest `*.log`)
 
 ## VPS notes
 
@@ -267,7 +267,7 @@ Security basics:
 
 1. check transport credentials (`telegram_token` / `matrix` block) + allowlists
 2. run `sygen status`
-3. inspect `~/.ductor/logs/agent.log`
+3. inspect `~/.sygen/logs/agent.log`
 4. run `/diagnose` in chat
 
 ### CLI installed but not authenticated
@@ -308,5 +308,5 @@ Uninstall:
 
 ```bash
 pipx uninstall sygen
-rm -rf ~/.ductor  # optional data removal
+rm -rf ~/.sygen  # optional data removal
 ```

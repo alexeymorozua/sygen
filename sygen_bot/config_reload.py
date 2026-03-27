@@ -70,7 +70,7 @@ _RESTART_REQUIRED: frozenset[str] = frozenset(
         "docker",
         "api",
         "webhooks",
-        "ductor_home",
+        "sygen_home",
         "log_level",
         "gemini_api_key",
     }

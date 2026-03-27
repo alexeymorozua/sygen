@@ -20,14 +20,14 @@ no_auth = """\
 title = "[bold yellow]Disclaimer[/bold yellow]"
 body = """\
 [bold]Important -- please read before continuing.[/bold]\n
-ductor connects to [bold]Anthropic Claude CLI[/bold] and \
+sygen connects to [bold]Anthropic Claude CLI[/bold] and \
 [bold]OpenAI Codex CLI[/bold] as AI agent backends.\n
 The bot operates in [bold yellow]full permission bypass mode[/bold yellow]. \
 The agent can read, write, and delete files, execute commands, \
 and interact with your system without asking for confirmation.\n
 While safeguards are in place, [bold red]unintended actions can occur[/bold red] \
 -- including data loss, unexpected file changes, or unintended command execution.\n
-[bold green]We strongly recommend running ductor inside a Docker container[/bold green] \
+[bold green]We strongly recommend running sygen inside a Docker container[/bold green] \
 to isolate it from your host system."""
 confirm = "I understand the risks and want to continue."
 
@@ -104,7 +104,7 @@ error = "[red]Invalid format. Expected: @user:domain (e.g. @nik:matrix.org)[/red
 title = "[bold]Docker Sandboxing[/bold]"
 found_body = """\
 [bold green]Docker detected on your system.[/bold green]\n
-Running ductor inside Docker isolates it from your host.
+Running sygen inside Docker isolates it from your host.
 This is the recommended setup for safety."""
 found_prompt = "Enable Docker sandboxing? (Recommended)"
 not_found_body = """\
@@ -121,7 +121,7 @@ col_size = "Size"
 prompt = "Select extras (Space to toggle, Enter to confirm):"
 hint = """\
 [dim]These packages are optional and increase image build time.
-You can change this later with [cyan]ductor docker extras-add / extras-remove[/cyan].[/dim]"""
+You can change this later with [cyan]sygen docker extras-add / extras-remove[/cyan].[/dim]"""
 auto_deps = "[dim]Auto-added dependencies: {names}[/dim]"
 
 [timezone]
@@ -136,9 +136,9 @@ error = "[red]Unknown timezone: {tz}[/red]"
 [service]
 title = "[bold]Background Service[/bold]"
 body = """\
-[bold]Run ductor as a background service?[/bold]\n
+[bold]Run sygen as a background service?[/bold]\n
 This creates a {mechanism} that:\n
-  - Starts ductor on {trigger}
+  - Starts sygen on {trigger}
   - Restarts automatically on crash
   - Keeps running in the background\n
 [dim]Recommended for VPS or always-on setups.[/dim]"""
@@ -147,7 +147,7 @@ prompt = "Install as background service? (Recommended for VPS)"
 [complete]
 title = "[bold green]Ready[/bold green]"
 header = "[bold green]Setup complete![/bold green]"
-files_header = "[bold]Your ductor files:[/bold]"
+files_header = "[bold]Your sygen files:[/bold]"
 home = "  Home:       [cyan]{path}[/cyan]"
 config = "  Config:     [cyan]{path}[/cyan]"
 workspace = "  Workspace:  [cyan]{path}[/cyan]"

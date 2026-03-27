@@ -18,12 +18,12 @@ from pathlib import Path
 def _agents_path() -> Path:
     """Resolve agents.json path (always in main agent home).
 
-    Sub-agents have DUCTOR_HOME = ~/.ductor/agents/<name>/, so we navigate
+    Sub-agents have SYGEN_HOME = ~/.sygen/agents/<name>/, so we navigate
     up to the main home.
     """
     import os
 
-    home = Path(os.environ.get("DUCTOR_HOME", str(Path.home() / ".ductor")))
+    home = Path(os.environ.get("SYGEN_HOME", str(Path.home() / ".sygen")))
     direct = home / "agents.json"
     if direct.is_file():
         return direct

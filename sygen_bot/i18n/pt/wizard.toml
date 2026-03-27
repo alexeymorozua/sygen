@@ -20,14 +20,14 @@ no_auth = """\
 title = "[bold yellow]Aviso Legal[/bold yellow]"
 body = """\
 [bold]Importante — por favor, leia antes de continuar.[/bold]\n
-ductor se conecta ao [bold]Anthropic Claude CLI[/bold] e \
+sygen se conecta ao [bold]Anthropic Claude CLI[/bold] e \
 [bold]OpenAI Codex CLI[/bold] como backends de agentes de IA.\n
 O bot opera em [bold yellow]modo de permissão total[/bold yellow]. \
 O agente pode ler, escrever e excluir arquivos, executar comandos \
 e interagir com o seu sistema sem pedir confirmação.\n
 Embora existam proteções, [bold red]ações não intencionais podem ocorrer[/bold red] \
 — incluindo perda de dados, alterações inesperadas em arquivos ou execução não intencional de comandos.\n
-[bold green]Recomendamos fortemente executar o ductor dentro de um container Docker[/bold green] \
+[bold green]Recomendamos fortemente executar o sygen dentro de um container Docker[/bold green] \
 para isolá-lo do seu sistema host."""
 confirm = "Eu entendo os riscos e quero continuar."
 
@@ -104,7 +104,7 @@ error = "[red]Formato inválido. Esperado: @user:domínio (ex.: @nik:matrix.org)
 title = "[bold]Docker Sandboxing[/bold]"
 found_body = """\
 [bold green]Docker detectado no seu sistema.[/bold green]\n
-Executar o ductor dentro do Docker o isola do seu host.
+Executar o sygen dentro do Docker o isola do seu host.
 Esta é a configuração recomendada para segurança."""
 found_prompt = "Habilitar Docker sandboxing? (Recomendado)"
 not_found_body = """\
@@ -121,7 +121,7 @@ col_size = "Tamanho"
 prompt = "Selecione extras (Espaço para alternar, Enter para confirmar):"
 hint = """\
 [dim]Esses pacotes são opcionais e aumentam o tempo de build da imagem.
-Você pode alterar isso depois com [cyan]ductor docker extras-add / extras-remove[/cyan].[/dim]"""
+Você pode alterar isso depois com [cyan]sygen docker extras-add / extras-remove[/cyan].[/dim]"""
 auto_deps = "[dim]Dependências adicionadas automaticamente: {names}[/dim]"
 
 [timezone]
@@ -136,9 +136,9 @@ error = "[red]Fuso horário desconhecido: {tz}[/red]"
 [service]
 title = "[bold]Serviço em Segundo Plano[/bold]"
 body = """\
-[bold]Executar o ductor como serviço em segundo plano?[/bold]\n
+[bold]Executar o sygen como serviço em segundo plano?[/bold]\n
 Isso cria um {mechanism} que:\n
-  - Inicia o ductor em {trigger}
+  - Inicia o sygen em {trigger}
   - Reinicia automaticamente em caso de crash
   - Continua rodando em segundo plano\n
 [dim]Recomendado para VPS ou setups sempre ligados.[/dim]"""
@@ -147,7 +147,7 @@ prompt = "Instalar como serviço em segundo plano? (Recomendado para VPS)"
 [complete]
 title = "[bold green]Pronto[/bold green]"
 header = "[bold green]Configuração concluída![/bold green]"
-files_header = "[bold]Seus arquivos ductor:[/bold]"
+files_header = "[bold]Seus arquivos sygen:[/bold]"
 home = "  Home:       [cyan]{path}[/cyan]"
 config = "  Config:     [cyan]{path}[/cyan]"
 workspace = "  Workspace:  [cyan]{path}[/cyan]"

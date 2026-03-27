@@ -1,31 +1,31 @@
 """Project-level exception hierarchy."""
 
 
-class DuctorError(Exception):
-    """Base for all ductor exceptions."""
+class SygenError(Exception):
+    """Base for all sygen exceptions."""
 
 
-class CLIError(DuctorError):
+class CLIError(SygenError):
     """CLI execution failed."""
 
 
-class WorkspaceError(DuctorError):
+class WorkspaceError(SygenError):
     """Workspace initialization or access failed."""
 
 
-class SessionError(DuctorError):
+class SessionError(SygenError):
     """Session persistence or lifecycle failed."""
 
 
-class CronError(DuctorError):
+class CronError(SygenError):
     """Cron job scheduling or execution failed."""
 
 
-class StreamError(DuctorError):
+class StreamError(SygenError):
     """Streaming output failed."""
 
 
-class SecurityError(DuctorError):
+class SecurityError(SygenError):
     """Security violation detected."""
 
 
@@ -33,5 +33,5 @@ class PathValidationError(SecurityError):
     """File path failed validation."""
 
 
-class WebhookError(DuctorError):
+class WebhookError(SygenError):
     """Webhook server or dispatch failed."""

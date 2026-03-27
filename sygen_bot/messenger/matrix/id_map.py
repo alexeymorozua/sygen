@@ -1,6 +1,6 @@
 """Bidirectional mapping between Matrix room_id strings and integer chat_ids.
 
-The Ductor core (sessions, envelopes, bus) uses ``int`` chat IDs internally.
+The Sygen core (sessions, envelopes, bus) uses ``int`` chat IDs internally.
 Matrix rooms are identified by opaque strings like ``!abc123:server``.
 This module provides a persistent, collision-safe mapping between the two.
 """

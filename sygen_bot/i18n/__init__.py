@@ -1,4 +1,4 @@
-"""Internationalization module for ductor-bot.
+"""Internationalization module for sygen-bot.
 
 Public API::
 

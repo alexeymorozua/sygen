@@ -11,17 +11,17 @@ docker_disabled = "Docker:    [dim]disabled[/dim]"
 errors_found = "Errors:    [bold red]{count}[/bold red] in latest log"
 errors_none = "Errors:    [green]0[/green]"
 paths_header = "[bold]Paths:[/bold]"
-not_configured = "[bold yellow]Not configured.[/bold yellow]\n\nRun [bold]ductor[/bold] to start the setup wizard."
+not_configured = "[bold yellow]Not configured.[/bold yellow]\n\nRun [bold]sygen[/bold] to start the setup wizard."
 
 # -- Config validation ---------------------------------------------------------
 
 [config]
-incomplete = "[bold yellow]Config is incomplete. Run [bold]ductor onboarding[/bold].[/bold yellow]"
+incomplete = "[bold yellow]Config is incomplete. Run [bold]sygen onboarding[/bold].[/bold yellow]"
 matrix_no_homeserver = "[bold yellow]Matrix homeserver URL is required.{hint}[/bold yellow]"
 matrix_no_user = "[bold yellow]Matrix user_id is required.{hint}[/bold yellow]"
 matrix_no_auth = "[bold yellow]Matrix password or access_token is required.{hint}[/bold yellow]"
 matrix_no_target = "[bold yellow]At least one allowed_room or allowed_user is required.{hint}[/bold yellow]"
-onboarding_hint = " Run [bold]ductor onboarding[/bold] to reconfigure."
+onboarding_hint = " Run [bold]sygen onboarding[/bold] to reconfigure."
 
 # -- Lifecycle -----------------------------------------------------------------
 
@@ -30,26 +30,26 @@ stopping_docker = "[dim]Stopping Docker container '{name}'...[/dim]"
 docker_stopped = "[green]Docker container stopped.[/green]"
 stopping_bot = "[dim]Stopping bot (pid={pid})...[/dim]"
 bot_stopped = "[green]Bot stopped.[/green]"
-killed_extra = "[dim]Killed {count} remaining ductor process(es).[/dim]"
+killed_extra = "[dim]Killed {count} remaining sygen process(es).[/dim]"
 no_instance = "[dim]No running bot instance found.[/dim]"
 
 [lifecycle.uninstall]
-title = "[bold red]Uninstall ductor[/bold red]"
+title = "[bold red]Uninstall sygen[/bold red]"
 body = """\
-[bold red]This will permanently remove ductor from your system.[/bold red]\n
+[bold red]This will permanently remove sygen from your system.[/bold red]\n
   1. Stop the running bot (if active)
   2. Remove Docker container and image (if used)
-  3. Delete all data in ~/.ductor/
-  4. Uninstall the ductor package"""
+  3. Delete all data in ~/.sygen/
+  4. Uninstall the sygen package"""
 confirm = "Are you sure you want to uninstall everything?"
 cancelled = "[dim]Uninstall cancelled.[/dim]"
 removing_image = "[dim]Removing Docker image '{image}'...[/dim]"
 image_removed = "[green]Docker image removed.[/green]"
-uninstalling = "[dim]Uninstalling ductor package...[/dim]"
+uninstalling = "[dim]Uninstalling sygen package...[/dim]"
 delete_warning = "[yellow]Warning: Could not fully delete {home} (some files may be locked). Remove manually.[/yellow]"
 deleted = "[green]Deleted {home}[/green]"
 done_title = "[bold green]Goodbye[/bold green]"
-done_body = "[bold green]ductor has been completely removed.[/bold green]\n\nThank you for using ductor!"
+done_body = "[bold green]sygen has been completely removed.[/bold green]\n\nThank you for using sygen!"
 
 [lifecycle.upgrade]
 dev_title = "[bold yellow]Development Install[/bold yellow]"
@@ -57,7 +57,7 @@ dev_body = """\
 [bold yellow]Running from source (editable install).[/bold yellow]\n
 Self-upgrade is not available.
 Update with [bold]git pull[/bold] in your project directory."""
-title = "[bold cyan]Upgrading ductor...[/bold cyan]"
+title = "[bold cyan]Upgrading sygen...[/bold cyan]"
 body = """\
   1. Stop running bot gracefully
   2. Upgrade to latest version
@@ -70,7 +70,7 @@ restarting = "[dim]Restarting...[/dim]"
 # -- Docker commands -----------------------------------------------------------
 
 [docker]
-config_not_found = "[bold red]Config not found. Run ductor first.[/bold red]"
+config_not_found = "[bold red]Config not found. Run sygen first.[/bold red]"
 config_read_error = "[bold red]Failed to read config.[/bold red]"
 enabled = "Docker sandboxing: [green]enabled[/green]"
 disabled = "Docker sandboxing: [dim]disabled[/dim]"
@@ -83,7 +83,7 @@ removing_image = "[dim]Removing image '{name}'...[/dim]"
 done = "[green]Done.[/green] Image will be rebuilt on next bot start.\n[dim]If running as a service, it will restart automatically.[/dim]"
 
 [docker.mount]
-usage = "[bold red]Usage: ductor docker mount <path>[/bold red]"
+usage = "[bold red]Usage: sygen docker mount <path>[/bold red]"
 not_exist = "[bold red]Path does not exist: {path}[/bold red]"
 not_dir = "[bold red]Not a directory: {path}[/bold red]"
 already = "[dim]Already mounted: {path}[/dim]"
@@ -91,13 +91,13 @@ done = "[green]Mounted:[/green] {path}{target}"
 apply_hint = "[dim]Restart the bot (or rebuild the container) to apply.[/dim]"
 
 [docker.unmount]
-usage = "[bold red]Usage: ductor docker unmount <path>[/bold red]"
+usage = "[bold red]Usage: sygen docker unmount <path>[/bold red]"
 not_found = "[bold red]Mount not found: {path}[/bold red]"
 done = "[green]Unmounted:[/green] {path}"
 
 [docker.mounts]
 empty = "[dim]No mounts configured.[/dim]"
-add_hint = "[dim]Use 'ductor docker mount <path>' to add one.[/dim]"
+add_hint = "[dim]Use 'sygen docker mount <path>' to add one.[/dim]"
 
 [docker.extras]
 col_package = "Package"
@@ -105,29 +105,29 @@ col_description = "What it does"
 col_status = "Status"
 selected = "[green]selected[/green]"
 not_selected = "[dim]—[/dim]"
-apply_hint = "[dim]Run 'ductor docker rebuild' to apply selected extras to the image.[/dim]"
-add_hint = "[dim]Use 'ductor docker extras-add <id>' to add an extra.[/dim]"
-remove_hint = "[dim]Use 'ductor docker extras-remove <id>' to remove an extra.[/dim]"
-usage_add = "[bold red]Usage: ductor docker extras-add <id>[/bold red]"
-usage_remove = "[bold red]Usage: ductor docker extras-remove <id>[/bold red]"
-see_ids = "[dim]Run 'ductor docker extras' to see available IDs.[/dim]"
-see_installed = "[dim]Run 'ductor docker extras' to see installed IDs.[/dim]"
+apply_hint = "[dim]Run 'sygen docker rebuild' to apply selected extras to the image.[/dim]"
+add_hint = "[dim]Use 'sygen docker extras-add <id>' to add an extra.[/dim]"
+remove_hint = "[dim]Use 'sygen docker extras-remove <id>' to remove an extra.[/dim]"
+usage_add = "[bold red]Usage: sygen docker extras-add <id>[/bold red]"
+usage_remove = "[bold red]Usage: sygen docker extras-remove <id>[/bold red]"
+see_ids = "[dim]Run 'sygen docker extras' to see available IDs.[/dim]"
+see_installed = "[dim]Run 'sygen docker extras' to see installed IDs.[/dim]"
 unknown = "[bold red]Unknown extra: {id}[/bold red]"
 already_installed = "[dim]Already installed: {id}[/dim]"
 not_installed = "[bold red]Not installed: {id}[/bold red]"
 added = "[green]Added:[/green] {names}"
 auto_deps = "[dim]Auto-added dependencies: {names}[/dim]"
 removed = "[green]Removed:[/green] {name}"
-rebuild_hint = "[yellow]Run 'ductor docker rebuild' to apply.[/yellow]"
+rebuild_hint = "[yellow]Run 'sygen docker rebuild' to apply.[/yellow]"
 dep_warning = "[yellow]Warning: {dependents} depend on {name}.[/yellow]"
 
 # -- Service commands ----------------------------------------------------------
 
 [service]
-not_installed = "[dim]Service not installed. Run [bold]ductor service install[/bold].[/dim]"
+not_installed = "[dim]Service not installed. Run [bold]sygen service install[/bold].[/dim]"
 not_running = "[dim]Service is not running.[/dim]"
 no_service = "[dim]No service installed.[/dim]"
-no_binary = "[bold red]Could not find the ductor binary in PATH.[/bold red]"
+no_binary = "[bold red]Could not find the sygen binary in PATH.[/bold red]"
 removed = "[green]Service removed.[/green]"
 started = "[green]Service started.[/green]"
 stopped = "[green]Service stopped.[/green]"
@@ -135,19 +135,19 @@ start_failed = "[red]Failed to start: {error}[/red]"
 stop_failed = "[red]Failed to stop: {error}[/red]"
 
 [service.install]
-title = "ductor background service"
+title = "sygen background service"
 body = """\
-[bold green]ductor is now running as a background service.[/bold green]\n
+[bold green]sygen is now running as a background service.[/bold green]\n
 {detail}\n
 [bold]Useful commands:[/bold]\n
-  [cyan]ductor service status[/cyan]     Check if it's running
-  [cyan]ductor service stop[/cyan]       Stop the service
-  [cyan]ductor service logs[/cyan]       {logs_hint}
-  [cyan]ductor service uninstall[/cyan]  Remove the service"""
+  [cyan]sygen service status[/cyan]     Check if it's running
+  [cyan]sygen service stop[/cyan]       Stop the service
+  [cyan]sygen service logs[/cyan]       {logs_hint}
+  [cyan]sygen service uninstall[/cyan]  Remove the service"""
 
 [service.linux]
 no_systemd = "[bold red]systemd not found. Service install requires Linux with systemd.[/bold red]"
-linger_warning = "[bold yellow]Linger must be enabled so ductor keeps running after you log out.[/bold yellow]"
+linger_warning = "[bold yellow]Linger must be enabled so sygen keeps running after you log out.[/bold yellow]"
 linger_enabled = "[green]Linger enabled.[/green]"
 linger_manual = "[yellow]Could not enable linger automatically.[/yellow]\nRun manually: [bold]sudo loginctl enable-linger {user}[/bold]"
 start_failed = "[bold red]Failed to start service:[/bold red] {error}"
@@ -158,7 +158,7 @@ no_launchctl = "[bold red]launchctl not found. Service install requires macOS.[/
 start_failed = "[bold red]Failed to load Launch Agent:[/bold red] {error}"
 detail = "It starts on login and restarts on crash (10s throttle)."
 unload_failed = "[red]Failed to unload agent: {error}[/red]"
-not_loaded = "[red]Agent not loaded. Try: [bold]ductor service install[/bold][/red]"
+not_loaded = "[red]Agent not loaded. Try: [bold]sygen service install[/bold][/red]"
 
 [service.windows]
 admin_title = "[bold yellow]Administrator Required[/bold yellow]"
@@ -167,7 +167,7 @@ admin_body = """\
 Open a terminal as Administrator and try again:\n
   [bold]1.[/bold] Right-click on CMD or PowerShell
   [bold]2.[/bold] Select [cyan]'Run as administrator'[/cyan]
-  [bold]3.[/bold] Run: [cyan]ductor service install[/cyan]"""
+  [bold]3.[/bold] Run: [cyan]sygen service install[/cyan]"""
 no_scheduler = "[bold red]Task Scheduler not available. Service install requires Windows.[/bold red]"
 no_pythonw = "[dim]Note: pythonw.exe not found. A console window may be visible.[/dim]"
 create_failed = "[bold red]Failed to create scheduled task:[/bold red] {error}"
@@ -199,7 +199,7 @@ body = """\
 [bold yellow]PyNaCl is required for the API server (E2E encryption).[/bold yellow]\n
 Install it with:\n
   [bold]{hint}[/bold]\n
-Then run [bold]ductor api enable[/bold] again."""
+Then run [bold]sygen api enable[/bold] again."""
 
 [api.enabled]
 title = "[bold]API Server[/bold] [dim](beta)[/dim]"
@@ -227,10 +227,10 @@ status_starting = "[yellow]starting[/yellow]"
 status_crashed = "[bold red]crashed[/bold red]"
 status_stopped = "[dim]stopped[/dim]"
 empty = "[dim]No sub-agents configured.[/dim]"
-add_hint = "[dim]Use 'ductor agents add <name>' to create one.[/dim]"
+add_hint = "[dim]Use 'sygen agents add <name>' to create one.[/dim]"
 
 [agents.add]
-usage = "[bold red]Usage: ductor agents add <name>[/bold red]"
+usage = "[bold red]Usage: sygen agents add <name>[/bold red]"
 reserved = "[bold red]Name 'main' is reserved.[/bold red]"
 exists = "[bold red]Agent '{name}' already exists.[/bold red]"
 prompt_token = "Telegram bot token for '{name}':"
@@ -243,7 +243,7 @@ done = "[green]Agent '{name}' added to agents.json.[/green]"
 auto_start = "[dim]It will be started automatically on next bot (re)start.[/dim]"
 
 [agents.remove]
-usage = "[bold red]Usage: ductor agents remove <name>[/bold red]"
+usage = "[bold red]Usage: sygen agents remove <name>[/bold red]"
 not_found = "[bold red]Agent '{name}' not found.[/bold red]"
 confirm = "Remove agent '{name}'? (This does not delete its workspace data.)"
 done = "[green]Agent '{name}' removed from agents.json.[/green]"
@@ -268,7 +268,7 @@ status_not_installed = "[dim]not installed[/dim]"
 [help]
 col_command = "Command"
 col_description = "Description"
-ductor = "Start the bot (runs onboarding if needed)"
+sygen = "Start the bot (runs onboarding if needed)"
 onboarding = "Setup wizard (resets if already configured)"
 stop = "Stop running bot and Docker container"
 restart = "Restart the bot"

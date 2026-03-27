@@ -21,26 +21,26 @@ Optional for full runtime validation:
 ## 2) Run the bot
 
 ```bash
-ductor
+sygen
 ```
 
-First run starts onboarding and writes config to `~/.ductor/config/config.json`.
+First run starts onboarding and writes config to `~/.sygen/config/config.json`.
 
 Primary runtime files/directories:
 
-- `~/.ductor/sessions.json`
-- `~/.ductor/named_sessions.json`
-- `~/.ductor/tasks.json`
-- `~/.ductor/chat_activity.json`
-- `~/.ductor/cron_jobs.json`
-- `~/.ductor/webhooks.json`
-- `~/.ductor/startup_state.json`
-- `~/.ductor/inflight_turns.json`
-- `~/.ductor/SHAREDMEMORY.md`
-- `~/.ductor/agents.json`
-- `~/.ductor/agents/`
-- `~/.ductor/workspace/`
-- `~/.ductor/logs/agent.log`
+- `~/.sygen/sessions.json`
+- `~/.sygen/named_sessions.json`
+- `~/.sygen/tasks.json`
+- `~/.sygen/chat_activity.json`
+- `~/.sygen/cron_jobs.json`
+- `~/.sygen/webhooks.json`
+- `~/.sygen/startup_state.json`
+- `~/.sygen/inflight_turns.json`
+- `~/.sygen/SHAREDMEMORY.md`
+- `~/.sygen/agents.json`
+- `~/.sygen/agents/`
+- `~/.sygen/workspace/`
+- `~/.sygen/logs/agent.log`
 
 ## 3) Quality gates
 
@@ -146,10 +146,10 @@ If API is wrong:
 - session identity is transport-aware: `SessionKey(transport, chat_id, topic_id)`.
 - `/model` inside a topic updates only that topic session (not global config).
 - task tools now support permanent single-task removal via `delete_task.py` (`/tasks/delete`).
-- task routing is topic-aware via `thread_id` and `DUCTOR_TOPIC_ID`.
+- task routing is topic-aware via `thread_id` and `SYGEN_TOPIC_ID`.
 - API auth accepts optional `channel_id` for per-channel session isolation.
 - startup recovery uses `inflight_turns.json` + recovered named sessions.
 - auth allowlists (`allowed_user_ids`, `allowed_group_ids`) are hot-reloadable.
-- `ductor agents add` is a Telegram-focused scaffold; Matrix sub-agents are supported through `agents.json` or the bundled agent tool scripts.
+- `sygen agents add` is a Telegram-focused scaffold; Matrix sub-agents are supported through `agents.json` or the bundled agent tool scripts.
 
 Continue with `docs/system_overview.md` and `docs/architecture.md` for complete runtime detail.

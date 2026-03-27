@@ -101,7 +101,7 @@ class TestLoginOrRestore:
 
         await login_or_restore(client, config, tmp_path)
 
-        client.login.assert_awaited_once_with("secret", device_name="ductor")
+        client.login.assert_awaited_once_with("secret", device_name="sygen")
         saved = json.loads((tmp_path / "credentials.json").read_text())
         assert saved["access_token"] == "new-tok"
         assert saved["device_id"] == "NEW-DEV"

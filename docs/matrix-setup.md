@@ -1,6 +1,6 @@
 # Matrix Setup Guide
 
-ductor's primary transport is Telegram. Matrix is an optional second transport you can add at any time — either as the only transport or running alongside Telegram.
+sygen's primary transport is Telegram. Matrix is an optional second transport you can add at any time — either as the only transport or running alongside Telegram.
 
 ## 1. Install Matrix support
 
@@ -8,10 +8,10 @@ Matrix requires the `matrix-nio` library, which is not included in the base inst
 
 ```bash
 # pipx (recommended)
-ductor install matrix
+sygen install matrix
 
 # pip
-pip install "ductor[matrix]"
+pip install "sygen[matrix]"
 
 # from source
 pip install -e ".[matrix]"
@@ -34,14 +34,14 @@ You can use any homeserver — matrix.org, your own Synapse/Conduit, etc.
 ### Option A: Interactive setup (fresh install)
 
 ```bash
-ductor
+sygen
 ```
 
 The onboarding wizard asks which transport to use. Select **Matrix** and follow the prompts for homeserver, user ID, password, and allowed users.
 
 ### Option B: Add Matrix to existing Telegram setup
 
-Edit `~/.ductor/config/config.json`:
+Edit `~/.sygen/config/config.json`:
 
 ```json
 {
@@ -80,10 +80,10 @@ Edit `~/.ductor/config/config.json`:
 ## 4. Start
 
 ```bash
-ductor
+sygen
 ```
 
-On first start, ductor logs in with the password and saves credentials to `~/.ductor/matrix_store/credentials.json`. After that, the password is no longer needed — token-based auth is used automatically.
+On first start, sygen logs in with the password and saves credentials to `~/.sygen/matrix_store/credentials.json`. After that, the password is no longer needed — token-based auth is used automatically.
 
 ## Configuration reference
 
@@ -96,7 +96,7 @@ On first start, ductor logs in with the password and saves credentials to `~/.du
 | `device_id` | auto | Saved after first login, or set manually together with `access_token` |
 | `allowed_rooms` | no | Room IDs/aliases to operate in. Empty = all rooms |
 | `allowed_users` | no | Matrix user IDs allowed to interact. Empty = all users |
-| `store_path` | no | Relative to ductor_home. Default: `matrix_store` |
+| `store_path` | no | Relative to sygen_home. Default: `matrix_store` |
 
 ## Authorization
 
@@ -118,7 +118,7 @@ When invited to an unauthorized room, the bot auto-rejects and leaves.
 | Command prefix | `/command` | `/command` or `!command` |
 | Topics | Forum topics (one group) | Separate rooms |
 | Media files | Stored in `telegram_files/` | Stored in `matrix_files/` |
-| Sub-agent setup | `ductor agents add` (interactive) | Manual via `agents.json` |
+| Sub-agent setup | `sygen agents add` (interactive) | Manual via `agents.json` |
 
 ## Running both transports
 
@@ -133,7 +133,7 @@ Session keys are transport-prefixed in persistence (`tg:<chat_id>` vs `mx:<room-
 - Invite the bot from within the room
 
 **"matrix-nio is required" error:**
-- Run `ductor install matrix` to install the dependency
+- Run `sygen install matrix` to install the dependency
 
 **Login fails:**
 - Verify homeserver URL (must include `https://`)
@@ -141,4 +141,4 @@ Session keys are transport-prefixed in persistence (`tg:<chat_id>` vs `mx:<room-
 - Some homeservers require the client API URL (e.g. `https://matrix-client.matrix.org` instead of `https://matrix.org`)
 
 **Token expired / bot stops responding:**
-- Delete `~/.ductor/matrix_store/credentials.json` and restart — ductor will re-login with password
+- Delete `~/.sygen/matrix_store/credentials.json` and restart — sygen will re-login with password

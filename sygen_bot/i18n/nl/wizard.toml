@@ -20,14 +20,14 @@ no_auth = """\
 title = "[bold yellow]Disclaimer[/bold yellow]"
 body = """\
 [bold]Belangrijk — lees dit voordat je verdergaat.[/bold]\n
-ductor maakt verbinding met [bold]Anthropic Claude CLI[/bold] en \
+sygen maakt verbinding met [bold]Anthropic Claude CLI[/bold] en \
 [bold]OpenAI Codex CLI[/bold] als AI-agent-backends.\n
 De bot werkt in [bold yellow]volledige toegangsmodus[/bold yellow]. \
 De agent kan bestanden lezen, schrijven en verwijderen, commando's uitvoeren \
 en met je systeem werken zonder om bevestiging te vragen.\n
 Hoewel er beveiligingen aanwezig zijn, kunnen [bold red]onbedoelde acties plaatsvinden[/bold red] \
 — waaronder gegevensverlies, onverwachte bestandswijzigingen of onbedoelde commando-uitvoering.\n
-[bold green]We raden sterk aan om ductor in een Docker-container te draaien[/bold green] \
+[bold green]We raden sterk aan om sygen in een Docker-container te draaien[/bold green] \
 om het te isoleren van je hostsysteem."""
 confirm = "Ik begrijp de risico's en wil doorgaan."
 
@@ -104,7 +104,7 @@ error = "[red]Ongeldig formaat. Verwacht: @user:domein (bijv. @nik:matrix.org)[/
 title = "[bold]Docker Sandboxing[/bold]"
 found_body = """\
 [bold green]Docker gedetecteerd op je systeem.[/bold green]\n
-ductor in Docker draaien isoleert het van je host.
+sygen in Docker draaien isoleert het van je host.
 Dit is de aanbevolen configuratie voor veiligheid."""
 found_prompt = "Docker-sandboxing inschakelen? (Aanbevolen)"
 not_found_body = """\
@@ -121,7 +121,7 @@ col_size = "Grootte"
 prompt = "Selecteer extra's (Spatie om te schakelen, Enter om te bevestigen):"
 hint = """\
 [dim]Deze pakketten zijn optioneel en verlengen de image-buildtijd.
-Je kunt dit later wijzigen met [cyan]ductor docker extras-add / extras-remove[/cyan].[/dim]"""
+Je kunt dit later wijzigen met [cyan]sygen docker extras-add / extras-remove[/cyan].[/dim]"""
 auto_deps = "[dim]Automatisch toegevoegde afhankelijkheden: {names}[/dim]"
 
 [timezone]
@@ -136,9 +136,9 @@ error = "[red]Onbekende tijdzone: {tz}[/red]"
 [service]
 title = "[bold]Achtergronddienst[/bold]"
 body = """\
-[bold]ductor als achtergronddienst draaien?[/bold]\n
+[bold]sygen als achtergronddienst draaien?[/bold]\n
 Dit maakt een {mechanism} aan die:\n
-  - ductor start bij {trigger}
+  - sygen start bij {trigger}
   - Automatisch herstart bij een crash
   - Op de achtergrond blijft draaien\n
 [dim]Aanbevolen voor VPS of always-on-setups.[/dim]"""
@@ -147,7 +147,7 @@ prompt = "Als achtergronddienst installeren? (Aanbevolen voor VPS)"
 [complete]
 title = "[bold green]Klaar[/bold green]"
 header = "[bold green]Setup voltooid![/bold green]"
-files_header = "[bold]Je ductor-bestanden:[/bold]"
+files_header = "[bold]Je sygen-bestanden:[/bold]"
 home = "  Home:       [cyan]{path}[/cyan]"
 config = "  Config:     [cyan]{path}[/cyan]"
 workspace = "  Workspace:  [cyan]{path}[/cyan]"

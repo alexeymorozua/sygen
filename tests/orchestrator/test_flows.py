@@ -226,7 +226,7 @@ async def test_normal_preserves_existing_session_target_on_restart(orch: Orchest
     assert request.model_override == "gemini-3-pro-preview"
 
 
-async def test_normal_warns_for_gemini_api_key_mode_without_ductor_key(
+async def test_normal_warns_for_gemini_api_key_mode_without_sygen_key(
     orch: Orchestrator,
 ) -> None:
     mock_execute = AsyncMock(return_value=_mock_response())
@@ -243,7 +243,7 @@ async def test_normal_warns_for_gemini_api_key_mode_without_ductor_key(
     mock_execute.assert_not_awaited()
 
 
-async def test_streaming_warns_for_gemini_api_key_mode_without_ductor_key(
+async def test_streaming_warns_for_gemini_api_key_mode_without_sygen_key(
     orch: Orchestrator,
 ) -> None:
     mock_streaming = AsyncMock(return_value=_mock_response())

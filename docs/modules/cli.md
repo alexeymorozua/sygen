@@ -38,9 +38,9 @@ Provider-agnostic CLI execution layer for Claude Code, Codex, and Gemini.
 
 Environment variables injected into every CLI subprocess (`executor.py` and `docker_wrap`):
 
-- `DUCTOR_CHAT_ID`
-- `DUCTOR_TOPIC_ID` (when set)
-- `DUCTOR_TRANSPORT` (active transport identifier, e.g. `"tg"`, `"mx"`)
+- `SYGEN_CHAT_ID`
+- `SYGEN_TOPIC_ID` (when set)
+- `SYGEN_TRANSPORT` (active transport identifier, e.g. `"tg"`, `"mx"`)
 
 ## Main-chat CLI parameters
 
@@ -130,7 +130,7 @@ Recovery triggers handled in orchestrator flows:
 - permission bypass maps to `--approval-mode yolo`
 - always includes `--include-directories .`
 - trusts workspace path in `~/.gemini/trustedFolders.json`
-- may inject `GEMINI_API_KEY` from ductor config when Gemini settings indicate API-key mode and no env key is set
+- may inject `GEMINI_API_KEY` from sygen config when Gemini settings indicate API-key mode and no env key is set
 
 ## Auth detection (`auth.py`)
 
@@ -145,20 +145,20 @@ Statuses: `AUTHENTICATED`, `INSTALLED`, `NOT_FOUND`.
   - OAuth creds (`~/.gemini/oauth_creds.json`)
   - env/.env/API-key/Vertex markers
   - `settings.json` selected auth mode
-  - optional fallback to `~/.ductor/config/config.json` `gemini_api_key`
+  - optional fallback to `~/.sygen/config/config.json` `gemini_api_key`
 
 ## Model caches
 
 ### Codex cache
 
-- file: `~/.ductor/config/codex_models.json`
+- file: `~/.sygen/config/codex_models.json`
 - discovery source: `discover_codex_models()` (`codex_discovery.py`) via `codex app-server` (`initialize` + `model/list`)
 - loaded on startup with force refresh
 - hourly refresh loop
 
 ### Gemini cache
 
-- file: `~/.ductor/config/gemini_models.json`
+- file: `~/.sygen/config/gemini_models.json`
 - loaded on startup (uses cache when fresh, refreshes when stale/missing)
 - hourly refresh loop
 - refresh callback updates runtime Gemini model registry (`set_gemini_models`)
@@ -182,8 +182,8 @@ Windows uses process-tree termination (`taskkill /F /T`) to avoid orphaned child
 - host mode (`config.docker_container == ""`): return original command + resolved local cwd
 - container mode:
   - wraps command as `docker exec ... <container> ...`,
-  - injects `DUCTOR_CHAT_ID`, optional `DUCTOR_TOPIC_ID`, `DUCTOR_TRANSPORT`, `DUCTOR_AGENT_NAME`, `DUCTOR_INTERAGENT_PORT`, `DUCTOR_HOME`, `DUCTOR_SHARED_MEMORY_PATH`, and `DUCTOR_INTERAGENT_HOST`,
-  - merges user secrets from `~/.ductor/.env` (never overrides existing vars),
+  - injects `SYGEN_CHAT_ID`, optional `SYGEN_TOPIC_ID`, `SYGEN_TRANSPORT`, `SYGEN_AGENT_NAME`, `SYGEN_INTERAGENT_PORT`, `SYGEN_HOME`, `SYGEN_SHARED_MEMORY_PATH`, and `SYGEN_INTERAGENT_HOST`,
+  - merges user secrets from `~/.sygen/.env` (never overrides existing vars),
   - forwards optional env vars via `-e` flags (`extra_env`, overrides `.env`),
   - uses `-i` when `interactive=True` (required for stdin-fed providers like Gemini),
   - returns `cwd=None` (execution happens inside container context).

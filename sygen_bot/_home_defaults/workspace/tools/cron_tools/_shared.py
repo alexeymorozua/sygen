@@ -19,10 +19,10 @@ from sygen_bot._home_defaults.workspace.tools._tool_shared import (
 # Re-export so existing tool scripts keep working with ``from _shared import sanitize_name``
 sanitize_name = sanitize_name
 
-DUCTOR_HOME = Path(os.environ.get("DUCTOR_HOME", "~/.ductor")).expanduser()
-CONFIG_PATH = DUCTOR_HOME / "config" / "config.json"
-JOBS_PATH = DUCTOR_HOME / "cron_jobs.json"
-CRON_TASKS_DIR = DUCTOR_HOME / "workspace" / "cron_tasks"
+SYGEN_HOME = Path(os.environ.get("SYGEN_HOME", "~/.sygen")).expanduser()
+CONFIG_PATH = SYGEN_HOME / "config" / "config.json"
+JOBS_PATH = SYGEN_HOME / "cron_jobs.json"
+CRON_TASKS_DIR = SYGEN_HOME / "workspace" / "cron_tasks"
 
 # Provider rule files — only create for authenticated providers.
 _RULE_FILENAMES = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")

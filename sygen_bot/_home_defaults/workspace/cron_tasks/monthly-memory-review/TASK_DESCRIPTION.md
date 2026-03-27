@@ -5,10 +5,10 @@ You are a deep memory review agent. Perform a thorough quality audit of all agen
 ### 1. Load all memory
 
 Read ALL memory modules for the main agent:
-- `~/.ductor/workspace/memory_system/MAINMEMORY.md`
-- All files in `~/.ductor/workspace/memory_system/modules/`
+- `~/.sygen/workspace/memory_system/MAINMEMORY.md`
+- All files in `~/.sygen/workspace/memory_system/modules/`
 
-Discover sub-agents via `ls ~/.ductor/agents/` and load their memory modules too.
+Discover sub-agents via `ls ~/.sygen/agents/` and load their memory modules too.
 
 ### 2. Check for contradictions
 
@@ -34,7 +34,7 @@ For each entry, consider: would this actually help the agent make better decisio
 Identify knowledge stored in one agent's memory that would benefit all agents.
 If found, add it to shared knowledge using:
 ```bash
-python3 ~/.ductor/workspace/tools/agent_tools/edit_shared_knowledge.py
+python3 ~/.sygen/workspace/tools/agent_tools/edit_shared_knowledge.py
 ```
 
 **DO NOT modify the SHARED KNOWLEDGE section of any MAINMEMORY.md directly** — it is managed by the Supervisor sync process.

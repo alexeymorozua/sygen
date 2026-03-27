@@ -1,4 +1,4 @@
-"""Windows Task Scheduler service management for ductor."""
+"""Windows Task Scheduler service management for sygen."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from rich.panel import Panel
 from sygen_bot.i18n import t_rich
 from sygen_bot.infra.service_base import (
     ensure_console,
-    find_ductor_binary,
+    find_sygen_binary,
     print_binary_not_found,
     print_install_success,
     print_no_service,
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TASK_NAME = "ductor"
+_TASK_NAME = "sygen"
 _CREATE_NO_WINDOW: int = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 _ACCESS_DENIED_HINTS = ("access is denied", "zugriff verweigert", "zugriff wurde verweigert")
@@ -96,7 +96,7 @@ def _generate_task_xml(command: str, arguments: str = "") -> str:
 
     # -- Registration info --
     reg = SubElement(task, "RegistrationInfo")
-    SubElement(reg, "Description").text = "ductor - Telegram bot powered by AI CLIs"
+    SubElement(reg, "Description").text = "sygen - Telegram bot powered by AI CLIs"
 
     # -- Triggers: start on logon --
     triggers = SubElement(task, "Triggers")
@@ -140,7 +140,7 @@ def _generate_task_xml(command: str, arguments: str = "") -> str:
 
 def _task_xml_path() -> Path:
     """Temp path for the task XML definition."""
-    return resolve_paths().ductor_home / "ductor_task.xml"
+    return resolve_paths().sygen_home / "sygen_task.xml"
 
 
 def is_service_available() -> bool:
@@ -149,13 +149,13 @@ def is_service_available() -> bool:
 
 
 def is_service_installed() -> bool:
-    """Check if the ductor scheduled task exists."""
+    """Check if the sygen scheduled task exists."""
     result = _run_schtasks("/Query", "/TN", _TASK_NAME, "/FO", "LIST")
     return result.returncode == 0
 
 
 def is_service_running() -> bool:
-    """Check if the ductor scheduled task is currently running."""
+    """Check if the sygen scheduled task is currently running."""
     if not is_service_installed():
         return False
     result = _run_schtasks("/Query", "/TN", _TASK_NAME, "/FO", "CSV", "/V")
@@ -165,7 +165,7 @@ def is_service_running() -> bool:
 
 
 def install_service(console: Console | None = None) -> bool:
-    """Install and start the ductor scheduled task.
+    """Install and start the sygen scheduled task.
 
     Returns True on success.
     """
@@ -175,13 +175,13 @@ def install_service(console: Console | None = None) -> bool:
         console.print(t_rich("service.windows.no_scheduler"))
         return False
 
-    # Resolve command: prefer pythonw.exe (no console window) over ductor binary
+    # Resolve command: prefer pythonw.exe (no console window) over sygen binary
     pythonw = _find_pythonw()
     if pythonw:
         command = pythonw
         arguments = "-m sygen_bot"
     else:
-        binary = find_ductor_binary()
+        binary = find_sygen_binary()
         if not binary:
             print_binary_not_found(console)
             return False
@@ -229,7 +229,7 @@ def install_service(console: Console | None = None) -> bool:
 
 
 def uninstall_service(console: Console | None = None) -> bool:
-    """Stop and remove the ductor scheduled task."""
+    """Stop and remove the sygen scheduled task."""
     console = ensure_console(console)
 
     if not is_service_installed():
@@ -299,7 +299,7 @@ def print_service_status(console: Console | None = None) -> None:
 def print_service_logs(console: Console | None = None) -> None:
     """Show recent log output.
 
-    Windows has no journalctl equivalent, so we tail the ductor log file.
+    Windows has no journalctl equivalent, so we tail the sygen log file.
     """
     console = ensure_console(console)
     print_file_service_logs(

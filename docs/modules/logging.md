@@ -39,7 +39,7 @@ Multi-agent note:
 `setup_logging()` configures:
 
 - colored console logs (`stderr`)
-- rotating file logs in `~/.ductor/logs/agent.log` (`5MB`, `3` backups)
+- rotating file logs in `~/.sygen/logs/agent.log` (`5MB`, `3` backups)
 
 File logging uses `QueueHandler` + `QueueListener` so file I/O does not block the event loop.
 `QueueListener` is stopped on reconfiguration and via `atexit` shutdown hook.

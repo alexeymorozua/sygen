@@ -70,8 +70,8 @@ class AgentSupervisor:
 
     def __init__(self, main_config: AgentConfig) -> None:
         self._main_config = main_config
-        self._main_paths = resolve_paths(ductor_home=main_config.ductor_home)
-        self._agents_path = self._main_paths.ductor_home / "agents.json"
+        self._main_paths = resolve_paths(sygen_home=main_config.sygen_home)
+        self._agents_path = self._main_paths.sygen_home / "agents.json"
         self._registry = AgentRegistry(self._agents_path)
         self._stacks: dict[str, AgentStack] = {}
         self._tasks: dict[str, asyncio.Task[int]] = {}
@@ -184,7 +184,7 @@ class AgentSupervisor:
         # 4. Start shared knowledge sync (SHAREDMEMORY.md → all agents)
         from sygen_bot.multiagent.shared_knowledge import SharedKnowledgeSync
 
-        shared_path = self._main_paths.ductor_home / "SHAREDMEMORY.md"
+        shared_path = self._main_paths.sygen_home / "SHAREDMEMORY.md"
         self._shared_knowledge = SharedKnowledgeSync(shared_path, self)
         await self._shared_knowledge.start()
 
@@ -433,7 +433,7 @@ class AgentSupervisor:
             logger.warning("Cannot create sub-agent named 'main' — reserved")
             return
 
-        agent_home = self._main_paths.ductor_home / "agents" / name
+        agent_home = self._main_paths.sygen_home / "agents" / name
         config = merge_sub_agent_config(self._main_config, sub_cfg, agent_home)
 
         try:
@@ -552,7 +552,7 @@ class AgentSupervisor:
                     continue
 
                 # Rebuild config and compare credentials
-                agent_home = self._main_paths.ductor_home / "agents" / name
+                agent_home = self._main_paths.sygen_home / "agents" / name
                 new_config = merge_sub_agent_config(self._main_config, sub_cfg, agent_home)
                 if _config_changed(new_config, existing.config):
                     logger.info("agents.json: agent '%s' config changed, restarting", name)

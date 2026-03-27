@@ -1,35 +1,35 @@
 # Setup Wizard and CLI Entry
 
-Covers `ductor` command behavior, onboarding flow, and lifecycle commands.
+Covers `sygen` command behavior, onboarding flow, and lifecycle commands.
 
 ## Files
 
 - `sygen_bot/__main__.py`: CLI dispatch + config helpers + `run_bot`
 - `sygen_bot/cli_commands/lifecycle.py`: start/stop/restart/upgrade/uninstall logic
-- `sygen_bot/cli_commands/status.py`: `ductor status` + `ductor help`
+- `sygen_bot/cli_commands/status.py`: `sygen status` + `sygen help`
 - `sygen_bot/cli_commands/service.py`: service command routing
 - `sygen_bot/cli_commands/docker.py`: docker subcommands
 - `sygen_bot/cli_commands/api_cmd.py`: API enable/disable commands
 - `sygen_bot/cli_commands/agents.py`: sub-agent registry commands
-- `sygen_bot/cli_commands/install.py`: optional extras installer (`ductor install <extra>`)
+- `sygen_bot/cli_commands/install.py`: optional extras installer (`sygen install <extra>`)
 - `sygen_bot/infra/docker_extras.py`: optional Docker package registry + Dockerfile generation
 - `sygen_bot/cli/init_wizard.py`: onboarding + smart reset
 
 ## CLI commands
 
-- `ductor`: start bot (auto-onboarding if needed)
-- `ductor onboarding` / `ductor reset`: onboarding flow (with smart reset when configured)
-- `ductor status`
-- `ductor stop`
-- `ductor restart`
-- `ductor upgrade`
-- `ductor uninstall`
-- `ductor service <install|status|start|stop|logs|uninstall>`
-- `ductor docker <rebuild|enable|disable|mount|unmount|mounts|extras|extras-add|extras-remove>`
-- `ductor api <enable|disable>`
-- `ductor agents <list|add|remove>`
-- `ductor install <matrix|api>`
-- `ductor help`
+- `sygen`: start bot (auto-onboarding if needed)
+- `sygen onboarding` / `sygen reset`: onboarding flow (with smart reset when configured)
+- `sygen status`
+- `sygen stop`
+- `sygen restart`
+- `sygen upgrade`
+- `sygen uninstall`
+- `sygen service <install|status|start|stop|logs|uninstall>`
+- `sygen docker <rebuild|enable|disable|mount|unmount|mounts|extras|extras-add|extras-remove>`
+- `sygen api <enable|disable>`
+- `sygen agents <list|add|remove>`
+- `sygen install <matrix|api>`
+- `sygen help`
 
 ## Configuration gate
 
@@ -69,8 +69,8 @@ Return semantics:
 
 Caller behavior:
 
-- default `ductor`: onboarding if needed, then foreground start unless service install path returned `True`
-- `ductor onboarding/reset`: calls `stop_bot()` first, then onboarding, then same service/foreground logic
+- default `sygen`: onboarding if needed, then foreground start unless service install path returned `True`
+- `sygen onboarding/reset`: calls `stop_bot()` first, then onboarding, then same service/foreground logic
 
 ## Lifecycle command behavior
 
@@ -80,7 +80,7 @@ Shutdown sequence:
 
 1. stop installed service (prevents auto-respawn)
 2. kill PID-file instance
-3. kill remaining ductor processes
+3. kill remaining sygen processes
 4. short lock-release wait on Windows
 5. stop Docker container when enabled
 
@@ -98,25 +98,25 @@ Shutdown sequence:
 
 - stop bot/service
 - optional Docker image cleanup
-- remove `~/.ductor` via robust filesystem helper
+- remove `~/.sygen` via robust filesystem helper
 - uninstall package (`pipx` or `pip`)
 
 ## Status panel
 
-`ductor status` shows:
+`sygen status` shows:
 
 - running state/PID/uptime
 - provider/model
 - Docker state
-- error count from newest `ductor*.log`
+- error count from newest `sygen*.log`
 - key paths
 - sub-agent status table when configured (live health if bot is running)
 
-Note: runtime primary log file is `~/.ductor/logs/agent.log`; status error counter is currently `ductor*.log`-based.
+Note: runtime primary log file is `~/.sygen/logs/agent.log`; status error counter is currently `sygen*.log`-based.
 
 ## Docker command notes
 
-`ductor docker ...` commands update `config.json` and/or container/image state.
+`sygen docker ...` commands update `config.json` and/or container/image state.
 
 - mount/unmount paths are resolved and validated
 - mount list shows host path, container target, status
@@ -124,22 +124,22 @@ Note: runtime primary log file is `~/.ductor/logs/agent.log`; status error count
 
 ### Docker extras management
 
-- `ductor docker extras` shows a table of all available optional packages with their status (selected / —) and a hint to rebuild after changes.
-- `ductor docker extras-add <id>` adds an extra (+ transitive dependencies) to `config.json`.
-- `ductor docker extras-remove <id>` removes an extra from `config.json`, warns about reverse dependencies.
+- `sygen docker extras` shows a table of all available optional packages with their status (selected / —) and a hint to rebuild after changes.
+- `sygen docker extras-add <id>` adds an extra (+ transitive dependencies) to `config.json`.
+- `sygen docker extras-remove <id>` removes an extra from `config.json`, warns about reverse dependencies.
 - without `<id>`, `extras-add` / `extras-remove` list available choices.
-- after add/remove, the user must run `ductor docker rebuild` to apply changes to the Docker image.
+- after add/remove, the user must run `sygen docker rebuild` to apply changes to the Docker image.
 - selected extras are compiled into additional `RUN` blocks appended to the base `Dockerfile.sandbox` at build time.
 
 ## API command notes
 
-`ductor api enable`:
+`sygen api enable`:
 
 - requires PyNaCl
 - writes/updates `config.api`
 - generates token when missing
 
-`ductor api disable`:
+`sygen api disable`:
 
 - sets `config.api.enabled=false` (keeps token/settings)
 
@@ -147,7 +147,7 @@ Both require bot restart to apply.
 
 ## Service command routing
 
-`ductor service ...` delegates to platform backends:
+`sygen service ...` delegates to platform backends:
 
 - Linux: systemd user service
 - macOS: launchd Launch Agent
@@ -155,7 +155,7 @@ Both require bot restart to apply.
 
 Detailed backend behavior: [service_management](service_management.md)
 
-`ductor service logs`:
+`sygen service logs`:
 
-- Linux: `journalctl --user -u ductor -f`
-- macOS/Windows: tail from `~/.ductor/logs/agent.log` (fallback newest `*.log`)
+- Linux: `journalctl --user -u sygen -f`
+- macOS/Windows: tail from `~/.sygen/logs/agent.log` (fallback newest `*.log`)

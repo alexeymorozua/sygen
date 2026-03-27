@@ -1,6 +1,6 @@
-# ductor Docs
+# sygen Docs
 
-ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`), streams responses back via Telegram or Matrix, persists session state, and runs cron/heartbeat/webhook/cleanup automation in-process. It also supports a direct WebSocket API transport with authenticated file upload/download.
+sygen routes chat input to official provider CLIs (`claude`, `codex`, `gemini`), streams responses back via Telegram or Matrix, persists session state, and runs cron/heartbeat/webhook/cleanup automation in-process. It also supports a direct WebSocket API transport with authenticated file upload/download.
 
 ## Onboarding (Read in This Order)
 
@@ -19,7 +19,7 @@ ductor routes chat input to official provider CLIs (`claude`, `codex`, `gemini`)
 13. `docs/modules/api.md` -- direct WebSocket ingress and HTTP file endpoints.
 14. `docs/modules/cli.md` -- provider wrappers, stream parsing, process control.
 15. `docs/modules/cli_commands.md` -- CLI command split from `__main__.py`.
-16. `docs/modules/workspace.md` -- `~/.ductor` seeding, rules sync, skill sync.
+16. `docs/modules/workspace.md` -- `~/.sygen` seeding, rules sync, skill sync.
 17. `docs/modules/multiagent.md` -- supervisor, bus bridge, sub-agent runtime.
 18. Remaining module docs (`background`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `files`, `text`, `skill_system`).
 

@@ -48,7 +48,7 @@ class TestMergeSubAgentConfig:
             provider="claude",
             model="opus",
             allowed_user_ids=[1, 2, 3],
-            ductor_home="/main/home",
+            sygen_home="/main/home",
             cli_timeout=600,
             telegram_token="main-token",
         )
@@ -79,13 +79,13 @@ class TestMergeSubAgentConfig:
         assert result.model == "gpt-4"
         assert result.cli_timeout == 300
 
-    def test_ductor_home_always_set_to_agent_home(self) -> None:
-        """ductor_home is always the agent's home dir, not main's."""
+    def test_sygen_home_always_set_to_agent_home(self) -> None:
+        """sygen_home is always the agent's home dir, not main's."""
         main = self._main_config()
         sub = SubAgentConfig(name="sub1", telegram_token="sub-token")
         result = merge_sub_agent_config(main, sub, Path("/agents/sub1"))
 
-        assert result.ductor_home == "/agents/sub1"
+        assert result.sygen_home == "/agents/sub1"
 
     def test_telegram_token_always_from_sub(self) -> None:
         """Telegram token always comes from sub-agent definition."""

@@ -31,23 +31,23 @@ class TestGenerateTaskXml:
         assert "-m sygen_bot" in xml
 
     def test_no_arguments_element_when_empty(self) -> None:
-        xml = _generate_task_xml(r"C:\Users\test\.local\bin\ductor.exe")
+        xml = _generate_task_xml(r"C:\Users\test\.local\bin\sygen.exe")
         assert "<Arguments>" not in xml
 
     def test_contains_logon_trigger(self) -> None:
-        xml = _generate_task_xml("ductor")
+        xml = _generate_task_xml("sygen")
         assert "LogonTrigger" in xml
 
     def test_delay_is_10_seconds(self) -> None:
-        xml = _generate_task_xml("ductor")
+        xml = _generate_task_xml("sygen")
         assert "PT10S" in xml
 
     def test_contains_restart_on_failure(self) -> None:
-        xml = _generate_task_xml("ductor")
+        xml = _generate_task_xml("sygen")
         assert "RestartOnFailure" in xml
 
     def test_valid_xml_declaration_and_root(self) -> None:
-        xml = _generate_task_xml("ductor")
+        xml = _generate_task_xml("sygen")
         assert xml.startswith('<?xml version="1.0" encoding="UTF-16"?>')
         assert "<Task " in xml
         assert "</Task>" in xml
@@ -78,7 +78,7 @@ class TestIsAccessDenied:
 class TestIsServiceInstalled:
     @patch("sygen_bot.infra.service_windows._run_schtasks")
     def test_installed_when_query_succeeds(self, mock_run: MagicMock) -> None:
-        mock_run.return_value = make_completed(0, stdout="TaskName: ductor")
+        mock_run.return_value = make_completed(0, stdout="TaskName: sygen")
         assert is_service_installed() is True
         mock_run.assert_called_once_with("/Query", "/TN", _TASK_NAME, "/FO", "LIST")
 
@@ -98,7 +98,7 @@ class TestIsServiceRunning:
     def test_running_when_status_contains_running(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        mock_run.return_value = make_completed(0, stdout='"ductor","Running","Interactive"')
+        mock_run.return_value = make_completed(0, stdout='"sygen","Running","Interactive"')
         assert is_service_running() is True
 
     @patch("sygen_bot.infra.service_windows._run_schtasks")
@@ -106,7 +106,7 @@ class TestIsServiceRunning:
     def test_not_running_when_status_says_ready(
         self, _installed: MagicMock, mock_run: MagicMock
     ) -> None:
-        mock_run.return_value = make_completed(0, stdout='"ductor","Ready","Interactive"')
+        mock_run.return_value = make_completed(0, stdout='"sygen","Ready","Interactive"')
         assert is_service_running() is False
 
 
@@ -140,7 +140,7 @@ class TestInstallService:
     @patch("sygen_bot.infra.service_windows.is_service_installed", return_value=False)
     @patch("sygen_bot.infra.service_windows.is_service_available", return_value=True)
     @patch("sygen_bot.infra.service_windows._find_pythonw", return_value=None)
-    @patch("sygen_bot.infra.service_windows.find_ductor_binary", return_value="ductor.exe")
+    @patch("sygen_bot.infra.service_windows.find_sygen_binary", return_value="sygen.exe")
     @patch("sygen_bot.infra.service_windows._task_xml_path")
     def test_install_fallback_to_binary(
         self,
@@ -166,7 +166,7 @@ class TestInstallService:
 
     @patch("sygen_bot.infra.service_windows.is_service_available", return_value=True)
     @patch("sygen_bot.infra.service_windows._find_pythonw", return_value=None)
-    @patch("sygen_bot.infra.service_windows.find_ductor_binary", return_value=None)
+    @patch("sygen_bot.infra.service_windows.find_sygen_binary", return_value=None)
     def test_install_fails_without_binary(
         self, _binary: MagicMock, _pythonw: MagicMock, _avail: MagicMock
     ) -> None:
@@ -283,7 +283,7 @@ class TestPrintServiceLogs:
     ) -> None:
         logs_dir = tmp_path / "logs"
         logs_dir.mkdir()
-        log_file = logs_dir / "ductor_2026-02-21.log"
+        log_file = logs_dir / "sygen_2026-02-21.log"
         log_file.write_text("line1\nline2\nline3\n", encoding="utf-8")
 
         paths_obj = MagicMock()

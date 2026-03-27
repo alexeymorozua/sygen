@@ -1,6 +1,6 @@
 # Skill System
 
-Cross-tool skill sync between ductor workspace and CLI skill homes.
+Cross-tool skill sync between sygen workspace and CLI skill homes.
 
 ## Files
 
@@ -20,8 +20,8 @@ Cross-tool skill sync between ductor workspace and CLI skill homes.
 
 `<agent-home>`:
 
-- main: `~/.ductor`
-- sub-agent: `~/.ductor/agents/<name>`
+- main: `~/.sygen`
+- sub-agent: `~/.sygen/agents/<name>`
 
 ## Bundled skills
 
@@ -30,13 +30,13 @@ Bundled source: `sygen_bot/_home_defaults/workspace/skills/`.
 `sync_bundled_skills(paths)` mirrors bundled skills into each agent's workspace skill dir.
 
 - normal mode: links/junctions
-- Docker mode: managed copies (`.ductor_managed`)
+- Docker mode: managed copies (`.sygen_managed`)
 
 ## Sync algorithm (`sync_skills`)
 
 1. discover skill dirs in all roots
 2. union names
-3. pick canonical source by priority (`ductor > claude > codex > gemini`)
+3. pick canonical source by priority (`sygen > claude > codex > gemini`)
 4. mirror to other roots
 5. cleanup broken managed links
 
@@ -50,7 +50,7 @@ When `docker_active=True`:
 
 ## Cleanup on shutdown
 
-`cleanup_ductor_links(paths)` removes managed links under CLI skill dirs whose targets point to managed roots.
+`cleanup_sygen_links(paths)` removes managed links under CLI skill dirs whose targets point to managed roots.
 
 ## Safety guarantees
 

@@ -27,8 +27,8 @@ High-level flow:
 
 Main-home task data:
 
-- registry: `~/.ductor/tasks.json`
-- folders: `~/.ductor/workspace/tasks/<task_id>/`
+- registry: `~/.sygen/tasks.json`
+- folders: `~/.sygen/workspace/tasks/<task_id>/`
 
 Task folder seeds include:
 
@@ -78,7 +78,7 @@ Resume behavior:
 Tasks preserve topic context:
 
 - `TaskEntry.thread_id` stores origin topic/thread
-- `create_task.py` forwards `DUCTOR_CHAT_ID` and `DUCTOR_TOPIC_ID` to `/tasks/create`
+- `create_task.py` forwards `SYGEN_CHAT_ID` and `SYGEN_TOPIC_ID` to `/tasks/create`
 - result/question envelopes map `thread_id -> topic_id`
 - parent-session injection resumes the correct topic session
 

@@ -14,8 +14,8 @@ Options:
     --model MODEL      Override model (opus, sonnet, flash, etc.)
     --thinking LEVEL   Reasoning effort for codex (low, medium, high)
 
-Environment variables DUCTOR_AGENT_NAME and DUCTOR_INTERAGENT_PORT are
-automatically set by the Ductor framework.
+Environment variables SYGEN_AGENT_NAME and SYGEN_INTERAGENT_PORT are
+automatically set by the Sygen framework.
 """
 
 from __future__ import annotations
@@ -81,8 +81,8 @@ def main() -> None:
         body["thinking"] = thinking
 
     # Propagate sender context so task results route back to the originating chat/topic
-    chat_id = os.environ.get("DUCTOR_CHAT_ID", "")
-    topic_id = os.environ.get("DUCTOR_TOPIC_ID", "")
+    chat_id = os.environ.get("SYGEN_CHAT_ID", "")
+    topic_id = os.environ.get("SYGEN_TOPIC_ID", "")
     if chat_id:
         body["chat_id"] = int(chat_id)
     if topic_id:

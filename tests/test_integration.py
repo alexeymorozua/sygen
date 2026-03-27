@@ -16,7 +16,7 @@ from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session import SessionManager
 from sygen_bot.session.key import SessionKey
 from sygen_bot.workspace.init import init_workspace
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 CHAT_ID = 12345
 KEY = SessionKey(chat_id=CHAT_ID)
@@ -31,7 +31,7 @@ def _setup_framework(fw_root: Path) -> None:
     """Create minimal home-defaults template (mirrors conftest.setup_framework)."""
     ws = fw_root / "workspace"
     ws.mkdir(parents=True)
-    (ws / "CLAUDE.md").write_text("# Ductor Home")
+    (ws / "CLAUDE.md").write_text("# Sygen Home")
 
     config_dir = ws / "config"
     config_dir.mkdir()
@@ -55,11 +55,11 @@ def _setup_framework(fw_root: Path) -> None:
 
 
 @pytest.fixture
-def workspace(tmp_path: Path) -> tuple[DuctorPaths, AgentConfig]:
+def workspace(tmp_path: Path) -> tuple[SygenPaths, AgentConfig]:
     fw_root = tmp_path / "fw"
     _setup_framework(fw_root)
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home", home_defaults=fw_root / "workspace", framework_root=fw_root
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home", home_defaults=fw_root / "workspace", framework_root=fw_root
     )
     init_workspace(paths)
     config = AgentConfig()
@@ -102,7 +102,7 @@ def _make_agent_response(
 
 @pytest.fixture
 def orch_with_mock_cli(
-    workspace: tuple[DuctorPaths, AgentConfig],
+    workspace: tuple[SygenPaths, AgentConfig],
 ) -> tuple[Orchestrator, AsyncMock]:
     """Real Orchestrator with the CLIService.execute/execute_streaming mocked.
 
@@ -534,7 +534,7 @@ class TestStreamingFlow:
 
 class TestSessionPersistence:
     async def test_sessions_survive_manager_recreation(
-        self, workspace: tuple[DuctorPaths, AgentConfig]
+        self, workspace: tuple[SygenPaths, AgentConfig]
     ) -> None:
         paths, config = workspace
 
@@ -552,7 +552,7 @@ class TestSessionPersistence:
         assert session2.message_count == 1
         assert session2.total_cost_usd == pytest.approx(0.1)
 
-    async def test_session_json_is_valid(self, workspace: tuple[DuctorPaths, AgentConfig]) -> None:
+    async def test_session_json_is_valid(self, workspace: tuple[SygenPaths, AgentConfig]) -> None:
         paths, config = workspace
 
         mgr = SessionManager(paths.sessions_path, config)

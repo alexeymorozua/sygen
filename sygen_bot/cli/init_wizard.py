@@ -480,7 +480,7 @@ def _ask_timezone(console: Console) -> str:
 
 
 def _offer_service_install(console: Console) -> bool:
-    """Ask whether to install ductor as a background service."""
+    """Ask whether to install sygen as a background service."""
     from sygen_bot.infra.service import is_service_available
 
     if not is_service_available():
@@ -696,7 +696,7 @@ def run_onboarding() -> bool:
             + "\n\n"
             + t_rich("wizard.complete.files_header")
             + "\n\n"
-            + t_rich("wizard.complete.home", path=paths.ductor_home)
+            + t_rich("wizard.complete.home", path=paths.sygen_home)
             + "\n"
             + t_rich("wizard.complete.config", path=config_path)
             + "\n"
@@ -721,12 +721,12 @@ def run_onboarding() -> bool:
     return service_installed
 
 
-def run_smart_reset(ductor_home: Path) -> None:
+def run_smart_reset(sygen_home: Path) -> None:
     """Read existing config, handle Docker cleanup, and delete workspace."""
     console = Console()
     console.print()
 
-    config_path = ductor_home / "config" / "config.json"
+    config_path = sygen_home / "config" / "config.json"
 
     # Read Docker config from existing setup
     docker_container: str | None = None
@@ -736,15 +736,15 @@ def run_smart_reset(ductor_home: Path) -> None:
             data = json.loads(config_path.read_text(encoding="utf-8"))
             docker = data.get("docker", {})
             if isinstance(docker, dict) and docker.get("enabled"):
-                docker_container = str(docker.get("container_name", "ductor-sandbox"))
-                docker_image = str(docker.get("image_name", "ductor-sandbox"))
+                docker_container = str(docker.get("container_name", "sygen-sandbox"))
+                docker_image = str(docker.get("image_name", "sygen-sandbox"))
         except (json.JSONDecodeError, OSError):
             pass
 
     # Warning panel
     console.print(
         Panel(
-            t_rich("wizard.reset.body", home=ductor_home),
+            t_rich("wizard.reset.body", home=sygen_home),
             title=t_rich("wizard.reset.title"),
             border_style="yellow",
             padding=(1, 2),
@@ -803,8 +803,8 @@ def run_smart_reset(ductor_home: Path) -> None:
 
     from sygen_bot.infra.fs import robust_rmtree
 
-    robust_rmtree(ductor_home)
-    if ductor_home.exists():
-        console.print(t_rich("wizard.reset.confirm.warning", home=ductor_home) + "\n")
+    robust_rmtree(sygen_home)
+    if sygen_home.exists():
+        console.print(t_rich("wizard.reset.confirm.warning", home=sygen_home) + "\n")
     else:
         console.print(t_rich("wizard.reset.confirm.deleted") + "\n")

@@ -51,7 +51,7 @@ def test_subprocess_env_works_without_env_file(tmp_path: Path) -> None:
     env = _build_subprocess_env(config)
 
     assert env is not None
-    assert "DUCTOR_AGENT_NAME" in env
+    assert "SYGEN_AGENT_NAME" in env
 
 
 def test_docker_wrap_injects_secrets(tmp_path: Path) -> None:

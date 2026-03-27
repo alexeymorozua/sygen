@@ -1,4 +1,4 @@
-"""Systemd user service management for ductor (Linux)."""
+"""Systemd user service management for sygen (Linux)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sygen_bot.i18n import t_rich
 from sygen_bot.infra.service_base import (
     collect_nvm_bin_dirs,
     ensure_console,
-    find_ductor_binary,
+    find_sygen_binary,
     print_binary_not_found,
     print_install_success,
     print_not_installed,
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SERVICE_NAME = "ductor"
+_SERVICE_NAME = "sygen"
 _SERVICE_FILE = f"{_SERVICE_NAME}.service"
 
 
@@ -82,7 +82,7 @@ def _generate_service_unit(binary_path: str) -> str:
 
     return f"""\
 [Unit]
-Description=ductor - Telegram bot powered by AI CLIs
+Description=sygen - Telegram bot powered by AI CLIs
 After=network-online.target
 Wants=network-online.target
 
@@ -93,7 +93,7 @@ Restart=on-failure
 RestartSec=5
 Environment=PATH={path_value}
 Environment=HOME={home}
-Environment=DUCTOR_SUPERVISOR=1
+Environment=SYGEN_SUPERVISOR=1
 
 [Install]
 WantedBy=default.target
@@ -101,12 +101,12 @@ WantedBy=default.target
 
 
 def is_service_installed() -> bool:
-    """Check if the ductor service is installed."""
+    """Check if the sygen service is installed."""
     return _service_path().exists()
 
 
 def is_service_running() -> bool:
-    """Check if the ductor service is currently running."""
+    """Check if the sygen service is currently running."""
     if not _has_systemd() or not is_service_installed():
         return False
     result = _run_systemctl("is-active", _SERVICE_NAME)
@@ -119,7 +119,7 @@ def is_service_available() -> bool:
 
 
 def install_service(console: Console | None = None) -> bool:
-    """Install and start the ductor systemd user service.
+    """Install and start the sygen systemd user service.
 
     Returns True on success.
     """
@@ -129,7 +129,7 @@ def install_service(console: Console | None = None) -> bool:
         console.print(t_rich("service.linux.no_systemd"))
         return False
 
-    binary = find_ductor_binary()
+    binary = find_sygen_binary()
     if not binary:
         print_binary_not_found(console)
         return False
@@ -172,7 +172,7 @@ def install_service(console: Console | None = None) -> bool:
 
 
 def uninstall_service(console: Console | None = None) -> bool:
-    """Stop, disable, and remove the ductor service."""
+    """Stop, disable, and remove the sygen service."""
     console = ensure_console(console)
 
     if not _has_systemd():

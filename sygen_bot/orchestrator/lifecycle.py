@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 from sygen_bot.files.allowed_roots import resolve_allowed_roots
 from sygen_bot.infra.docker import DockerManager
 from sygen_bot.workspace.init import inject_runtime_environment
-from sygen_bot.workspace.paths import DuctorPaths, resolve_paths
-from sygen_bot.workspace.skill_sync import cleanup_ductor_links, sync_bundled_skills, sync_skills
+from sygen_bot.workspace.paths import SygenPaths, resolve_paths
+from sygen_bot.workspace.skill_sync import cleanup_sygen_links, sync_bundled_skills, sync_skills
 
 if TYPE_CHECKING:
     from sygen_bot.config import AgentConfig
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _docker_skill_resync(paths: DuctorPaths) -> None:
+def _docker_skill_resync(paths: SygenPaths) -> None:
     """Re-run skill sync with copies so skills resolve inside Docker."""
     sync_bundled_skills(paths, docker_active=True)
     sync_skills(paths, docker_active=True)
@@ -38,12 +38,12 @@ async def create_orchestrator(
     """
     from sygen_bot.orchestrator.core import Orchestrator
 
-    paths = resolve_paths(ductor_home=config.ductor_home)
+    paths = resolve_paths(sygen_home=config.sygen_home)
 
     # Only set the process-wide env var for the main agent to avoid
     # race conditions in multi-agent mode (sub-agents use per-subprocess env).
     if agent_name == "main":
-        os.environ["DUCTOR_HOME"] = str(paths.ductor_home)
+        os.environ["SYGEN_HOME"] = str(paths.sygen_home)
 
     docker_container = ""
     docker_mgr: DockerManager | None = None
@@ -143,14 +143,14 @@ async def create_orchestrator(
 async def start_api_server(
     orch: Orchestrator,
     config: AgentConfig,
-    paths: DuctorPaths,
+    paths: SygenPaths,
 ) -> None:
     """Initialize and start the direct WebSocket API server."""
     try:
         from sygen_bot.api.server import ApiServer
     except ImportError:
         logger.warning(
-            "API server enabled but PyNaCl is not installed. Install with: pip install ductor[api]"
+            "API server enabled but PyNaCl is not installed. Install with: pip install sygen[api]"
         )
         return
 
@@ -217,7 +217,7 @@ async def shutdown(orch: Orchestrator) -> None:
         await orch._mcp_manager.stop()
     if orch._model_router is not None:
         await orch._model_router.close()
-    await asyncio.to_thread(cleanup_ductor_links, orch._paths)
+    await asyncio.to_thread(cleanup_sygen_links, orch._paths)
     await orch._observers.stop_all()
     if orch._docker:
         await orch._docker.teardown()

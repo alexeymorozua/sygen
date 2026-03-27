@@ -1,13 +1,13 @@
-"""Cross-platform skill directory sync between ductor workspace and CLI tools.
+"""Cross-platform skill directory sync between sygen workspace and CLI tools.
 
 Provides multi-way symlink synchronization so skills installed via Claude Code,
-Codex CLI, Gemini CLI, or the ductor workspace are visible to all agents.
+Codex CLI, Gemini CLI, or the sygen workspace are visible to all agents.
 
 Includes bundled-skill linking (package → workspace), sync-time external-symlink
-protection, and cleanup of ductor-created links on shutdown.
+protection, and cleanup of sygen-created links on shutdown.
 
 When Docker sandboxing is active, symlinks are replaced with directory copies
-(marked with ``.ductor_managed``) because absolute host paths do not resolve
+(marked with ``.sygen_managed``) because absolute host paths do not resolve
 inside the container's mount namespace.
 
 Sync runs once during ``init_workspace`` and periodically as a background task.
@@ -23,7 +23,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ _SKIP_DIRS: frozenset[str] = frozenset(
 )
 
 _SKILL_SYNC_INTERVAL = 30.0
-_MANAGED_MARKER = ".ductor_managed"
+_MANAGED_MARKER = ".sygen_managed"
 
 
 def _is_under(child: Path, parent: Path) -> bool:
@@ -103,7 +103,7 @@ def _resolve_canonical(
 ) -> Path | None:
     """Find the canonical (real, non-symlink) path for a skill.
 
-    Priority follows argument order (typically ductor > claude > codex > gemini).
+    Priority follows argument order (typically sygen > claude > codex > gemini).
     Falls back to resolving the first valid symlink if no real dir exists.
     """
     for registry in registries:
@@ -168,7 +168,7 @@ def _ensure_link(link_path: Path, target: Path) -> bool:
 
 
 def _is_managed_copy(path: Path) -> bool:
-    """Return ``True`` if *path* is a ductor-managed copy (has marker file)."""
+    """Return ``True`` if *path* is a sygen-managed copy (has marker file)."""
     return path.is_dir() and not path.is_symlink() and (path / _MANAGED_MARKER).is_file()
 
 
@@ -187,7 +187,7 @@ def _newest_mtime(directory: Path) -> float:
 
 
 def _ensure_copy(dest: Path, source: Path) -> bool:
-    """Copy *source* directory to *dest* with a ``.ductor_managed`` marker.
+    """Copy *source* directory to *dest* with a ``.sygen_managed`` marker.
 
     Skips the copy when *dest* already has the marker and *source* has not
     been modified since the last copy (recursive mtime comparison).
@@ -289,10 +289,10 @@ def _link_skill_everywhere(
             logger.warning("Failed to sync skill %s in %s", skill_name, loc_name, exc_info=True)
 
 
-def sync_skills(paths: DuctorPaths, *, docker_active: bool = False) -> None:
-    """Multi-way skill directory sync: ductor workspace <-> CLI skill dirs.
+def sync_skills(paths: SygenPaths, *, docker_active: bool = False) -> None:
+    """Multi-way skill directory sync: sygen workspace <-> CLI skill dirs.
 
-    Syncs between ductor workspace, ~/.claude/skills, ~/.codex/skills,
+    Syncs between sygen workspace, ~/.claude/skills, ~/.codex/skills,
     and ~/.gemini/skills.
 
     When *docker_active* is ``True``, copies are used instead of symlinks
@@ -304,7 +304,7 @@ def sync_skills(paths: DuctorPaths, *, docker_active: bool = False) -> None:
     - Internal directories (.system, .claude, .git, .venv) are skipped.
     """
     cli_dirs = _cli_skill_dirs()
-    all_dirs: dict[str, Path] = {"ductor": paths.skills_dir, **cli_dirs}
+    all_dirs: dict[str, Path] = {"sygen": paths.skills_dir, **cli_dirs}
 
     registries = {name: _discover_skills(d) for name, d in all_dirs.items()}
 
@@ -312,8 +312,8 @@ def sync_skills(paths: DuctorPaths, *, docker_active: bool = False) -> None:
     for reg in registries.values():
         all_names.update(reg.keys())
 
-    # Priority order: ductor > claude > codex > gemini
-    priority = ("ductor", "claude", "codex", "gemini")
+    # Priority order: sygen > claude > codex > gemini
+    priority = ("sygen", "claude", "codex", "gemini")
     for skill_name in sorted(all_names):
         canonical = _resolve_canonical(
             skill_name,
@@ -328,7 +328,7 @@ def sync_skills(paths: DuctorPaths, *, docker_active: bool = False) -> None:
             logger.info("Cleaned %d broken skill link(s) in %s", removed, base_dir)
 
 
-def _iter_bundled_entries(paths: DuctorPaths) -> list[tuple[Path, Path]]:
+def _iter_bundled_entries(paths: SygenPaths) -> list[tuple[Path, Path]]:
     """Return ``(source, target)`` pairs for each bundled skill."""
     bundled = paths.bundled_skills_dir
     if not bundled.is_dir():
@@ -343,13 +343,13 @@ def _iter_bundled_entries(paths: DuctorPaths) -> list[tuple[Path, Path]]:
     return pairs
 
 
-def sync_bundled_skills(paths: DuctorPaths, *, docker_active: bool = False) -> None:
-    """Sync bundled skills from the package into the ductor workspace.
+def sync_bundled_skills(paths: SygenPaths, *, docker_active: bool = False) -> None:
+    """Sync bundled skills from the package into the sygen workspace.
 
     Creates symlinks (or copies when *docker_active*) from
-    ``~/.ductor/workspace/skills/<name>`` to the package's
+    ``~/.sygen/workspace/skills/<name>`` to the package's
     ``_home_defaults/workspace/skills/<name>`` so bundled skills
-    stay up-to-date with the installed ductor version.
+    stay up-to-date with the installed sygen version.
 
     Real directories are never overwritten (preserves user modifications
     from older Zone 3 copies or manually created skills with the same name).
@@ -376,10 +376,10 @@ def sync_bundled_skills(paths: DuctorPaths, *, docker_active: bool = False) -> N
             logger.warning("Failed to link bundled skill %s", source.name, exc_info=True)
 
 
-def cleanup_ductor_links(paths: DuctorPaths) -> int:
-    """Remove symlinks created by ductor in CLI skill directories.
+def cleanup_sygen_links(paths: SygenPaths) -> int:
+    """Remove symlinks created by sygen in CLI skill directories.
 
-    Only removes symlinks whose resolved target is under the ductor workspace
+    Only removes symlinks whose resolved target is under the sygen workspace
     skills directory or the bundled skills directory.  Everything else
     (real directories, user-managed symlinks) is left untouched.
 
@@ -404,15 +404,15 @@ def cleanup_ductor_links(paths: DuctorPaths) -> int:
             if any(_is_under(resolved, root) for root in managed_roots):
                 entry.unlink()
                 removed += 1
-                logger.info("Removed ductor skill link: %s", entry)
+                logger.info("Removed sygen skill link: %s", entry)
 
     if removed:
-        logger.info("Cleaned up %d ductor skill link(s) from CLI directories", removed)
+        logger.info("Cleaned up %d sygen skill link(s) from CLI directories", removed)
     return removed
 
 
 async def watch_skill_sync(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     *,
     docker_active: bool = False,
     interval: float = _SKILL_SYNC_INTERVAL,
@@ -428,3 +428,7 @@ async def watch_skill_sync(
             await asyncio.to_thread(sync_skills, paths, docker_active=docker_active)
         except Exception:
             logger.exception("Skill sync failed")
+
+
+# Backward compatibility alias
+cleanup_sygen_links = cleanup_sygen_links

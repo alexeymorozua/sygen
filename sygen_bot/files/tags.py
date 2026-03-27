@@ -85,25 +85,25 @@ def is_image_path(path_str: str) -> bool:
     return mime.startswith("image/") and Path(path_str).suffix.lower() not in _SVG_SUFFIXES
 
 
-_DOCKER_MOUNT = "/ductor"
+_DOCKER_MOUNT = "/sygen"
 
 
 def _resolve_container_path(path: Path) -> Path:
     """Translate Docker container paths to host paths.
 
-    Inside the sandbox container ``~/.ductor`` is mounted at ``/ductor``.
+    Inside the sandbox container ``~/.sygen`` is mounted at ``/sygen``.
     CLI output references container-side paths like
-    ``/ductor/workspace/output_to_user/file.png`` which don't exist on the
+    ``/sygen/workspace/output_to_user/file.png`` which don't exist on the
     host.  This rewrites them to the real host path.
     """
     try:
         relative = path.relative_to(_DOCKER_MOUNT)
     except ValueError:
         return path
-    ductor_home = Path(
-        os.environ.get("DUCTOR_HOME", str(Path.home() / ".ductor")),
+    sygen_home = Path(
+        os.environ.get("SYGEN_HOME", str(Path.home() / ".sygen")),
     ).expanduser()
-    return ductor_home / relative
+    return sygen_home / relative
 
 
 def _normalize_windows_tag_path(value: str) -> str:

@@ -7,14 +7,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sygen_bot.cli.init_wizard import _WizardConfig, _write_config, run_onboarding
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "framework"
     fw.mkdir(parents=True, exist_ok=True)
-    return DuctorPaths(
-        ductor_home=tmp_path / "home",
+    return SygenPaths(
+        sygen_home=tmp_path / "home",
         home_defaults=fw / "workspace",
         framework_root=fw,
     )
