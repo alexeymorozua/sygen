@@ -132,6 +132,8 @@ class CleanupConfig(BaseModel):
     media_files_days: int = 30
     output_to_user_days: int = 30
     api_files_days: int = 30
+    task_days: int = 14
+    cron_results_days: int = 7
     check_hour: int = 3
 
     def __init__(self, **data: object) -> None:

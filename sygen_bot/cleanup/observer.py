@@ -14,6 +14,8 @@ from sygen_bot.config import resolve_user_timezone
 from sygen_bot.infra.base_observer import BaseObserver
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sygen_bot.config import AgentConfig, CleanupConfig
     from sygen_bot.workspace.paths import SygenPaths
 
@@ -53,7 +55,7 @@ def _delete_old_files(directory: Path, max_age_days: int) -> int:
 
 
 class CleanupObserver(BaseObserver):
-    """Runs daily file cleanup for telegram_files, output_to_user, and api_files.
+    """Runs daily file cleanup for media files, output, api files, tasks, and cron results.
 
     Follows the same lifecycle pattern as HeartbeatObserver:
     ``start()`` / ``stop()`` with an asyncio background task.
@@ -64,6 +66,17 @@ class CleanupObserver(BaseObserver):
         self._config = config
         self._paths = paths
         self._last_run_date: str = ""
+        self._task_cleanup_fn: Callable[[int], int] | None = None
+
+    def set_task_cleanup(self, fn: Callable[[int], int]) -> None:
+        """Set a callback for cleaning old tasks (e.g. ``TaskRegistry.cleanup_old``).
+
+        The callback receives ``max_age_hours`` and returns the number of
+        tasks removed.  When set, the observer delegates task cleanup to
+        this function instead of doing raw file-age deletion on the tasks
+        directory (which would bypass the registry).
+        """
+        self._task_cleanup_fn = fn
 
     @property
     def _cfg(self) -> CleanupConfig:
@@ -76,10 +89,13 @@ class CleanupObserver(BaseObserver):
             return
         await super().start()
         logger.info(
-            "File cleanup started (media: %dd, output: %dd, api: %dd, hour: %d:00)",
+            "File cleanup started (media: %dd, output: %dd, api: %dd, "
+            "tasks: %dd, cron_results: %dd, hour: %d:00)",
             self._cfg.media_files_days,
             self._cfg.output_to_user_days,
             self._cfg.api_files_days,
+            self._cfg.task_days,
+            self._cfg.cron_results_days,
             self._cfg.check_hour,
         )
 
@@ -122,21 +138,37 @@ class CleanupObserver(BaseObserver):
 
     async def _execute(self) -> None:
         """Perform the actual cleanup in a thread to avoid blocking the loop."""
+        cfg = self._cfg
         targets = [
-            (self._paths.telegram_files_dir, self._cfg.media_files_days),
-            (self._paths.output_to_user_dir, self._cfg.output_to_user_days),
-            (self._paths.api_files_dir, self._cfg.api_files_days),
-            (self._paths.matrix_files_dir, self._cfg.media_files_days),
+            (self._paths.telegram_files_dir, cfg.media_files_days),
+            (self._paths.output_to_user_dir, cfg.output_to_user_days),
+            (self._paths.api_files_dir, cfg.api_files_days),
+            (self._paths.matrix_files_dir, cfg.media_files_days),
+            (self._paths.cron_results_dir, cfg.cron_results_days),
         ]
         results = await asyncio.to_thread(_run_cleanup, targets)
 
-        if any(results):
+        # Task cleanup: prefer registry-aware callback, fall back to file-age.
+        task_cleanup_fn = self._task_cleanup_fn
+        if task_cleanup_fn is not None:
+            tasks_removed = await asyncio.to_thread(
+                task_cleanup_fn, cfg.task_days * 24
+            )
+        else:
+            tasks_removed = await asyncio.to_thread(
+                _delete_old_files, self._paths.tasks_dir, cfg.task_days
+            )
+
+        if any(results) or tasks_removed:
             logger.info(
-                "Cleanup complete: telegram=%d, output=%d, api=%d, matrix=%d",
+                "Cleanup complete: telegram=%d, output=%d, api=%d, "
+                "matrix=%d, cron_results=%d, tasks=%d",
                 results[0],
                 results[1],
                 results[2],
                 results[3],
+                results[4],
+                tasks_removed,
             )
         else:
             logger.debug("Cleanup: nothing to delete")

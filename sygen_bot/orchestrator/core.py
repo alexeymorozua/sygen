@@ -249,6 +249,9 @@ class Orchestrator:
         """Inject the task hub (called by supervisor or startup wiring)."""
         self._task_hub = hub
         hub.start_maintenance()
+        # Wire registry-aware task cleanup into the cleanup observer so it
+        # respects task status (only removes finished tasks).
+        self._observers.cleanup.set_task_cleanup(hub._registry.cleanup_old)
 
     @classmethod
     async def create(
@@ -669,6 +672,17 @@ class Orchestrator:
                 task = asyncio.create_task(hb.stop())
                 task.add_done_callback(lambda _: None)
                 logger.info("Heartbeat observer stopped via hot-reload")
+
+        if "cleanup" in hot:
+            cl = self._observers.cleanup
+            if config.cleanup.enabled and not cl.running:
+                task = asyncio.create_task(cl.start())
+                task.add_done_callback(lambda _: None)
+                logger.info("Cleanup observer started via hot-reload")
+            elif not config.cleanup.enabled and cl.running:
+                task = asyncio.create_task(cl.stop())
+                task.add_done_callback(lambda _: None)
+                logger.info("Cleanup observer stopped via hot-reload")
 
         if "mcp" in hot:
             task = asyncio.create_task(self._apply_mcp_hot_reload(config))
