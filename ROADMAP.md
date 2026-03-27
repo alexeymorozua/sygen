@@ -16,5 +16,5 @@ New ideas will be added as they emerge.
 | Cost Tracking | core | Per-session cost/token tracking, `/status` display, budget limits (`max_budget_usd`) |
 | Upstream Monitoring | core | PyPI version polling (hourly), auto-upgrade with retry, GitHub changelog |
 | Sandbox Execution | core | Docker-based isolation, auto-build, mount strategy, extras system, host fallback |
-| Memory Cleanup | core | Monthly cron tasks for deduplication, staleness pruning, and contradiction detection |
+| Memory Consolidation | 2026-03-27 | Real-time module size enforcement (120-line limit) via hook system, replaced monthly cron tasks |
 | Skill/Plugin System | core | Workspace skills with auto-sync, ClawHub marketplace, SKILL.md format |
