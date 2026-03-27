@@ -37,6 +37,20 @@ from sygen_bot.workspace.skill_sync import watch_skill_sync
 logger = logging.getLogger(__name__)
 
 
+def _save_cron_result(paths: SygenPaths, title: str, result: str, status: str) -> None:
+    """Save the latest cron result to a buffer file for agent context."""
+    try:
+        content = (
+            f"# Latest Cron Result\n\n"
+            f"**Job:** {title}\n"
+            f"**Status:** {status}\n\n"
+            f"{result.strip()}\n"
+        )
+        paths.cron_results_path.write_text(content, encoding="utf-8")
+    except OSError:
+        logger.warning("Failed to save cron result buffer", exc_info=True)
+
+
 class ObserverManager:
     """Owns all background observers and manages their lifecycle."""
 
@@ -194,6 +208,8 @@ class ObserverManager:
                 topic_id: int | None = None,
                 transport: str = "tg",
             ) -> None:
+                # Save latest cron result to buffer file for agent context
+                _save_cron_result(self._paths, title, result, status)
                 await bus.submit(
                     from_cron_result(
                         title,

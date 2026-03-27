@@ -21,7 +21,7 @@ from sygen_bot.orchestrator.hooks import HookContext
 from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session import SessionData, SessionKey
 from sygen_bot.text.response_format import session_error_text, timeout_error_text
-from sygen_bot.workspace.loader import read_always_load_modules, read_mainmemory
+from sygen_bot.workspace.loader import read_always_load_modules, read_cron_results, read_mainmemory
 
 if TYPE_CHECKING:
     from sygen_bot.orchestrator.core import Orchestrator
@@ -122,6 +122,12 @@ async def _prepare_normal(
         memory_modules_dir=orch.paths.memory_system_dir / "modules",
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
+
+    # --- Inject latest cron result into prompt context ---
+    cron_buf = await asyncio.to_thread(read_cron_results, orch.paths)
+    if cron_buf.strip():
+        prompt = f"{prompt}\n\n{cron_buf}"
+    # --- End ---
 
     timeout_secs = resolve_timeout(orch._config, "normal")
     request = AgentRequest(

@@ -110,6 +110,11 @@ class SygenPaths:
         return self.home_defaults / "workspace" / "skills"
 
     @property
+    def cron_results_path(self) -> Path:
+        """Buffer file for the latest cron result (agent context)."""
+        return self.workspace / "cron_results.md"
+
+    @property
     def tasks_dir(self) -> Path:
         """Per-task metadata folders (TASKMEMORY.md etc.)."""
         return self.workspace / "tasks"

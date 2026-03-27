@@ -26,6 +26,19 @@ def read_mainmemory(paths: SygenPaths) -> str:
     return read_file(paths.mainmemory_path) or ""
 
 
+def read_cron_results(paths: SygenPaths) -> str:
+    """Read latest cron result buffer, returning empty string if missing."""
+    return read_file(paths.cron_results_path) or ""
+
+
+def clear_cron_results(paths: SygenPaths) -> None:
+    """Remove the cron results buffer file."""
+    try:
+        paths.cron_results_path.unlink(missing_ok=True)
+    except OSError:
+        logger.warning("Failed to clear cron results buffer", exc_info=True)
+
+
 
 def read_always_load_modules(paths: SygenPaths) -> str:
     """Read 'Always Load' memory modules (user.md, decisions.md).
