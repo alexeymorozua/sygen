@@ -29,14 +29,13 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Hot-reload** — add/remove servers without restarting the bot
 - **`/mcp` command** — list servers, check status, refresh tools from Telegram
 
-### Smart Routing
+### Smart Model Routing
 - **Auto model selection** — routes messages to the right model tier by complexity
-- **Auto background delegation** — long-running tasks are automatically sent to background workers
-- **LLM classifier** — one cheap call (Haiku/Flash/4o-mini) decides both model and execution mode
+- **LLM classifier** — uses a cheap model (Haiku/Flash/4o-mini) to classify each message as light/medium/heavy
 - **Per-provider tiers** — Claude (Haiku/Sonnet/Opus), Codex (4o-mini/4o/o3), Gemini (Flash/Pro)
 - **User override** — `@opus` or `@haiku` always takes priority over routing
-- **Both features on by default** — just add an API key to activate
-- **Zero overhead without key** — no extra calls, no latency
+- **Optional** — disabled by default, requires a separate API key for the classifier
+- **Zero overhead when off** — no extra calls, no latency
 
 ### Skill Marketplace (ClawHub)
 - **13,000+ community skills** — search and install from OpenClaw's ClawHub registry
@@ -176,13 +175,14 @@ Per-agent MCP servers can be configured in `agents.json` under the `mcp` field.
 
 MCP config supports hot-reload — changes to `config.json` are picked up without restarting the bot.
 
-## Smart Routing
+## Smart Model Routing
 
-Automatically route messages to the optimal model and execution mode. A single cheap classifier call decides both the model tier and whether to run the task in the background. Both features are enabled by default — just add an API key to activate.
+Automatically route messages to the optimal model based on complexity. Requires a separate API key for the classifier model.
 
 ```json
 {
   "routing": {
+    "enabled": true,
     "api_key": "sk-ant-xxx",
     "classifier_provider": "anthropic",
     "classifier_model": "claude-haiku-4-5-20251001",
@@ -197,20 +197,9 @@ Automatically route messages to the optimal model and execution mode. A single c
 
 **How it works:**
 1. User sends a message
-2. Classifier (cheap API call, ~100ms) rates complexity (light/medium/heavy) and execution mode (inline/background)
+2. Classifier (cheap API call, ~100ms) rates complexity: light / medium / heavy
 3. Message is routed to the matching model for the active provider
-4. Long-running tasks are automatically delegated to background workers — the user can keep chatting
-
-**Two independent features (both on by default):**
-- `enabled` — model routing by complexity tier
-- `auto_delegate` — automatic background task delegation
-
-Either can be disabled independently:
-```json
-{ "routing": { "enabled": true, "auto_delegate": false, "api_key": "..." } }
-```
-
-**No API key = no routing.** Without `api_key`, both features are silently inactive. Add the key and everything works immediately.
+4. Conversation context is preserved (same CLI session)
 
 **Override:** `@opus`, `@haiku`, or `/model` always takes priority over routing.
 
