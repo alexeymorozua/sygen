@@ -10,6 +10,7 @@ from sygen_bot.cli.types import AgentResponse
 from sygen_bot.config import AgentConfig, RoutingConfig
 from sygen_bot.orchestrator.core import Orchestrator
 from sygen_bot.orchestrator.flows import normal
+from sygen_bot.routing.classifier import ClassificationResult
 from sygen_bot.routing.router import ModelRouter
 from sygen_bot.session.key import SessionKey
 from sygen_bot.workspace.init import init_workspace
@@ -53,7 +54,9 @@ async def test_routing_overrides_default_model(routing_orch: Orchestrator) -> No
     """When routing is active and no @model directive, routing picks the model."""
     assert routing_orch._model_router is not None
     # Mock classifier to return "light"
-    routing_orch._model_router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
+    routing_orch._model_router._classifier.classify_full = AsyncMock(  # type: ignore[method-assign]
+        return_value=ClassificationResult(tier="light", background=False)
+    )
 
     await normal(routing_orch, SessionKey(chat_id=1), "hello")
 
@@ -65,7 +68,9 @@ async def test_routing_overrides_default_model(routing_orch: Orchestrator) -> No
 async def test_routing_heavy_uses_opus(routing_orch: Orchestrator) -> None:
     """Heavy classification routes to opus."""
     assert routing_orch._model_router is not None
-    routing_orch._model_router._classifier.classify = AsyncMock(return_value="heavy")  # type: ignore[method-assign]
+    routing_orch._model_router._classifier.classify_full = AsyncMock(  # type: ignore[method-assign]
+        return_value=ClassificationResult(tier="heavy", background=False)
+    )
 
     await normal(routing_orch, SessionKey(chat_id=1), "refactor auth")
 
@@ -78,7 +83,9 @@ async def test_directive_overrides_routing(routing_orch: Orchestrator) -> None:
     """@sonnet directive takes priority over routing."""
     assert routing_orch._model_router is not None
     # Classifier says light (would pick haiku), but user said @sonnet
-    routing_orch._model_router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
+    routing_orch._model_router._classifier.classify_full = AsyncMock(  # type: ignore[method-assign]
+        return_value=ClassificationResult(tier="light", background=False)
+    )
 
     await normal(routing_orch, SessionKey(chat_id=1), "hello", model_override="sonnet")
 
