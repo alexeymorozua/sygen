@@ -34,7 +34,12 @@ def _is_separator_row(line: str) -> bool:
 
 
 def _format_table(lines: list[str]) -> str:
-    """Convert parsed Markdown table lines into a column-aligned monospace block."""
+    """Convert parsed Markdown table lines into a mobile-friendly list.
+
+    Instead of monospace columns (which break on narrow Telegram screens),
+    each data row becomes a group with the first column as a bold header
+    and the remaining columns as ``Header: value`` lines.
+    """
     rows: list[list[str]] = []
     for line in lines:
         if _is_separator_row(line):
@@ -44,19 +49,23 @@ def _format_table(lines: list[str]) -> str:
     if not rows:
         return "\n".join(lines)
 
-    n_cols = max(len(r) for r in rows)
-    for row in rows:
-        row.extend("" for _ in range(n_cols - len(row)))
+    headers = rows[0]
+    data_rows = rows[1:]
 
-    widths = [max(len(row[c]) for row in rows) for c in range(n_cols)]
+    if not data_rows:
+        return "  \u2502  ".join(headers)
 
     out: list[str] = []
-    for i, row in enumerate(rows):
-        cells = [cell.ljust(widths[c]) for c, cell in enumerate(row)]
-        out.append("  ".join(cells))
-        if i == 0 and len(rows) > 1:
-            out.append("  ".join("\u2500" * w for w in widths))
-    return "\n".join(out)
+    for row in data_rows:
+        title = row[0] if row else ""
+        out.append(f"**{title}**")
+        for i, hdr in enumerate(headers[1:], start=1):
+            val = row[i] if i < len(row) else ""
+            if val:
+                out.append(f"  {hdr}: {val}")
+        out.append("")
+
+    return "\n".join(out).rstrip()
 
 
 def _convert_blockquotes(text: str) -> str:
@@ -149,7 +158,11 @@ def markdown_to_telegram_html(text: str) -> str:
         text = text.replace(_placeholder("IC", i), f"<code>{html.escape(code)}</code>")
 
     for i, table_text in enumerate(table_blocks):
-        text = text.replace(_placeholder("TB", i), f"<pre>{html.escape(table_text)}</pre>")
+        # Tables are converted to Markdown lists by _format_table(), so apply
+        # the same Markdown→HTML transforms (bold, bullets) instead of <pre>.
+        escaped = html.escape(table_text)
+        escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped, flags=re.DOTALL)
+        text = text.replace(_placeholder("TB", i), escaped)
 
     for i, (lang, code) in enumerate(code_blocks):
         escaped = html.escape(code)

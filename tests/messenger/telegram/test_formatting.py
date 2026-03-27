@@ -110,12 +110,14 @@ class TestMarkdownToTelegramHTML:
         assert "\u2022 item one" in result
         assert "\u2022 item two" in result
 
-    def test_table_rendered_as_pre(self) -> None:
+    def test_table_rendered_as_list(self) -> None:
         from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
 
-        md = "| A | B |\n|---|---|\n| 1 | 2 |"
+        md = "| Name | Price |\n|---|---|\n| App | $2.99 |"
         result = markdown_to_telegram_html(md)
-        assert "<pre>" in result
+        assert "<b>App</b>" in result
+        assert "Price: $2.99" in result
+        assert "<pre>" not in result
 
     def test_nested_bold_inside_heading(self) -> None:
         from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
