@@ -32,6 +32,10 @@ def main() -> None:
         }
         if j.get("timezone"):
             entry["timezone"] = j["timezone"]
+        if j.get("chat_id"):
+            entry["chat_id"] = j["chat_id"]
+        if j.get("topic_id") is not None:
+            entry["topic_id"] = j["topic_id"]
         jobs.append(entry)
 
     global_tz = read_user_timezone()

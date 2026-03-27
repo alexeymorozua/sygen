@@ -69,6 +69,12 @@ QUIET HOURS (optional, prevent jobs from running during specific hours):
                       Set both to same value to disable quiet hours for this job.
                       Example: --quiet-start 22 --quiet-end 7 (no execution 22:00-06:59)
 
+ROUTING (optional, auto-detected from current chat/topic):
+  --chat-id           Override target Telegram chat ID (default: auto-detected from SYGEN_CHAT_ID)
+  --topic-id          Override target forum topic ID (default: auto-detected from SYGEN_TOPIC_ID)
+                      When creating a cron FROM a forum topic, topic_id is captured automatically.
+                      Results will be delivered to the same topic. Use these flags only to override.
+
 DEPENDENCIES (optional, prevent concurrent resource conflicts):
   --dependency        Resource identifier (e.g. 'chrome_browser', 'api_token', 'database')
                       Jobs with the SAME dependency run sequentially (one at a time, FIFO).
@@ -250,6 +256,16 @@ def main() -> None:
         help="Resource dependency (e.g. 'chrome_browser'). "
         "Jobs with same dependency run sequentially, different dependencies run in parallel.",
     )
+    parser.add_argument(
+        "--chat-id",
+        type=int,
+        help="Override target chat ID (default: auto-detected from current chat).",
+    )
+    parser.add_argument(
+        "--topic-id",
+        type=int,
+        help="Override target forum topic ID (default: auto-detected from current topic).",
+    )
     args = parser.parse_args()
 
     missing = [p for p in ("name", "title", "description", "schedule") if not getattr(args, p)]
@@ -315,13 +331,14 @@ def main() -> None:
         job["quiet_end"] = args.quiet_end
     if args.dependency:
         job["dependency"] = args.dependency.strip()
-    chat_id = os.environ.get("SYGEN_CHAT_ID", "")
-    topic_id = os.environ.get("SYGEN_TOPIC_ID", "")
+    # Routing: CLI args override env vars (auto-detected from current chat/topic).
+    chat_id_raw = args.chat_id if args.chat_id is not None else os.environ.get("SYGEN_CHAT_ID", "")
+    topic_id_raw = args.topic_id if args.topic_id is not None else os.environ.get("SYGEN_TOPIC_ID", "")
     transport = os.environ.get("SYGEN_TRANSPORT", "tg")
-    if chat_id:
-        job["chat_id"] = int(chat_id)
-    if topic_id:
-        job["topic_id"] = int(topic_id)
+    if chat_id_raw:
+        job["chat_id"] = int(chat_id_raw)
+    if topic_id_raw:
+        job["topic_id"] = int(topic_id_raw)
     job["transport"] = transport
     data["jobs"].append(job)
     save_jobs(JOBS_PATH, data)
@@ -363,6 +380,11 @@ def main() -> None:
             "Ask the user for their timezone (country/city) and set user_timezone "
             'in config.json (e.g. "Europe/Berlin", "America/New_York").'
         )
+    if job.get("chat_id"):
+        result["chat_id"] = job["chat_id"]
+    if job.get("topic_id"):
+        result["topic_id"] = job["topic_id"]
+    result["transport"] = job.get("transport", "tg")
     if name != args.name.strip():
         result["name_sanitized"] = True
         result["original_name"] = args.name.strip()

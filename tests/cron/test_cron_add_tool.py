@@ -158,3 +158,80 @@ def test_cron_add_no_venv_by_default(tmp_path: Path) -> None:
     assert result.returncode == 0
     task_dir = tmp_path / "workspace" / "cron_tasks" / "venv-test"
     assert not (task_dir / ".venv").exists()
+
+
+def _run_tool_with_env(
+    tmp_path: Path, args: list[str], extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "SYGEN_HOME": str(tmp_path)}
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run(
+        [sys.executable, str(TOOL_PATH), *args],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+
+def test_cron_add_captures_topic_id_from_env(tmp_path: Path) -> None:
+    """topic_id from SYGEN_TOPIC_ID env var is stored in the job."""
+    result = _run_tool_with_env(
+        tmp_path,
+        _full_args("topic-env"),
+        extra_env={"SYGEN_CHAT_ID": "12345", "SYGEN_TOPIC_ID": "99"},
+    )
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["chat_id"] == 12345
+    assert output["topic_id"] == 99
+
+    data = json.loads((tmp_path / "cron_jobs.json").read_text())
+    job = next(j for j in data["jobs"] if j["id"] == "topic-env")
+    assert job["chat_id"] == 12345
+    assert job["topic_id"] == 99
+
+
+def test_cron_add_no_topic_id_without_env(tmp_path: Path) -> None:
+    """Without SYGEN_TOPIC_ID, topic_id is not stored."""
+    result = _run_tool_with_env(
+        tmp_path,
+        _full_args("no-topic"),
+        extra_env={"SYGEN_CHAT_ID": "12345"},
+    )
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "topic_id" not in output
+
+    data = json.loads((tmp_path / "cron_jobs.json").read_text())
+    job = next(j for j in data["jobs"] if j["id"] == "no-topic")
+    assert "topic_id" not in job
+
+
+def test_cron_add_cli_topic_id_overrides_env(tmp_path: Path) -> None:
+    """--topic-id CLI arg takes precedence over SYGEN_TOPIC_ID env var."""
+    result = _run_tool_with_env(
+        tmp_path,
+        [*_full_args("override-topic"), "--topic-id", "200", "--chat-id", "555"],
+        extra_env={"SYGEN_CHAT_ID": "12345", "SYGEN_TOPIC_ID": "99"},
+    )
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["chat_id"] == 555
+    assert output["topic_id"] == 200
+
+    data = json.loads((tmp_path / "cron_jobs.json").read_text())
+    job = next(j for j in data["jobs"] if j["id"] == "override-topic")
+    assert job["chat_id"] == 555
+    assert job["topic_id"] == 200
+
+
+def test_cron_add_cli_topic_id_without_env(tmp_path: Path) -> None:
+    """--topic-id works even without env vars."""
+    result = _run_tool(tmp_path, [*_full_args("cli-topic"), "--topic-id", "42", "--chat-id", "100"])
+    assert result.returncode == 0
+    data = json.loads((tmp_path / "cron_jobs.json").read_text())
+    job = next(j for j in data["jobs"] if j["id"] == "cli-topic")
+    assert job["chat_id"] == 100
+    assert job["topic_id"] == 42

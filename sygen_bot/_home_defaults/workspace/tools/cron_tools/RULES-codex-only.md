@@ -75,6 +75,13 @@ python3 tools/cron_tools/cron_add.py \
 - `--reasoning-effort` - Thinking level: `low`, `medium`, `high`, `xhigh` (optional, defaults to `medium`)
 - `--cli-parameters` - Advanced: JSON array of CLI flags (only if user explicitly requests)
 
+**Routing (auto-detected, rarely needed manually):**
+- `--chat-id` - Override target chat ID (auto-detected from current chat)
+- `--topic-id` - Override target forum topic ID (auto-detected from current topic)
+
+When a cron is created from a forum topic, the topic_id is automatically captured.
+Results will be delivered to the same topic.
+
 ### List Jobs
 
 ```bash
@@ -86,8 +93,8 @@ python3 tools/cron_tools/cron_list.py
 ```bash
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --schedule "30 8 * * *"
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --timezone "Europe/Berlin"
-python3 tools/cron_tools/cron_edit.py "exact-job-id" --model gpt-5.3-codex
-python3 tools/cron_tools/cron_edit.py "exact-job-id" --reasoning-effort xhigh
+python3 tools/cron_tools/cron_edit.py "exact-job-id" --topic-id 42
+python3 tools/cron_tools/cron_edit.py "exact-job-id" --clear-topic-id
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --enable
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --disable
 ```

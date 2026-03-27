@@ -112,6 +112,13 @@ python3 tools/cron_tools/cron_add.py \
 - `--reasoning-effort` - Codex only: thinking level (optional, defaults to `medium`)
 - `--cli-parameters` - Advanced: JSON array of CLI flags (only if user explicitly requests)
 
+**Routing (auto-detected, rarely needed manually):**
+- `--chat-id` - Override target chat ID (auto-detected from current chat)
+- `--topic-id` - Override target forum topic ID (auto-detected from current topic)
+
+When a cron is created from a forum topic, the topic_id is automatically captured.
+Results will be delivered to the same topic. No manual routing is needed.
+
 ### List Jobs
 
 ```bash
@@ -123,9 +130,8 @@ python3 tools/cron_tools/cron_list.py
 ```bash
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --schedule "30 8 * * *"
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --timezone "Europe/Berlin"
-python3 tools/cron_tools/cron_edit.py "exact-job-id" --provider gemini
-python3 tools/cron_tools/cron_edit.py "exact-job-id" --model gemini-2.5-flash
-python3 tools/cron_tools/cron_edit.py "exact-job-id" --reasoning-effort xhigh
+python3 tools/cron_tools/cron_edit.py "exact-job-id" --topic-id 42
+python3 tools/cron_tools/cron_edit.py "exact-job-id" --clear-topic-id
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --enable
 python3 tools/cron_tools/cron_edit.py "exact-job-id" --disable
 ```
@@ -136,7 +142,7 @@ python3 tools/cron_tools/cron_edit.py "exact-job-id" --disable
 python3 tools/cron_tools/cron_remove.py "exact-job-id"
 ```
 
-Use `cron_edit.py` for in-place updates (title/description/schedule/timezone/provider/model/reasoning_effort/enabled).
+Use `cron_edit.py` for in-place updates (title/description/schedule/timezone/chat-id/topic-id/quiet-hours/dependency/enabled).
 
 ## Task Content
 
