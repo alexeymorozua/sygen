@@ -29,14 +29,6 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Hot-reload** — add/remove servers without restarting the bot
 - **`/mcp` command** — list servers, check status, refresh tools from Telegram
 
-### Smart Model Routing
-- **Auto model selection** — routes messages to the right model tier by complexity
-- **LLM classifier** — uses a cheap model (Haiku/Flash/4o-mini) to classify each message as light/medium/heavy
-- **Per-provider tiers** — Claude (Haiku/Sonnet/Opus), Codex (4o-mini/4o/o3), Gemini (Flash/Pro)
-- **User override** — `@opus` or `@haiku` always takes priority over routing
-- **Optional** — disabled by default, requires a separate API key for the classifier
-- **Zero overhead when off** — no extra calls, no latency
-
 ### Skill Marketplace (ClawHub)
 - **13,000+ community skills** — search and install from OpenClaw's ClawHub registry
 - **Security scanning** — static analysis (20 suspicious patterns) + VirusTotal API before every install
@@ -109,7 +101,6 @@ All settings in `~/.sygen/config/config.json`. Key sections:
 | `timeouts` | Response timeouts per mode |
 | `media` | Image quality, audio transcription |
 | `mcp` | MCP servers (enabled, server list) |
-| `routing` | Smart model routing (enabled, API key, tiers) |
 | `skill_marketplace` | ClawHub integration (enabled, VirusTotal API key) |
 
 ## Architecture
@@ -174,36 +165,6 @@ Per-agent MCP servers can be configured in `agents.json` under the `mcp` field.
 | `auto_restart` | `true` | Restart on crash |
 
 MCP config supports hot-reload — changes to `config.json` are picked up without restarting the bot.
-
-## Smart Model Routing
-
-Automatically route messages to the optimal model based on complexity. Requires a separate API key for the classifier model.
-
-```json
-{
-  "routing": {
-    "enabled": true,
-    "api_key": "sk-ant-xxx",
-    "classifier_provider": "anthropic",
-    "classifier_model": "claude-haiku-4-5-20251001",
-    "tiers": {
-      "claude": { "light": "haiku", "medium": "sonnet", "heavy": "opus" },
-      "codex":  { "light": "gpt-4o-mini", "medium": "gpt-4o", "heavy": "o3" },
-      "gemini": { "light": "flash", "medium": "pro", "heavy": "pro" }
-    }
-  }
-}
-```
-
-**How it works:**
-1. User sends a message
-2. Classifier (cheap API call, ~100ms) rates complexity: light / medium / heavy
-3. Message is routed to the matching model for the active provider
-4. Conversation context is preserved (same CLI session)
-
-**Override:** `@opus`, `@haiku`, or `/model` always takes priority over routing.
-
-**Cost:** ~$0.0001 per classification (~$0.30/month at 100 messages/day).
 
 ## Skill Marketplace Setup
 

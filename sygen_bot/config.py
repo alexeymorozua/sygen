@@ -232,36 +232,6 @@ class WebhookConfig(BaseModel):
     rate_limit_per_minute: int = 30
 
 
-class RoutingTierConfig(BaseModel):
-    """Model mapping for a single provider's complexity tiers."""
-
-    light: str = ""
-    medium: str = ""
-    heavy: str = ""
-
-
-class RoutingConfig(BaseModel):
-    """Settings for automatic model routing based on message complexity."""
-
-    enabled: bool = False
-    api_key: str = ""
-    api_key_env: str = ""
-    classifier_provider: str = "anthropic"  # anthropic, openai, google
-    classifier_model: str = "claude-haiku-4-5-20251001"
-
-    @model_validator(mode="after")
-    def _resolve_api_key_from_env(self) -> RoutingConfig:
-        if not self.api_key and self.api_key_env:
-            self.api_key = os.environ.get(self.api_key_env, "")
-        return self
-    tiers: dict[str, RoutingTierConfig] = Field(
-        default_factory=lambda: {
-            "claude": RoutingTierConfig(light="haiku", medium="sonnet", heavy="opus"),
-            "codex": RoutingTierConfig(light="gpt-4o-mini", medium="gpt-4o", heavy="o3"),
-            "gemini": RoutingTierConfig(light="flash", medium="pro", heavy="pro"),
-        }
-    )
-
 
 class SceneConfig(BaseModel):
     """Settings for scene indicators and technical footer.
@@ -370,7 +340,6 @@ class AgentConfig(BaseModel):
     timeouts: TimeoutConfig = Field(default_factory=TimeoutConfig)
     tasks: TasksConfig = Field(default_factory=TasksConfig)
     scene: SceneConfig = Field(default_factory=SceneConfig)
-    routing: RoutingConfig = Field(default_factory=RoutingConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     skill_marketplace: SkillMarketplaceConfig = Field(default_factory=SkillMarketplaceConfig)
     trace_retention_days: int = 30
