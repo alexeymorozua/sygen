@@ -72,6 +72,7 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 | MCP Integration | 2026-03-27 | Native client in `sygen_bot/mcp/` — MCPClient, MCPManager, ToolRouter, `/mcp` command, 52 tests |
 | CI/CD | 2026-03-27 | GitHub Actions on push/PR, pytest on Python 3.11/3.12/3.13, 3400+ tests |
 | Issue #75 Fix | 2026-03-27 | Cancel orphaned asyncio Tasks in cron reschedule — prevents double job execution |
+| Multi-Model Routing | 2026-03-27 | Auto model selection by complexity via API classifier (Anthropic/OpenAI/Google). Optional, off by default. `sygen_bot/routing/`, 28 tests |
 
 ## Evaluated & Rejected
 
@@ -80,5 +81,5 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 | Verbose Levels (`/verbose 0/1/2`) | Already covered by core: `reaction_style` (off/seen/detailed) + tool names + status tags in streaming | 2026-03-27 |
 | Conversation Export | History already available in Telegram. Parsing 3 providers (Claude/Codex/Gemini) not worth the effort | 2026-03-27 |
 | WhatsApp Channel | Official API is paid ($0.005-0.08/msg), 24h window limit, no message editing (kills streaming), no inline buttons (max 3 reply buttons), no forums/topics. Unofficial libs get banned. Not worth it for personal use | 2026-03-27 |
-| Multi-Model Routing | CLI-only architecture makes quality classification impossible without +3-5 sec overhead per message (CLI subprocess startup). Rule-based/keyword approaches are unreliable. LLM classifier needs separate API key, breaking "zero API keys" philosophy. Manual `/model` and `@opus`/`@haiku` covers the use case | 2026-03-27 |
+| Multi-Model Routing (rule-based) | Rule-based/keyword approaches are unreliable. CLI subprocess startup adds 3-5 sec if using CLI for classification. Solved via optional API classifier instead (see Implemented) | 2026-03-27 |
 | Additional Providers (DeepSeek, Ollama) | Three providers (Claude/Codex/Gemini) are sufficient. Each new provider needs ~500 LOC CLI wrapper. No demand yet | 2026-03-27 |
