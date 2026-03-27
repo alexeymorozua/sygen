@@ -1,5 +1,9 @@
 # Sygen
 
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://python.org)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/alexeymorozua?label=Sponsor&logo=GitHub)](https://github.com/sponsors/alexeymorozua)
+
 **AI assistant framework** with multi-agent orchestration, background tasks, and persistent memory.
 
 Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini) and manages complex workflows autonomously.
@@ -243,6 +247,10 @@ Sygen does not hardcode any AI provider or model in defaults. All crons, tools, 
 pip install --upgrade sygen
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). By opening a PR you agree to the [CLA](CLA.md).
+
 ## License
 
-[MIT](LICENSE)
+[BSL 1.1](LICENSE) — free for personal use and small teams (<5 people). Converts to MIT on 2030-03-27.
