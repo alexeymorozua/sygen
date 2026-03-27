@@ -10,7 +10,7 @@
    - Gemini CLI: `npm install -g @google/gemini-cli` and authenticate in `gemini`
 4. One of these messaging transports:
    - **Telegram**: Bot token from [@BotFather](https://t.me/BotFather) + user ID from [@userinfobot](https://t.me/userinfobot)
-   - **Matrix**: install Matrix support first (`ductor install matrix` or `pip install \"ductor[matrix]\"`), then provide homeserver URL, user ID, and password/access token
+   - **Matrix**: install Matrix support first (`sygen install matrix` or `pip install \"sygen[matrix]\"`), then provide homeserver URL, user ID, and password/access token
 5. Docker optional (recommended for sandboxing)
 
 ## Install
@@ -18,20 +18,20 @@
 ### pipx (recommended)
 
 ```bash
-pipx install ductor
+pipx install sygen
 ```
 
 ### pip
 
 ```bash
-pip install ductor
+pip install sygen
 ```
 
 ### from source
 
 ```bash
-git clone https://github.com/PleasePrompto/ductor.git
-cd ductor
+git clone https://github.com/alexeymorozua/sygen.git
+cd sygen
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
@@ -39,7 +39,7 @@ pip install -e ".[dev]"
 ## First run
 
 ```bash
-ductor
+sygen
 ```
 
 On first run, onboarding does:
@@ -66,8 +66,8 @@ If service install succeeds, onboarding returns without starting foreground bot.
 sudo apt update && sudo apt install python3 python3-pip python3-venv nodejs npm
 pip install pipx
 pipx ensurepath
-pipx install ductor
-ductor
+pipx install sygen
+sygen
 ```
 
 Optional Docker:
@@ -82,8 +82,8 @@ sudo usermod -aG docker $USER
 ```bash
 brew install python@3.11 node pipx
 pipx ensurepath
-pipx install ductor
-ductor
+pipx install sygen
+sygen
 ```
 
 ### Windows (native)
@@ -93,8 +93,8 @@ winget install Python.Python.3.11
 winget install OpenJS.NodeJS
 pip install pipx
 pipx ensurepath
-pipx install ductor
-ductor
+pipx install sygen
+sygen
 ```
 
 Native Windows is fully supported, including service management via Task Scheduler.
@@ -107,8 +107,8 @@ WSL works too. Install like Linux inside WSL.
 sudo apt update && sudo apt install python3 python3-pip python3-venv nodejs npm
 pip install pipx
 pipx ensurepath
-pipx install ductor
-ductor
+pipx install sygen
+sygen
 ```
 
 ## Docker sandboxing
@@ -127,50 +127,50 @@ Notes:
 
 - Docker image is built on first use when missing.
 - Container is reused between calls.
-- On Linux, ductor maps UID/GID to avoid root-owned files.
-- If Docker setup fails at startup, ductor logs warning and falls back to host execution.
+- On Linux, sygen maps UID/GID to avoid root-owned files.
+- If Docker setup fails at startup, sygen logs warning and falls back to host execution.
 
 Docker CLI shortcuts:
 
 ```bash
-ductor docker enable
-ductor docker disable
-ductor docker rebuild
-ductor docker mount /path/to/project
-ductor docker unmount /path/to/project
-ductor docker mounts
-ductor docker extras
-ductor docker extras-add <id>
-ductor docker extras-remove <id>
+sygen docker enable
+sygen docker disable
+sygen docker rebuild
+sygen docker mount /path/to/project
+sygen docker unmount /path/to/project
+sygen docker mounts
+sygen docker extras
+sygen docker extras-add <id>
+sygen docker extras-remove <id>
 ```
 
 - `enable` / `disable` toggles `docker.enabled` in `config.json` (restart bot afterwards).
 - `rebuild` stops the bot, removes container + image, and forces fresh build on next start.
 - `mount` / `unmount` manage `docker.mounts` entries.
 - mounts are available in-container under `/mnt/<name>` (basename-based mapping with collision suffixes).
-- run `ductor docker mounts` to inspect effective mapping and broken paths.
+- run `sygen docker mounts` to inspect effective mapping and broken paths.
 - `extras` lists all optional packages with their selection status.
 - `extras-add` / `extras-remove` manage optional AI/ML packages (Whisper, PyTorch, OpenCV, etc.) in `config.json`. Transitive dependencies are resolved automatically.
-- after changing extras, run `ductor docker rebuild` to apply. Build output is streamed live to the terminal.
+- after changing extras, run `sygen docker rebuild` to apply. Build output is streamed live to the terminal.
 
 ## Direct API server (optional)
 
 Preferred enable path:
 
 ```bash
-ductor api enable
+sygen api enable
 ```
 
 This writes/updates the `api` block in `config.json` and generates a token if missing.
 
-`ductor api enable` requires PyNaCl (used for E2E encryption). If it is missing:
+`sygen api enable` requires PyNaCl (used for E2E encryption). If it is missing:
 
 ```bash
 # pipx install
-pipx inject ductor PyNaCl
+pipx inject sygen PyNaCl
 
 # pip install
-pip install "ductor[api]"
+pip install "sygen[api]"
 ```
 
 Manual config equivalent:
@@ -190,7 +190,7 @@ Manual config equivalent:
 
 Notes:
 
-- token is generated and persisted by `ductor api enable` (runtime also generates it on API start if still empty).
+- token is generated and persisted by `sygen api enable` (runtime also generates it on API start if still empty).
 - WebSocket auth frame must include `type="auth"`, `token`, and `e2e_pk` (client ephemeral public key).
 - endpoints:
   - WebSocket: `ws://<host>:8741/ws`
@@ -205,17 +205,17 @@ Notes:
 Install:
 
 ```bash
-ductor service install
+sygen service install
 ```
 
 Manage:
 
 ```bash
-ductor service status
-ductor service start
-ductor service stop
-ductor service logs
-ductor service uninstall
+sygen service status
+sygen service start
+sygen service stop
+sygen service logs
+sygen service uninstall
 ```
 
 Backend details and platform quirks: [Service Management](modules/service_management.md)
@@ -224,7 +224,7 @@ Backends:
 
 - Linux: `systemd --user` service `~/.config/systemd/user/ductor.service`
 - macOS: Launch Agent `~/Library/LaunchAgents/dev.ductor.plist`
-- Windows: Task Scheduler task `ductor`
+- Windows: Task Scheduler task `sygen`
 
 Linux note:
 
@@ -250,8 +250,8 @@ ssh user@host
 sudo apt update && sudo apt install python3 python3-pip python3-venv nodejs npm docker.io
 pip install pipx
 pipx ensurepath
-pipx install ductor
-ductor
+pipx install sygen
+sygen
 ```
 
 Security basics:
@@ -259,14 +259,14 @@ Security basics:
 - keep SSH key-only auth
 - enable Docker sandboxing for unattended automation
 - keep `allowed_user_ids` restricted
-- use `/upgrade` or `pipx upgrade ductor`
+- use `/upgrade` or `pipx upgrade sygen`
 
 ## Troubleshooting
 
 ### Bot not responding
 
 1. check transport credentials (`telegram_token` / `matrix` block) + allowlists
-2. run `ductor status`
+2. run `sygen status`
 3. inspect `~/.ductor/logs/agent.log`
 4. run `/diagnose` in chat
 
@@ -301,12 +301,12 @@ Then validate `docker.enabled` + image/container names in config.
 Upgrade:
 
 ```bash
-pipx upgrade ductor
+pipx upgrade sygen
 ```
 
 Uninstall:
 
 ```bash
-pipx uninstall ductor
+pipx uninstall sygen
 rm -rf ~/.ductor  # optional data removal
 ```
