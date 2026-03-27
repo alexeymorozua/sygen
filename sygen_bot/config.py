@@ -180,6 +180,13 @@ class MCPConfig(BaseModel):
     servers: list[MCPServerConfig] = Field(default_factory=list)
 
 
+class SkillMarketplaceConfig(BaseModel):
+    """Settings for ClawHub skill marketplace integration."""
+
+    enabled: bool = False
+    virustotal_api_key: str | None = None
+
+
 class MatrixConfig(BaseModel):
     """Matrix homeserver connection settings."""
 
@@ -357,6 +364,7 @@ class AgentConfig(BaseModel):
     scene: SceneConfig = Field(default_factory=SceneConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+    skill_marketplace: SkillMarketplaceConfig = Field(default_factory=SkillMarketplaceConfig)
     user_timezone: str = ""
     language: str = "en"
     update_check: bool = False
