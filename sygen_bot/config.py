@@ -243,8 +243,7 @@ class RoutingTierConfig(BaseModel):
 class RoutingConfig(BaseModel):
     """Settings for automatic model routing based on message complexity."""
 
-    enabled: bool = True
-    auto_delegate: bool = True
+    enabled: bool = False
     api_key: str = ""
     api_key_env: str = ""
     classifier_provider: str = "anthropic"  # anthropic, openai, google
