@@ -61,7 +61,8 @@
         "edit_interval_seconds": 2.0,
         "max_edit_failures": 3,
         "append_mode": false,
-        "sentence_break": true
+        "sentence_break": true,
+        "buffered": false
     },
 
     "docker": {

@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from aiohttp.test_utils import TestClient, TestServer
 
 from sygen_bot.multiagent.internal_api import InternalAgentAPI
 
 if TYPE_CHECKING:
-    from aiohttp.test_utils import TestClient
+    pass
 
 
 def _make_task_hub(
@@ -32,13 +33,18 @@ def _make_task_hub(
 
 
 @pytest.fixture
-async def api_client(aiohttp_client: object) -> TestClient:
+async def api_client():
     """Create test client with task-only API (no bus)."""
     api = InternalAgentAPI(bus=None, port=0)
     hub = _make_task_hub()
     api.set_task_hub(hub)
-    api._app["_test_hub"] = hub  # Stash for test access
-    return await aiohttp_client(api._app)  # type: ignore[return-value]
+    api._app["_test_hub"] = hub
+
+    server = TestServer(api._app)
+    client = TestClient(server)
+    await client.start_server()
+    yield client
+    await client.close()
 
 
 class TestTaskCreate:
