@@ -7,7 +7,7 @@ New ideas will be added as they emerge.
 
 | Feature | Date | Details |
 |---------|------|---------|
-| Full Rebrand | 2026-03-27 | Complete ductor → sygen across entire codebase (213 files), no backward compat |
+| Full Rebrand | 2026-03-27 | Complete rebrand across entire codebase (213 files), no backward compat |
 | PyPI Release | 2026-03-27 | `pip install sygen`, auto-publish on GitHub release |
 | ClawHub Skill Marketplace | 2026-03-27 | Browse/install community skills with security scanning (static + VirusTotal) |
 | Multi-Model Routing | 2026-03-27 | Auto model selection by task complexity via API classifier |
