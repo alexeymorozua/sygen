@@ -156,16 +156,16 @@ class TestCheckModuleSizes:
         assert _check_module_sizes(tmp_path) == ""
 
     def test_over_limit_returns_warning(self, tmp_path: Path) -> None:
-        (tmp_path / "big.md").write_text("line\n" * 100)
+        (tmp_path / "big.md").write_text("line\n" * 150)
         result = _check_module_sizes(tmp_path)
         assert "big.md" in result
-        assert "100 lines" in result
+        assert "150 lines" in result
         assert f"limit {_MODULE_LINE_LIMIT}" in result
 
     def test_multiple_files(self, tmp_path: Path) -> None:
         (tmp_path / "ok.md").write_text("line\n" * 50)
-        (tmp_path / "big1.md").write_text("line\n" * 90)
-        (tmp_path / "big2.md").write_text("line\n" * 120)
+        (tmp_path / "big1.md").write_text("line\n" * 130)
+        (tmp_path / "big2.md").write_text("line\n" * 200)
         result = _check_module_sizes(tmp_path)
         assert "big1.md" in result
         assert "big2.md" in result
