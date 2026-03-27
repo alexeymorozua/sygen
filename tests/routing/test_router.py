@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from sygen_bot.config import RoutingConfig, RoutingTierConfig
-from sygen_bot.routing.classifier import ClassificationResult, MessageClassifier
+from sygen_bot.routing.classifier import MessageClassifier
 from sygen_bot.routing.router import ModelRouter
 
 
@@ -28,47 +28,40 @@ def _make_router(config: RoutingConfig | None = None) -> ModelRouter:
     return ModelRouter(cfg, classifier)
 
 
-def _mock_classify(router: ModelRouter, tier: str, background: bool = False) -> None:
-    """Mock classify_full on the router's classifier."""
-    router._classifier.classify_full = AsyncMock(  # type: ignore[method-assign]
-        return_value=ClassificationResult(tier=tier, background=background)
-    )
-
-
 # -- Tier-to-model mapping --
 
 
 async def test_resolve_light_claude() -> None:
     router = _make_router()
-    _mock_classify(router, "light")
+    router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
     model = await router.resolve_model("hello", "claude")
     assert model == "haiku"
 
 
 async def test_resolve_medium_claude() -> None:
     router = _make_router()
-    _mock_classify(router, "medium")
+    router._classifier.classify = AsyncMock(return_value="medium")  # type: ignore[method-assign]
     model = await router.resolve_model("explain this", "claude")
     assert model == "sonnet"
 
 
 async def test_resolve_heavy_claude() -> None:
     router = _make_router()
-    _mock_classify(router, "heavy")
+    router._classifier.classify = AsyncMock(return_value="heavy")  # type: ignore[method-assign]
     model = await router.resolve_model("refactor auth", "claude")
     assert model == "opus"
 
 
 async def test_resolve_codex_tiers() -> None:
     router = _make_router()
-    _mock_classify(router, "light")
+    router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
     model = await router.resolve_model("hi", "codex")
     assert model == "gpt-4o-mini"
 
 
 async def test_resolve_gemini_heavy() -> None:
     router = _make_router()
-    _mock_classify(router, "heavy")
+    router._classifier.classify = AsyncMock(return_value="heavy")  # type: ignore[method-assign]
     model = await router.resolve_model("design architecture", "gemini")
     assert model == "pro"
 
@@ -77,7 +70,7 @@ async def test_resolve_gemini_heavy() -> None:
 
 
 async def test_disabled_returns_none() -> None:
-    config = _make_config(enabled=False, auto_delegate=False)
+    config = _make_config(enabled=False)
     router = _make_router(config)
     result = await router.resolve_model("anything", "claude")
     assert result is None
@@ -92,7 +85,7 @@ async def test_no_api_key_returns_none() -> None:
 
 async def test_unknown_provider_returns_none() -> None:
     router = _make_router()
-    _mock_classify(router, "light")
+    router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
     result = await router.resolve_model("hello", "unknown_provider")
     assert result is None
 
@@ -102,7 +95,7 @@ async def test_empty_tier_model_returns_none() -> None:
         tiers={"claude": RoutingTierConfig(light="", medium="sonnet", heavy="opus")}
     )
     router = _make_router(config)
-    _mock_classify(router, "light")
+    router._classifier.classify = AsyncMock(return_value="light")  # type: ignore[method-assign]
     result = await router.resolve_model("hello", "claude")
     assert result is None
 
@@ -115,40 +108,9 @@ async def test_custom_tier_config() -> None:
         tiers={"claude": RoutingTierConfig(light="haiku", medium="haiku", heavy="sonnet")}
     )
     router = _make_router(config)
-    _mock_classify(router, "heavy")
+    router._classifier.classify = AsyncMock(return_value="heavy")  # type: ignore[method-assign]
     model = await router.resolve_model("big task", "claude")
     assert model == "sonnet"
-
-
-# -- Background delegation --
-
-
-async def test_resolve_background_flag() -> None:
-    config = _make_config(auto_delegate=True)
-    router = _make_router(config)
-    _mock_classify(router, "heavy", background=True)
-    decision = await router.resolve("research task", "claude")
-    assert decision.background is True
-    assert decision.model == "opus"
-
-
-async def test_resolve_no_background_when_disabled() -> None:
-    config = _make_config(auto_delegate=False)
-    router = _make_router(config)
-    _mock_classify(router, "heavy", background=True)
-    decision = await router.resolve("research task", "claude")
-    assert decision.background is False
-    assert decision.model == "opus"
-
-
-async def test_resolve_model_only_no_routing() -> None:
-    """auto_delegate on but routing disabled: model=None, bg works."""
-    config = _make_config(enabled=False, auto_delegate=True)
-    router = _make_router(config)
-    _mock_classify(router, "heavy", background=True)
-    decision = await router.resolve("research task", "claude")
-    assert decision.model is None
-    assert decision.background is True
 
 
 # -- Close --

@@ -88,11 +88,11 @@ def on_new_session(ctx: HookContext) -> bool:
 
 
 def _is_delegation_reminder_due(ctx: HookContext) -> bool:
-    """Fire every 5th message, but not on new sessions (DELEGATION_BRIEF covers those)."""
+    """Fire every 15th message, but not on new sessions (DELEGATION_BRIEF covers those)."""
     if ctx.is_new_session:
         return False
     effective = ctx.message_count + 1
-    return effective >= 5 and effective % 5 == 0
+    return effective >= 15 and effective % 15 == 0
 
 
 # ---------------------------------------------------------------------------
