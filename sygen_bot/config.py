@@ -57,6 +57,7 @@ class StreamingConfig(BaseModel):
     max_edit_failures: int = 3
     append_mode: bool = False
     sentence_break: bool = True
+    buffered: bool = False
 
 
 class DockerConfig(BaseModel):
