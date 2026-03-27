@@ -1151,6 +1151,22 @@ class TelegramBot:
             await self._handle_ns_callback(key, data, thread_id=thread_id)
             return True
 
+        if data.startswith("skill_"):
+            from sygen_bot.skills.commands import handle_skill_callback
+
+            resp = await handle_skill_callback(self._orch, key, data)
+            if resp and resp.text:
+                await send_rich(
+                    self._bot,
+                    key.chat_id,
+                    resp.text,
+                    SendRichOpts(
+                        allowed_roots=self.file_roots(self._orch.paths),
+                        thread_id=thread_id,
+                    ),
+                )
+            return True
+
         return False
 
     async def _handle_model_selector(self, key: SessionKey, message_id: int, data: str) -> None:

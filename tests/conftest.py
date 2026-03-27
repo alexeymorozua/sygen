@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+pytest_plugins = ["aiohttp.pytest_plugin"]
+
 from unittest.mock import patch
 
 import pytest
