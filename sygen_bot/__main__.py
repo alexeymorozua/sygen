@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import shutil
 import signal
 import sys
@@ -149,6 +150,13 @@ def load_config() -> AgentConfig:
     if changed:
         atomic_json_save(config_path, merged)
         logger.info("Extended config with new default fields")
+
+    # Pre-load .env into os.environ so that config validators (e.g.
+    # RoutingConfig.api_key_env) can resolve env-based secrets at parse time.
+    from sygen_bot.infra.env_secrets import load_env_secrets
+
+    for key, value in load_env_secrets(paths.env_file).items():
+        os.environ.setdefault(key, value)
 
     init_workspace(paths)
     return AgentConfig.model_validate(merged)
