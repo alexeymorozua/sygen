@@ -203,7 +203,8 @@ class WebhookObserver(BaseTaskObserver):
             result_text=result.result_text, provider=provider, model=model,
         )
 
-        if self._on_result:
+        silent = result.result_text.lstrip().upper().startswith("[SILENT]")
+        if self._on_result and not silent:
             try:
                 await self._on_result(result)
             except asyncio.CancelledError:

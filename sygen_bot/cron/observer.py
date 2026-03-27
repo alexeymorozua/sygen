@@ -373,13 +373,19 @@ class CronObserver(BaseTaskObserver):
         # cancels) running tasks.  Delivering first guarantees the
         # Telegram message is sent even if the task is cancelled during
         # the subsequent file I/O.
-        await self._deliver_result(
-            job_id,
-            job_title,
-            result.result_text,
-            result.status,
-            routing,
-        )
+        #
+        # [SILENT] marker: if the agent output starts with [SILENT],
+        # skip delivery entirely.  This lets cron tasks with conditional
+        # logic stay quiet when there is nothing to report.
+        silent = result.result_text.lstrip().upper().startswith("[SILENT]")
+        if not silent:
+            await self._deliver_result(
+                job_id,
+                job_title,
+                result.result_text,
+                result.status,
+                routing,
+            )
 
         self._record_trace(
             name=job_title,
