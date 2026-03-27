@@ -1,12 +1,7 @@
 # Sygen — Roadmap
 
-## Planned
-
-### AutoMemory Consolidation
-Programmatic memory deduplication, contradiction detection, and staleness pruning. Cron-based cleanup tasks exist; goal is automated algorithms in core.
-
-### Plugin System
-Drop-in custom tools with auto-discovery from a `plugins/` directory.
+All planned features have been implemented or covered by existing systems.
+New ideas will be added as they emerge.
 
 ## Implemented
 
@@ -21,3 +16,5 @@ Drop-in custom tools with auto-discovery from a `plugins/` directory.
 | Cost Tracking | core | Per-session cost/token tracking, `/status` display, budget limits (`max_budget_usd`) |
 | Upstream Monitoring | core | PyPI version polling (hourly), auto-upgrade with retry, GitHub changelog |
 | Sandbox Execution | core | Docker-based isolation, auto-build, mount strategy, extras system, host fallback |
+| Memory Cleanup | core | Monthly cron tasks for deduplication, staleness pruning, and contradiction detection |
+| Skill/Plugin System | core | Workspace skills with auto-sync, ClawHub marketplace, SKILL.md format |
