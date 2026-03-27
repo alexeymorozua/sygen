@@ -29,6 +29,7 @@ from sygen_bot.infra.inflight import InflightTracker
 from sygen_bot.orchestrator.commands import (
     cmd_cron,
     cmd_diagnose,
+    cmd_logs,
     cmd_memory,
     cmd_model,
     cmd_reset,
@@ -471,6 +472,8 @@ class Orchestrator:
         reg.register_async("/model ", cmd_model)
         reg.register_async("/memory", cmd_memory)
         reg.register_async("/cron", cmd_cron)
+        reg.register_async("/logs", cmd_logs)
+        reg.register_async("/logs ", cmd_logs)
         reg.register_async("/diagnose", cmd_diagnose)
         reg.register_async("/upgrade", cmd_upgrade)
         reg.register_async("/sessions", cmd_sessions)

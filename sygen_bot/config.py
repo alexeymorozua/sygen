@@ -366,6 +366,8 @@ class AgentConfig(BaseModel):
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     skill_marketplace: SkillMarketplaceConfig = Field(default_factory=SkillMarketplaceConfig)
+    trace_retention_days: int = 30
+    trace_max_files: int = 1000
     user_timezone: str = ""
     language: str = "en"
     update_check: bool = True
