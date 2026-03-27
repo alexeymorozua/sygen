@@ -99,7 +99,7 @@ def _is_delegation_reminder_due(ctx: HookContext) -> bool:
 # Memory module size check
 # ---------------------------------------------------------------------------
 
-_MODULE_LINE_LIMIT = 80
+_MODULE_LINE_LIMIT = 120
 
 
 def _check_module_sizes(modules_dir: Path | None) -> str:
