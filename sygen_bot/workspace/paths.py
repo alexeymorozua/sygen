@@ -73,8 +73,8 @@ class SygenPaths:
         return self.sygen_home / "logs"
 
     @property
-    def traces_dir(self) -> Path:
-        return self.logs_dir / "traces"
+    def traces_db(self) -> Path:
+        return self.logs_dir / "traces.db"
 
     @property
     def cron_tasks_dir(self) -> Path:

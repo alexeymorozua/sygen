@@ -1,16 +1,36 @@
-"""Trace recorder: writes and reads structured JSON trace files."""
+"""Trace recorder: writes and reads structured traces in SQLite."""
 
 from __future__ import annotations
 
-import json
 import logging
-from dataclasses import asdict, dataclass
+import sqlite3
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from sygen_bot.observability.cleanup import run_cleanup
 
 logger = logging.getLogger(__name__)
+
+_CREATE_TABLE = """\
+CREATE TABLE IF NOT EXISTS traces (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    started TEXT NOT NULL,
+    finished TEXT NOT NULL,
+    duration_sec REAL NOT NULL,
+    status TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    error TEXT,
+    summary TEXT
+)
+"""
+
+_CREATE_INDEX = """\
+CREATE INDEX IF NOT EXISTS idx_traces_started ON traces (started DESC)
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,8 +48,13 @@ class Trace:
     summary: str | None = None
 
 
-def _traces_dir(logs_dir: Path) -> Path:
-    return logs_dir / "traces"
+def _connect(db_path: Path) -> sqlite3.Connection:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), timeout=5)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(_CREATE_TABLE)
+    conn.execute(_CREATE_INDEX)
+    return conn
 
 
 def _normalize_status(raw_status: str) -> str:
@@ -63,35 +88,45 @@ def record_trace(
     normalized = _normalize_status(status)
     ts = started.strftime("%Y%m%d-%H%M%S")
     trace_id = f"{trace_type}-{name}-{ts}"
-    trace = Trace(
-        id=trace_id,
-        type=trace_type,
-        name=name,
-        started=started.isoformat(),
-        finished=finished.isoformat(),
-        duration_sec=round(duration_sec, 1),
-        status=normalized,
-        provider=provider or "",
-        model=model or "",
-        error=error if normalized != "ok" else None,
-        summary=(summary[:200] if summary else None),
-    )
 
-    traces = _traces_dir(logs_dir)
-    traces.mkdir(parents=True, exist_ok=True)
-
-    filename = f"{trace_type}-{name}-{ts}.json"
-    path = traces / filename
+    db_path = logs_dir / "traces.db"
     try:
-        path.write_text(json.dumps(asdict(trace), ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        logger.exception("Failed to write trace %s", filename)
+        conn = _connect(db_path)
+    except sqlite3.Error:
+        logger.exception("Failed to open traces database")
         return
 
     try:
-        run_cleanup(traces, retention_days=retention_days, max_files=max_files)
+        conn.execute(
+            "INSERT OR REPLACE INTO traces "
+            "(id, type, name, started, finished, duration_sec, status, provider, model, error, summary) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                trace_id,
+                trace_type,
+                name,
+                started.isoformat(),
+                finished.isoformat(),
+                round(duration_sec, 1),
+                normalized,
+                provider or "",
+                model or "",
+                error if normalized != "ok" else None,
+                summary[:200] if summary else None,
+            ),
+        )
+        conn.commit()
+    except sqlite3.Error:
+        logger.exception("Failed to write trace %s", trace_id)
+        conn.close()
+        return
+
+    try:
+        run_cleanup(conn, retention_days=retention_days, max_rows=max_files)
     except Exception:
         logger.exception("Trace cleanup failed")
+    finally:
+        conn.close()
 
 
 def read_traces(
@@ -103,35 +138,47 @@ def read_traces(
     since: datetime | None = None,
     limit: int = 10,
 ) -> list[Trace]:
-    traces = _traces_dir(logs_dir)
-    if not traces.is_dir():
+    db_path = logs_dir / "traces.db"
+    if not db_path.is_file():
         return []
 
-    files = sorted(traces.glob("*.json"), key=lambda p: p.name, reverse=True)
+    try:
+        conn = _connect(db_path)
+    except sqlite3.Error:
+        logger.exception("Failed to open traces database for reading")
+        return []
 
-    result: list[Trace] = []
-    for f in files:
-        if len(result) >= limit:
-            break
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+    try:
+        clauses: list[str] = []
+        params: list[object] = []
 
-        if trace_type and data.get("type") != trace_type:
-            continue
-        if name and data.get("name") != name:
-            continue
-        if errors_only and data.get("status") == "ok":
-            continue
+        if trace_type:
+            clauses.append("type = ?")
+            params.append(trace_type)
+        if name:
+            clauses.append("name = ?")
+            params.append(name)
+        if errors_only:
+            clauses.append("status != 'ok'")
         if since:
-            try:
-                started = datetime.fromisoformat(data["started"])
-                if started < since:
-                    continue
-            except (ValueError, KeyError):
-                continue
+            clauses.append("started >= ?")
+            params.append(since.isoformat())
 
-        result.append(Trace(**data))
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"SELECT id, type, name, started, finished, duration_sec, status, provider, model, error, summary FROM traces{where} ORDER BY started DESC LIMIT ?"
+        params.append(limit)
 
-    return result
+        rows = conn.execute(query, params).fetchall()
+        return [
+            Trace(
+                id=r[0], type=r[1], name=r[2], started=r[3], finished=r[4],
+                duration_sec=r[5], status=r[6], provider=r[7], model=r[8],
+                error=r[9], summary=r[10],
+            )
+            for r in rows
+        ]
+    except sqlite3.Error:
+        logger.exception("Failed to read traces")
+        return []
+    finally:
+        conn.close()

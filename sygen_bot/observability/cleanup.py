@@ -1,46 +1,37 @@
-"""Trace file rotation: age-based and count-based cleanup."""
+"""Trace rotation: age-based and count-based cleanup via SQL."""
 
 from __future__ import annotations
 
 import logging
-import time
-from pathlib import Path
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
 
 def run_cleanup(
-    traces_dir: Path,
+    conn: sqlite3.Connection,
     *,
     retention_days: int = 30,
-    max_files: int = 1000,
+    max_rows: int = 1000,
 ) -> None:
-    if not traces_dir.is_dir():
-        return
+    deleted = 0
 
-    files = sorted(traces_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
-    cutoff = time.time() - (retention_days * 86400)
+    cur = conn.execute(
+        "DELETE FROM traces WHERE started < datetime('now', ?)",
+        (f"-{retention_days} days",),
+    )
+    deleted += cur.rowcount
 
-    removed = 0
-    remaining: list[Path] = []
-    for f in files:
-        try:
-            if f.stat().st_mtime < cutoff:
-                f.unlink()
-                removed += 1
-            else:
-                remaining.append(f)
-        except OSError:
-            remaining.append(f)
+    count = conn.execute("SELECT COUNT(*) FROM traces").fetchone()[0]
+    if count > max_rows:
+        excess = count - max_rows
+        cur = conn.execute(
+            "DELETE FROM traces WHERE id IN "
+            "(SELECT id FROM traces ORDER BY started ASC LIMIT ?)",
+            (excess,),
+        )
+        deleted += cur.rowcount
 
-    if len(remaining) > max_files:
-        excess = remaining[: len(remaining) - max_files]
-        for f in excess:
-            try:
-                f.unlink()
-                removed += 1
-            except OSError:
-                pass
-
-    if removed:
-        logger.info("Trace cleanup: removed %d files", removed)
+    if deleted:
+        conn.commit()
+        logger.info("Trace cleanup: removed %d rows", deleted)
