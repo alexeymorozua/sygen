@@ -4,11 +4,13 @@ Based on competitor research (OpenClaw, ClaudeClaw, Goose, Aider, Cursor, Devin 
 
 ## High Priority
 
-### Skill Marketplace
-Community skill sharing + agent self-writing skills.
-- OpenClaw's viral growth mechanism
-- Agent creates its own new capabilities
-- Complexity: HIGH
+### ClawHub Skill Integration (with Safety Layer)
+Browse, search and install community skills from OpenClaw's ClawHub (13,000+ skills).
+- Safety layer: VirusTotal API scan + static analysis before install
+- User always sees security report and decides whether to install
+- Sygen's skill_sync picks up installed skills automatically
+- `/skill search`, `/skill install`, `/skill list`
+- Complexity: MEDIUM
 
 ### PyPI Public Release
 Publish Sygen to PyPI for `pip install sygen`.

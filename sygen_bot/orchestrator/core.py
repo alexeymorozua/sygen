@@ -406,6 +406,7 @@ class Orchestrator:
 
     def _register_commands(self) -> None:
         from sygen_bot.mcp.commands import cmd_mcp
+        from sygen_bot.skills.commands import cmd_skill
 
         reg = self._command_registry
         reg.register_async("/new", cmd_reset)
@@ -422,6 +423,8 @@ class Orchestrator:
         reg.register_async("/tasks", cmd_tasks)
         reg.register_async("/mcp", cmd_mcp)
         reg.register_async("/mcp ", cmd_mcp)
+        reg.register_async("/skill", cmd_skill)
+        reg.register_async("/skill ", cmd_skill)
 
     def register_multiagent_commands(self) -> None:
         """Register /agents, /agent_start, /agent_stop, /agent_restart commands.
