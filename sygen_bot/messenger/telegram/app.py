@@ -706,11 +706,11 @@ class TelegramBot:
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="GitHub", url="https://github.com/PleasePrompto/sygen"
+                        text="GitHub", url="https://github.com/alexeymorozua/sygen"
                     ),
                     InlineKeyboardButton(
                         text="Changelog",
-                        url="https://github.com/PleasePrompto/sygen/releases",
+                        url="https://github.com/alexeymorozua/sygen/releases",
                     ),
                 ],
                 [InlineKeyboardButton(text="PyPI", url="https://pypi.org/project/sygen/")],
