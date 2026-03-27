@@ -4,14 +4,6 @@ Based on competitor research (OpenClaw, ClaudeClaw, Goose, Aider, Cursor, Devin 
 
 ## High Priority
 
-### ClawHub Skill Integration (with Safety Layer)
-Browse, search and install community skills from OpenClaw's ClawHub (13,000+ skills).
-- Safety layer: VirusTotal API scan + static analysis before install
-- User always sees security report and decides whether to install
-- Sygen's skill_sync picks up installed skills automatically
-- `/skill search`, `/skill install`, `/skill list`
-- Complexity: MEDIUM
-
 ### PyPI Public Release
 Publish Sygen to PyPI for `pip install sygen`.
 - Register account on pypi.org
@@ -69,6 +61,7 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 | CI/CD | 2026-03-27 | GitHub Actions on push/PR, pytest on Python 3.11/3.12/3.13, 3400+ tests |
 | Issue #75 Fix | 2026-03-27 | Cancel orphaned asyncio Tasks in cron reschedule — prevents double job execution |
 | Multi-Model Routing | 2026-03-27 | Auto model selection by complexity via API classifier (Anthropic/OpenAI/Google). Optional, off by default. `sygen_bot/routing/`, 28 tests |
+| ClawHub Skill Marketplace | 2026-03-27 | Browse/install community skills from OpenClaw's ClawHub with security scanning (static analysis + VirusTotal). `/skill` command, `sygen_bot/skills/`, 63 tests |
 
 ## Evaluated & Rejected
 
