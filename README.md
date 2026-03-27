@@ -85,11 +85,11 @@ pip install -e .
 sygen
 ```
 
-On first run, Sygen creates a workspace at `~/.ductor/` with default tools, memory templates, and config.
+On first run, Sygen creates a workspace at `~/.sygen/` with default tools, memory templates, and config.
 
 ## Configuration
 
-All settings in `~/.ductor/config/config.json`. Key sections:
+All settings in `~/.sygen/config/config.json`. Key sections:
 
 | Section | What it controls |
 |---|---|
@@ -231,16 +231,6 @@ Sygen does not hardcode any AI provider or model in defaults. All crons, tools, 
 
 ```bash
 /upgrade          # pulls latest from GitHub (git pull --ff-only)
-```
-
-## Upstream Sync
-
-Forked from [Ductor](https://github.com/PleasePrompto/ductor). Original tracked as `upstream` remote:
-
-```bash
-git fetch upstream
-git log upstream/main --oneline    # review changes
-git cherry-pick <commit>           # pick what you need
 ```
 
 ## License

@@ -33,9 +33,13 @@ def ensure_console(console: Console | None) -> Console:
 # ---------------------------------------------------------------------------
 
 
-def find_ductor_binary() -> str | None:
-    """Find the ductor binary in PATH. Shared across all backends."""
-    return shutil.which("ductor")
+def find_sygen_binary() -> str | None:
+    """Find the sygen binary in PATH. Shared across all backends."""
+    return shutil.which("sygen") or shutil.which("sygen")
+
+
+# Backward compatibility alias
+find_sygen_binary = find_sygen_binary
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +76,7 @@ def print_no_service(console: Console) -> None:
 
 
 def print_binary_not_found(console: Console) -> None:
-    """Print the 'ductor binary not found' error."""
+    """Print the 'sygen binary not found' error."""
     console.print(t_rich("service.no_binary"))
 
 
@@ -110,7 +114,7 @@ def print_install_success(
     """Print the standard success panel after service installation.
 
     *detail* is the platform-specific restart/boot sentence (second line).
-    *logs_hint* is the description next to ``ductor service logs``.
+    *logs_hint* is the description next to ``sygen service logs``.
     """
     console.print(
         Panel(

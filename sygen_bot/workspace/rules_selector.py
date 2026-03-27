@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class RulesSelector:
     - RULES-gemini-only.md (Gemini-specific variant)
     - RULES-all-clis.md (multi-provider variant)
 
-    Deployed naming in ~/.ductor/:
+    Deployed naming in ~/.sygen/:
     - CLAUDE.md (created if Claude authenticated)
     - AGENTS.md (created if Codex authenticated)
     - GEMINI.md (created if Gemini authenticated)
@@ -34,7 +34,7 @@ class RulesSelector:
         selector.deploy_rules()
     """
 
-    def __init__(self, paths: DuctorPaths) -> None:
+    def __init__(self, paths: SygenPaths) -> None:
         from sygen_bot.cli.auth import AuthStatus, check_all_auth
 
         self._paths = paths
@@ -130,10 +130,10 @@ class RulesSelector:
         return None
 
     def deploy_rules(self) -> None:
-        """Auto-discover and deploy all rule files to ~/.ductor/.
+        """Auto-discover and deploy all rule files to ~/.sygen/.
 
         Scans _home_defaults/ for directories with RULES templates, selects
-        the best variant for current auth state, and deploys to ~/.ductor/
+        the best variant for current auth state, and deploys to ~/.sygen/
         as CLAUDE.md, AGENTS.md, and/or GEMINI.md based on authentication.
 
         Deployment logic:
@@ -168,7 +168,7 @@ class RulesSelector:
                 continue
 
             # Deploy based on auth status
-            dst_dir = self._paths.ductor_home / rel_path
+            dst_dir = self._paths.sygen_home / rel_path
             dst_dir.mkdir(parents=True, exist_ok=True)
 
             try:
@@ -232,7 +232,7 @@ class RulesSelector:
                 )
 
     def _remove_files_by_name(self, filename: str) -> int:
-        """Remove all files with given name in ~/.ductor/.
+        """Remove all files with given name in ~/.sygen/.
 
         Skips files inside ``workspace/cron_tasks/`` — those are user-owned
         rule files created per task and must not be deleted on auth-status
@@ -244,9 +244,9 @@ class RulesSelector:
         Returns:
             Number of files removed
         """
-        cron_tasks_path = self._paths.ductor_home / "workspace" / "cron_tasks"
+        cron_tasks_path = self._paths.sygen_home / "workspace" / "cron_tasks"
         removed_count = 0
-        for file_path in self._paths.ductor_home.rglob(filename):
+        for file_path in self._paths.sygen_home.rglob(filename):
             if not file_path.is_file():
                 continue
             # Protect user-owned cron task rule files
@@ -257,7 +257,7 @@ class RulesSelector:
                 file_path.unlink()
                 removed_count += 1
                 logger.debug(
-                    "Removed stale file: %s", file_path.relative_to(self._paths.ductor_home)
+                    "Removed stale file: %s", file_path.relative_to(self._paths.sygen_home)
                 )
             except OSError:
                 logger.exception("Failed to remove stale file: %s", file_path)

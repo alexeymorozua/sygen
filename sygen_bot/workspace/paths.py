@@ -1,7 +1,7 @@
 """Central path resolution for the workspace layout.
 
 This module is the SINGLE SOURCE OF TRUTH for all paths in the framework.
-Every path the framework needs is either a field or property of ``DuctorPaths``.
+Every path the framework needs is either a field or property of ``SygenPaths``.
 """
 
 from __future__ import annotations
@@ -22,30 +22,35 @@ def _default_framework_root() -> Path:
     return _PKG_DIR.parent
 
 
+def _resolve_default_home() -> Path:
+    """Return the default home directory ``~/.sygen``."""
+    return Path.home() / ".sygen"
+
+
 @dataclass(frozen=True)
-class DuctorPaths:
+class SygenPaths:
     """Resolved, immutable paths for the workspace layout.
 
     All framework paths are derived from three roots:
 
-    - ``ductor_home``:    User data directory (default ``~/.ductor``).
-    - ``home_defaults``:  Bundled template that mirrors ``ductor_home`` (package-internal).
+    - ``sygen_home``:     User data directory (default ``~/.sygen``).
+    - ``home_defaults``:  Bundled template that mirrors ``sygen_home`` (package-internal).
     - ``framework_root``: Repository root (for Dockerfile, config.example.json).
     """
 
-    ductor_home: Path
+    sygen_home: Path
     home_defaults: Path = field(default_factory=_default_home_defaults)
     framework_root: Path = field(default_factory=_default_framework_root)
 
-    # -- User data paths (inside ductor_home) --
+    # -- User data paths (inside sygen_home) --
 
     @property
     def workspace(self) -> Path:
-        return self.ductor_home / "workspace"
+        return self.sygen_home / "workspace"
 
     @property
     def config_dir(self) -> Path:
-        return self.ductor_home / "config"
+        return self.sygen_home / "config"
 
     @property
     def config_path(self) -> Path:
@@ -53,19 +58,19 @@ class DuctorPaths:
 
     @property
     def sessions_path(self) -> Path:
-        return self.ductor_home / "sessions.json"
+        return self.sygen_home / "sessions.json"
 
     @property
     def cron_jobs_path(self) -> Path:
-        return self.ductor_home / "cron_jobs.json"
+        return self.sygen_home / "cron_jobs.json"
 
     @property
     def webhooks_path(self) -> Path:
-        return self.ductor_home / "webhooks.json"
+        return self.sygen_home / "webhooks.json"
 
     @property
     def logs_dir(self) -> Path:
-        return self.ductor_home / "logs"
+        return self.sygen_home / "logs"
 
     @property
     def cron_tasks_dir(self) -> Path:
@@ -101,7 +106,7 @@ class DuctorPaths:
 
     @property
     def bundled_skills_dir(self) -> Path:
-        """Package-internal skill directory (read-only, ships with ductor)."""
+        """Package-internal skill directory (read-only, ships with sygen)."""
         return self.home_defaults / "workspace" / "skills"
 
     @property
@@ -112,28 +117,28 @@ class DuctorPaths:
     @property
     def tasks_registry_path(self) -> Path:
         """Task registry persistence."""
-        return self.ductor_home / "tasks.json"
+        return self.sygen_home / "tasks.json"
 
     @property
     def chat_activity_path(self) -> Path:
-        return self.ductor_home / "chat_activity.json"
+        return self.sygen_home / "chat_activity.json"
 
     @property
     def named_sessions_path(self) -> Path:
-        return self.ductor_home / "named_sessions.json"
+        return self.sygen_home / "named_sessions.json"
 
     @property
     def startup_state_path(self) -> Path:
-        return self.ductor_home / "startup_state.json"
+        return self.sygen_home / "startup_state.json"
 
     @property
     def inflight_turns_path(self) -> Path:
-        return self.ductor_home / "inflight_turns.json"
+        return self.sygen_home / "inflight_turns.json"
 
     @property
     def env_file(self) -> Path:
         """User-managed ``.env`` for external API secrets."""
-        return self.ductor_home / ".env"
+        return self.sygen_home / ".env"
 
     @property
     def mainmemory_path(self) -> Path:
@@ -162,36 +167,35 @@ class DuctorPaths:
         return _PKG_DIR / "_Dockerfile.sandbox"
 
 
+
 def resolve_paths(
-    ductor_home: str | Path | None = None,
+    sygen_home: str | Path | None = None,
     *,
     framework_root: str | Path | None = None,
     home_defaults: str | Path | None = None,
-) -> DuctorPaths:
-    """Build DuctorPaths from explicit values, env vars, or defaults.
+) -> SygenPaths:
+    """Build SygenPaths from explicit values, env vars, or defaults.
 
     Args:
-        ductor_home: User data directory. Falls back to ``$DUCTOR_HOME`` or ``~/.ductor``.
-        framework_root: Repository root. Falls back to ``$DUCTOR_FRAMEWORK_ROOT``.
+        sygen_home: User data directory. Falls back to ``$SYGEN_HOME`` or ``~/.sygen``.
+        framework_root: Repository root. Falls back to ``$SYGEN_FRAMEWORK_ROOT``.
         home_defaults: Template directory. Falls back to ``sygen_bot/_home_defaults/``.
     """
-    if ductor_home is not None:
-        home = Path(ductor_home).expanduser().resolve()
+    if sygen_home is not None:
+        home = Path(sygen_home).expanduser().resolve()
     else:
-        home = (
-            Path(
-                os.environ.get("DUCTOR_HOME", str(Path.home() / ".ductor")),
-            )
-            .expanduser()
-            .resolve()
-        )
+        env_home = os.environ.get("SYGEN_HOME")
+        if env_home:
+            home = Path(env_home).expanduser().resolve()
+        else:
+            home = _resolve_default_home().resolve()
 
     if framework_root is not None:
         fw = Path(framework_root).expanduser().resolve()
     else:
-        env_fw = os.environ.get("DUCTOR_FRAMEWORK_ROOT")
+        env_fw = os.environ.get("SYGEN_FRAMEWORK_ROOT")
         fw = Path(env_fw).resolve() if env_fw else _default_framework_root()
 
     hd = Path(home_defaults).resolve() if home_defaults is not None else _default_home_defaults()
 
-    return DuctorPaths(ductor_home=home, home_defaults=hd, framework_root=fw)
+    return SygenPaths(sygen_home=home, home_defaults=hd, framework_root=fw)

@@ -4,8 +4,8 @@ You are a memory maintenance agent. Deduplicate, prune, and compact the agent me
 
 ### 1. Process main agent memory
 
-Read the memory index: `~/.ductor/workspace/memory_system/MAINMEMORY.md`
-Then read each module file in: `~/.ductor/workspace/memory_system/modules/`
+Read the memory index: `~/.sygen/workspace/memory_system/MAINMEMORY.md`
+Then read each module file in: `~/.sygen/workspace/memory_system/modules/`
 
 For each module:
 - **Remove duplicates**: entries that convey the same information in different words. Keep the more complete version.
@@ -17,7 +17,7 @@ Update MAINMEMORY.md index if any modules were removed or renamed.
 
 ### 2. Process sub-agent memories
 
-Discover sub-agents: `ls ~/.ductor/agents/`
+Discover sub-agents: `ls ~/.sygen/agents/`
 
 For each sub-agent that has `workspace/memory_system/modules/`, apply the same cleanup rules.
 

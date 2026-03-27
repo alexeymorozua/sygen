@@ -23,20 +23,20 @@ def _shared_path() -> Path:
     """Resolve SHAREDMEMORY.md path.
 
     Priority:
-    1. DUCTOR_SHARED_MEMORY_PATH env var (set by framework)
-    2. DUCTOR_HOME / SHAREDMEMORY.md (works for main agent)
+    1. SYGEN_SHARED_MEMORY_PATH env var (set by framework)
+    2. SYGEN_HOME / SHAREDMEMORY.md (works for main agent)
     3. Navigate up from sub-agent home: agents/<name>/ -> ../../SHAREDMEMORY.md
     """
-    env_path = os.environ.get("DUCTOR_SHARED_MEMORY_PATH")
+    env_path = os.environ.get("SYGEN_SHARED_MEMORY_PATH")
     if env_path:
         return Path(env_path)
 
-    home = Path(os.environ.get("DUCTOR_HOME", str(Path.home() / ".ductor")))
+    home = Path(os.environ.get("SYGEN_HOME", str(Path.home() / ".sygen")))
     direct = home / "SHAREDMEMORY.md"
     if direct.is_file():
         return direct
 
-    # Sub-agent: home is ~/.ductor/agents/<name>/, shared is at ~/.ductor/SHAREDMEMORY.md
+    # Sub-agent: home is ~/.sygen/agents/<name>/, shared is at ~/.sygen/SHAREDMEMORY.md
     parent_home = home.parent.parent
     parent_path = parent_home / "SHAREDMEMORY.md"
     if parent_path.is_file():

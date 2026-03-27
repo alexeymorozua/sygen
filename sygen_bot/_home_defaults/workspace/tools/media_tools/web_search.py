@@ -7,7 +7,7 @@ Usage:
     python web_search.py --query "Claude API" --max-results 3  # limit results
     python web_search.py --query "test" --ddg                  # force DuckDuckGo
 
-Primary engine: Perplexity Sonar API (PPLX_API_KEY from ~/.ductor/.env).
+Primary engine: Perplexity Sonar API (PPLX_API_KEY from ~/.sygen/.env).
 Returns: {answer, sources, engine: "perplexity"} — synthesized answer + source URLs.
 
 Fallback (on error or --ddg): DuckDuckGo.
@@ -24,7 +24,7 @@ import sys
 
 # Load .env if PPLX_API_KEY not in environment
 if not os.environ.get("PPLX_API_KEY"):
-    _env_path = os.path.expanduser("~/.ductor/.env")
+    _env_path = os.path.expanduser("~/.sygen/.env")
     if os.path.exists(_env_path):
         with open(_env_path) as _f:
             for _line in _f:
@@ -104,7 +104,7 @@ def _notify_fallback(error: str) -> None:
     _fallback_notified = True
     import urllib.request
     try:
-        config_path = os.path.expanduser("~/.ductor/config/config.json")
+        config_path = os.path.expanduser("~/.sygen/config/config.json")
         with open(config_path) as f:
             token = json.load(f).get("telegram_token", "")
         if not token:

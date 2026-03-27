@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from sygen_bot.cleanup.observer import CleanupObserver, _delete_old_files
 from sygen_bot.config import AgentConfig, CleanupConfig
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 # -- _delete_old_files (sync helper) --
 
@@ -91,8 +91,8 @@ def _make_config(*, enabled: bool = True, check_hour: int = 3) -> AgentConfig:
     )
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
-    return DuctorPaths(ductor_home=tmp_path)
+def _make_paths(tmp_path: Path) -> SygenPaths:
+    return SygenPaths(sygen_home=tmp_path)
 
 
 async def test_start_disabled_does_not_spawn_task(tmp_path: Path) -> None:

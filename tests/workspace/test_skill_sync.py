@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 from sygen_bot.workspace.skill_sync import (
     _MANAGED_MARKER,
     _clean_broken_links,
@@ -20,16 +20,16 @@ from sygen_bot.workspace.skill_sync import (
     _is_managed_copy,
     _is_under,
     _resolve_canonical,
-    cleanup_ductor_links,
+    cleanup_sygen_links,
     sync_bundled_skills,
     sync_skills,
     watch_skill_sync,
 )
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
-    return DuctorPaths(
-        ductor_home=tmp_path / "ductor_home",
+def _make_paths(tmp_path: Path) -> SygenPaths:
+    return SygenPaths(
+        sygen_home=tmp_path / "sygen_home",
         home_defaults=tmp_path / "fw" / "_home_defaults",
         framework_root=tmp_path / "fw",
     )
@@ -107,14 +107,14 @@ def test_discover_ignores_plain_files(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_canonical_ductor_priority(tmp_path: Path) -> None:
-    ductor = {"sk": tmp_path / "ductor" / "sk"}
+def test_canonical_sygen_priority(tmp_path: Path) -> None:
+    sygen = {"sk": tmp_path / "sygen" / "sk"}
     claude = {"sk": tmp_path / "claude" / "sk"}
     codex = {"sk": tmp_path / "codex" / "sk"}
-    for d in (ductor["sk"], claude["sk"], codex["sk"]):
+    for d in (sygen["sk"], claude["sk"], codex["sk"]):
         d.mkdir(parents=True)
-    result = _resolve_canonical("sk", ductor, claude, codex)
-    assert result == ductor["sk"]
+    result = _resolve_canonical("sk", sygen, claude, codex)
+    assert result == sygen["sk"]
 
 
 def test_canonical_claude_over_codex(tmp_path: Path) -> None:
@@ -231,7 +231,7 @@ def test_clean_nonexistent_dir(tmp_path: Path) -> None:
 
 def _setup_three_dirs(
     tmp_path: Path,
-) -> tuple[DuctorPaths, Path, Path]:
+) -> tuple[SygenPaths, Path, Path]:
     paths = _make_paths(tmp_path)
     paths.skills_dir.mkdir(parents=True)
     claude_home = tmp_path / "fake_home" / ".claude"
@@ -241,7 +241,7 @@ def _setup_three_dirs(
     return paths, claude_home / "skills", codex_home / "skills"
 
 
-def test_sync_claude_to_ductor(tmp_path: Path) -> None:
+def test_sync_claude_to_sygen(tmp_path: Path) -> None:
     paths, claude_skills, _ = _setup_three_dirs(tmp_path)
     _make_skill(claude_skills, "from-claude")
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
@@ -252,7 +252,7 @@ def test_sync_claude_to_ductor(tmp_path: Path) -> None:
     assert link.resolve() == (claude_skills / "from-claude").resolve()
 
 
-def test_sync_codex_to_ductor(tmp_path: Path) -> None:
+def test_sync_codex_to_sygen(tmp_path: Path) -> None:
     paths, _, codex_skills = _setup_three_dirs(tmp_path)
     _make_skill(codex_skills, "from-codex")
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
@@ -263,21 +263,21 @@ def test_sync_codex_to_ductor(tmp_path: Path) -> None:
     assert link.resolve() == (codex_skills / "from-codex").resolve()
 
 
-def test_sync_ductor_to_both(tmp_path: Path) -> None:
+def test_sync_sygen_to_both(tmp_path: Path) -> None:
     paths, claude_skills, codex_skills = _setup_three_dirs(tmp_path)
     claude_skills.mkdir(parents=True, exist_ok=True)
     codex_skills.mkdir(parents=True, exist_ok=True)
-    _make_skill(paths.skills_dir, "from-ductor")
+    _make_skill(paths.skills_dir, "from-sygen")
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills, "codex": codex_skills}
         sync_skills(paths)
     for d in (claude_skills, codex_skills):
-        link = d / "from-ductor"
+        link = d / "from-sygen"
         assert link.is_symlink()
-        assert link.resolve() == (paths.skills_dir / "from-ductor").resolve()
+        assert link.resolve() == (paths.skills_dir / "from-sygen").resolve()
 
 
-def test_sync_gemini_to_ductor(tmp_path: Path) -> None:
+def test_sync_gemini_to_sygen(tmp_path: Path) -> None:
     paths, _, _ = _setup_three_dirs(tmp_path)
     gemini_home = tmp_path / "fake_home" / ".gemini"
     gemini_home.mkdir(parents=True)
@@ -291,7 +291,7 @@ def test_sync_gemini_to_ductor(tmp_path: Path) -> None:
     assert link.resolve() == (gemini_skills / "from-gemini").resolve()
 
 
-def test_sync_ductor_to_all_three(tmp_path: Path) -> None:
+def test_sync_sygen_to_all_three(tmp_path: Path) -> None:
     paths, claude_skills, codex_skills = _setup_three_dirs(tmp_path)
     gemini_home = tmp_path / "fake_home" / ".gemini"
     gemini_home.mkdir(parents=True)
@@ -299,7 +299,7 @@ def test_sync_ductor_to_all_three(tmp_path: Path) -> None:
     claude_skills.mkdir(parents=True, exist_ok=True)
     codex_skills.mkdir(parents=True, exist_ok=True)
     gemini_skills.mkdir(parents=True, exist_ok=True)
-    _make_skill(paths.skills_dir, "from-ductor")
+    _make_skill(paths.skills_dir, "from-sygen")
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {
             "claude": claude_skills,
@@ -308,9 +308,9 @@ def test_sync_ductor_to_all_three(tmp_path: Path) -> None:
         }
         sync_skills(paths)
     for d in (claude_skills, codex_skills, gemini_skills):
-        link = d / "from-ductor"
+        link = d / "from-sygen"
         assert link.is_symlink()
-        assert link.resolve() == (paths.skills_dir / "from-ductor").resolve()
+        assert link.resolve() == (paths.skills_dir / "from-sygen").resolve()
 
 
 def test_sync_no_providers(tmp_path: Path) -> None:
@@ -348,9 +348,9 @@ def test_sync_external_symlink(tmp_path: Path) -> None:
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills, "codex": codex_skills}
         sync_skills(paths)
-    ductor_link = paths.skills_dir / "ext-skill"
-    assert ductor_link.is_symlink()
-    assert ductor_link.resolve() == external_real.resolve()
+    sygen_link = paths.skills_dir / "ext-skill"
+    assert sygen_link.is_symlink()
+    assert sygen_link.resolve() == external_real.resolve()
 
 
 def test_sync_idempotent(tmp_path: Path) -> None:
@@ -415,7 +415,7 @@ async def test_watch_cancellation(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 7: DuctorPaths.skills_dir property
+# Group 7: SygenPaths.skills_dir property
 # ---------------------------------------------------------------------------
 
 
@@ -506,7 +506,7 @@ def test_sync_preserves_external_symlink(tmp_path: Path) -> None:
     # User symlink in .claude pointing to external location
     (claude_skills / "my-skill").symlink_to(external)
 
-    # Ductor also has a skill with the same name
+    # Sygen also has a skill with the same name
     _make_skill(paths.skills_dir, "my-skill")
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
@@ -520,7 +520,7 @@ def test_sync_preserves_external_symlink(tmp_path: Path) -> None:
 
 
 def test_sync_replaces_internal_symlink(tmp_path: Path) -> None:
-    """Symlinks pointing inside sync dirs (ductor-managed) can be updated."""
+    """Symlinks pointing inside sync dirs (sygen-managed) can be updated."""
     paths, claude_skills, codex_skills = _setup_three_dirs(tmp_path)
     claude_skills.mkdir(parents=True, exist_ok=True)
     codex_skills.mkdir(parents=True, exist_ok=True)
@@ -531,14 +531,14 @@ def test_sync_replaces_internal_symlink(tmp_path: Path) -> None:
     # Claude has a symlink pointing to codex (inside sync dirs)
     (claude_skills / "shared").symlink_to(codex_skills / "shared")
 
-    # Ductor now has a real skill with the same name (higher priority)
+    # Sygen now has a real skill with the same name (higher priority)
     _make_skill(paths.skills_dir, "shared")
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills, "codex": codex_skills}
         sync_skills(paths)
 
-    # Claude's symlink should now point to ductor (higher priority canonical)
+    # Claude's symlink should now point to sygen (higher priority canonical)
     link = claude_skills / "shared"
     assert link.is_symlink()
     assert link.resolve() == (paths.skills_dir / "shared").resolve()
@@ -628,27 +628,27 @@ def test_bundled_no_dir_noop(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 12: cleanup_ductor_links
+# Group 12: cleanup_sygen_links
 # ---------------------------------------------------------------------------
 
 
-def test_cleanup_removes_ductor_links(tmp_path: Path) -> None:
+def test_cleanup_removes_sygen_links(tmp_path: Path) -> None:
     paths, claude_skills, codex_skills = _setup_three_dirs(tmp_path)
     claude_skills.mkdir(parents=True, exist_ok=True)
     codex_skills.mkdir(parents=True, exist_ok=True)
 
-    # Simulate ductor-created symlinks (target under ductor skills dir)
-    _make_skill(paths.skills_dir, "from-ductor")
-    (claude_skills / "from-ductor").symlink_to(paths.skills_dir / "from-ductor")
-    (codex_skills / "from-ductor").symlink_to(paths.skills_dir / "from-ductor")
+    # Simulate sygen-created symlinks (target under sygen skills dir)
+    _make_skill(paths.skills_dir, "from-sygen")
+    (claude_skills / "from-sygen").symlink_to(paths.skills_dir / "from-sygen")
+    (codex_skills / "from-sygen").symlink_to(paths.skills_dir / "from-sygen")
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills, "codex": codex_skills}
-        removed = cleanup_ductor_links(paths)
+        removed = cleanup_sygen_links(paths)
 
     assert removed == 2
-    assert not (claude_skills / "from-ductor").exists()
-    assert not (codex_skills / "from-ductor").exists()
+    assert not (claude_skills / "from-sygen").exists()
+    assert not (codex_skills / "from-sygen").exists()
 
 
 def test_cleanup_preserves_external_links(tmp_path: Path) -> None:
@@ -661,7 +661,7 @@ def test_cleanup_preserves_external_links(tmp_path: Path) -> None:
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills}
-        removed = cleanup_ductor_links(paths)
+        removed = cleanup_sygen_links(paths)
 
     assert removed == 0
     assert (claude_skills / "user-skill").is_symlink()
@@ -673,7 +673,7 @@ def test_cleanup_preserves_real_dirs(tmp_path: Path) -> None:
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills}
-        removed = cleanup_ductor_links(paths)
+        removed = cleanup_sygen_links(paths)
 
     assert removed == 0
     assert (claude_skills / "real-skill").is_dir()
@@ -690,7 +690,7 @@ def test_cleanup_removes_bundled_links(tmp_path: Path) -> None:
 
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {"claude": claude_skills}
-        removed = cleanup_ductor_links(paths)
+        removed = cleanup_sygen_links(paths)
 
     assert removed == 1
     assert not (claude_skills / "bundled-one").exists()
@@ -700,7 +700,7 @@ def test_cleanup_no_providers(tmp_path: Path) -> None:
     paths = _make_paths(tmp_path)
     with patch("sygen_bot.workspace.skill_sync._cli_skill_dirs") as mock:
         mock.return_value = {}
-        removed = cleanup_ductor_links(paths)
+        removed = cleanup_sygen_links(paths)
     assert removed == 0
 
 

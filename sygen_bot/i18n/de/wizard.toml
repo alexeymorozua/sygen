@@ -20,14 +20,14 @@ no_auth = """\
 title = "[bold yellow]Haftungsausschluss[/bold yellow]"
 body = """\
 [bold]Wichtig — bitte vor dem Fortfahren lesen.[/bold]\n
-ductor verbindet sich mit [bold]Anthropic Claude CLI[/bold] und \
+sygen verbindet sich mit [bold]Anthropic Claude CLI[/bold] und \
 [bold]OpenAI Codex CLI[/bold] als KI-Agent-Backends.\n
 Der Bot arbeitet im [bold yellow]Vollzugriffsmodus[/bold yellow]. \
 Der Agent kann Dateien lesen, schreiben und löschen, Befehle ausführen \
 und mit deinem System interagieren — ohne vorher zu fragen.\n
 Obwohl Sicherheitsmechanismen vorhanden sind, können [bold red]unbeabsichtigte Aktionen auftreten[/bold red] \
 — einschließlich Datenverlust, unerwartete Dateiänderungen oder unbeabsichtigte Befehlsausführung.\n
-[bold green]Wir empfehlen dringend, ductor in einem Docker-Container zu betreiben[/bold green], \
+[bold green]Wir empfehlen dringend, sygen in einem Docker-Container zu betreiben[/bold green], \
 um es von deinem Host-System zu isolieren."""
 confirm = "Ich verstehe die Risiken und möchte fortfahren."
 
@@ -104,7 +104,7 @@ error = "[red]Ungültiges Format. Erwartet: @user:domain (z.B. @nik:matrix.org)[
 title = "[bold]Docker Sandboxing[/bold]"
 found_body = """\
 [bold green]Docker auf deinem System erkannt.[/bold green]\n
-ductor in Docker zu betreiben isoliert es von deinem Host.
+sygen in Docker zu betreiben isoliert es von deinem Host.
 Das ist die empfohlene Konfiguration für mehr Sicherheit."""
 found_prompt = "Docker-Sandboxing aktivieren? (Empfohlen)"
 not_found_body = """\
@@ -121,7 +121,7 @@ col_size = "Größe"
 prompt = "Extras auswählen (Leertaste zum Umschalten, Enter zum Bestätigen):"
 hint = """\
 [dim]Diese Pakete sind optional und verlängern die Image-Build-Zeit.
-Du kannst das später mit [cyan]ductor docker extras-add / extras-remove[/cyan] ändern.[/dim]"""
+Du kannst das später mit [cyan]sygen docker extras-add / extras-remove[/cyan] ändern.[/dim]"""
 auto_deps = "[dim]Automatisch hinzugefügte Abhängigkeiten: {names}[/dim]"
 
 [timezone]
@@ -136,9 +136,9 @@ error = "[red]Unbekannte Zeitzone: {tz}[/red]"
 [service]
 title = "[bold]Hintergrund-Dienst[/bold]"
 body = """\
-[bold]ductor als Hintergrund-Dienst ausführen?[/bold]\n
+[bold]sygen als Hintergrund-Dienst ausführen?[/bold]\n
 Das erstellt einen {mechanism}, der:\n
-  - ductor bei {trigger} startet
+  - sygen bei {trigger} startet
   - Bei Absturz automatisch neustartet
   - Im Hintergrund weiterläuft\n
 [dim]Empfohlen für VPS oder Always-on-Setups.[/dim]"""
@@ -147,7 +147,7 @@ prompt = "Als Hintergrund-Dienst installieren? (Empfohlen für VPS)"
 [complete]
 title = "[bold green]Fertig[/bold green]"
 header = "[bold green]Setup abgeschlossen![/bold green]"
-files_header = "[bold]Deine ductor-Dateien:[/bold]"
+files_header = "[bold]Deine sygen-Dateien:[/bold]"
 home = "  Home:       [cyan]{path}[/cyan]"
 config = "  Config:     [cyan]{path}[/cyan]"
 workspace = "  Workspace:  [cyan]{path}[/cyan]"

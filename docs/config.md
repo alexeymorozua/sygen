@@ -1,12 +1,12 @@
 # Configuration
 
-Runtime config file: `~/.ductor/config/config.json`.
+Runtime config file: `~/.sygen/config/config.json`.
 
 Seed source: `<repo>/config.example.json` (source checkout) or packaged fallback `sygen_bot/_config_example.json` (installed mode).
 
 ## Config Creation
 
-Primary path: `ductor onboarding` (interactive wizard) writes `config.json` with user-provided values merged into `AgentConfig` defaults.
+Primary path: `sygen onboarding` (interactive wizard) writes `config.json` with user-provided values merged into `AgentConfig` defaults.
 
 ## Load & Merge Behavior
 
@@ -31,9 +31,9 @@ Runtime edits persisted through config helpers include `/model` changes (model/p
 API config persistence note:
 
 - `load_config()` intentionally does not auto-add the `api` block during default deep-merge (beta gating).
-- `ductor api enable` writes the `api` block (including generated token) into `config.json`.
+- `sygen api enable` writes the `api` block (including generated token) into `config.json`.
 
-## External API Secrets (`~/.ductor/.env`)
+## External API Secrets (`~/.sygen/.env`)
 
 User-defined environment secrets for external APIs (e.g. `PPLX_API_KEY`, `DEEPSEEK_API_KEY`).
 
@@ -67,7 +67,7 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `log_level` | `str` | `"INFO"` | Applied at startup unless CLI `--verbose` is used |
 | `provider` | `str` | `"claude"` | Default provider |
 | `model` | `str` | `"opus"` | Default model ID |
-| `ductor_home` | `str` | `"~/.ductor"` | Runtime home root |
+| `sygen_home` | `str` | `"~/.sygen"` | Runtime home root |
 | `idle_timeout_minutes` | `int` | `1440` | Session freshness idle timeout (`0` disables idle expiry) |
 | `session_age_warning_hours` | `int` | `12` | Adds `/new` reminder after threshold (every 10 messages) |
 | `daily_reset_hour` | `int` | `4` | Daily reset boundary hour in `user_timezone` |
@@ -116,17 +116,17 @@ they stay consistent.
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `homeserver` | `str` | `""` | Matrix homeserver URL (e.g. `https://matrix.org`) |
-| `user_id` | `str` | `""` | Bot user ID (e.g. `@ductor:matrix.org`) |
+| `user_id` | `str` | `""` | Bot user ID (e.g. `@sygen:matrix.org`) |
 | `password` | `str` | `""` | Password for initial login |
 | `access_token` | `str` | `""` | Optional manual restore source; runtime normally persists credentials in the Matrix store |
 | `device_id` | `str` | `""` | Optional manual restore source paired with `access_token` |
 | `allowed_rooms` | `list[str]` | `[]` | Room IDs or aliases the bot may operate in |
 | `allowed_users` | `list[str]` | `[]` | Matrix user IDs allowed to interact |
-| `store_path` | `str` | `"matrix_store"` | E2EE key store directory, relative to `ductor_home` |
+| `store_path` | `str` | `"matrix_store"` | E2EE key store directory, relative to `sygen_home` |
 
 Notes:
 
-- first successful login persists credentials to `~/.ductor/<store_path>/credentials.json` (mode `0o600`), not back into `config.json`
+- first successful login persists credentials to `~/.sygen/<store_path>/credentials.json` (mode `0o600`), not back into `config.json`
 - when `access_token` and `device_id` are explicitly present in `config.json`, runtime restores from them and also mirrors them into the credentials store
 - The bot supports end-to-end encrypted rooms via `matrix-nio[e2e]`.
 - `allowed_rooms` and `allowed_users` together form the Matrix auth model.
@@ -195,8 +195,8 @@ Implementation status note:
 
 Stored outside `config.json` in:
 
-- `~/.ductor/cron_jobs.json` (`CronJob`)
-- `~/.ductor/webhooks.json` (`WebhookEntry`, `cron_task` mode)
+- `~/.sygen/cron_jobs.json` (`CronJob`)
+- `~/.sygen/webhooks.json` (`WebhookEntry`, `cron_task` mode)
 
 Common per-task fields:
 
@@ -231,14 +231,14 @@ Behavior notes:
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `enabled` | `bool` | `false` | Master toggle |
-| `image_name` | `str` | `"ductor-sandbox"` | Docker image name |
-| `container_name` | `str` | `"ductor-sandbox"` | Docker container name |
+| `image_name` | `str` | `"sygen-sandbox"` | Docker image name |
+| `container_name` | `str` | `"sygen-sandbox"` | Docker container name |
 | `auto_build` | `bool` | `true` | Build image automatically when missing |
 | `mount_host_cache` | `bool` | `false` | Mount host `~/.cache` into container (see below) |
 | `mounts` | `list[str]` | `[]` | Extra host directories mounted into sandbox (`/mnt/...`) |
 | `extras` | `list[str]` | `[]` | Optional AI/ML package IDs to install in the Docker image (see below) |
 
-`Orchestrator.create()` calls `DockerManager.setup()` when enabled. If setup fails, ductor logs warning and falls back to host execution.
+`Orchestrator.create()` calls `DockerManager.setup()` when enabled. If setup fails, sygen logs warning and falls back to host execution.
 
 ### `mount_host_cache`
 
@@ -266,8 +266,8 @@ User-defined directory mounts for project/data access inside Docker sandbox.
 
 Runtime note:
 
-- updates are typically managed via `ductor docker mount|unmount`
-- changing mounts requires bot restart (or `ductor docker rebuild`) to affect container run flags
+- updates are typically managed via `sygen docker mount|unmount`
+- changing mounts requires bot restart (or `sygen docker rebuild`) to affect container run flags
 
 ### `extras`
 
@@ -297,7 +297,7 @@ Dependency resolution:
 - `easyocr` and `transformers` depend on `pytorch-cpu`
 - dependencies are auto-resolved at build time
 
-Managed via `ductor docker extras-add|extras-remove` or during onboarding wizard. Changes require `ductor docker rebuild` to take effect.
+Managed via `sygen docker extras-add|extras-remove` or during onboarding wizard. Changes require `sygen docker rebuild` to take effect.
 
 When extras are configured, the supervisor startup timeout is dynamically extended to accommodate longer Docker build times.
 
@@ -379,7 +379,7 @@ Cleanup implementation detail:
 | `enabled` | `bool` | `false` | Master toggle |
 | `host` | `str` | `"0.0.0.0"` | Bind address |
 | `port` | `int` | `8741` | API HTTP/WebSocket port |
-| `token` | `str` | `""` | Bearer/WebSocket auth token (generated by `ductor api enable`, with runtime generation fallback on API start) |
+| `token` | `str` | `""` | Bearer/WebSocket auth token (generated by `sygen api enable`, with runtime generation fallback on API start) |
 | `chat_id` | `int` | `0` | Default API session chat (`0` means fallback to first `allowed_user_ids` entry, else `1`) |
 | `allow_public` | `bool` | `false` | Suppresses Tailscale-not-detected warning |
 
@@ -416,7 +416,7 @@ Restart-required top-level fields:
 
 - `transport`, `telegram_token`, `matrix`
 - `docker`, `api`, `webhooks`
-- `ductor_home`, `log_level`, `gemini_api_key`, `timeouts`, `tasks`
+- `sygen_home`, `log_level`, `gemini_api_key`, `timeouts`, `tasks`
 
 Restart classification is computed from `AgentConfig` top-level schema fields.
 
@@ -459,7 +459,7 @@ Automation flow:
 
 ## Codex Model Cache
 
-Path: `~/.ductor/config/codex_models.json`.
+Path: `~/.sygen/config/codex_models.json`.
 
 Behavior:
 
@@ -471,7 +471,7 @@ Behavior:
 
 ## Gemini Model Cache
 
-Path: `~/.ductor/config/gemini_models.json`.
+Path: `~/.sygen/config/gemini_models.json`.
 
 Behavior:
 
@@ -482,14 +482,14 @@ Behavior:
 
 ## `agents.json` (Multi-Agent Registry)
 
-Path: `~/.ductor/agents.json`.
+Path: `~/.sygen/agents.json`.
 
 Top-level JSON array of `SubAgentConfig` objects. Each entry defines a sub-agent that runs alongside the main agent.
 
 Managed via:
 
-- `ductor agents add <name>` (interactive CLI, currently Telegram-focused)
-- `ductor agents remove <name>` (CLI)
+- `sygen agents add <name>` (interactive CLI, currently Telegram-focused)
+- `sygen agents remove <name>` (CLI)
 - `create_agent.py` / `remove_agent.py` tool scripts (from within a CLI session)
 - manual file editing (auto-detected by `FileWatcher`)
 
@@ -572,7 +572,7 @@ Example:
 
 Then it always forces:
 
-- `ductor_home = ~/.ductor/agents/<name>/`
+- `sygen_home = ~/.sygen/agents/<name>/`
 - `transport`, `telegram_token`, `matrix`, `allowed_user_ids`, and `allowed_group_ids` from the sub-agent entry
 - `api.enabled = false` when no explicit `api` block is provided
 

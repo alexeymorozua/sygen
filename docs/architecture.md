@@ -2,7 +2,7 @@
 
 ## Runtime Overview
 
-ductor supports multiple messaging transports. The `transport` config
+sygen supports multiple messaging transports. The `transport` config
 field (`"telegram"` or `"matrix"`) selects a single ingress/delivery
 layer via a transport registry (`messenger/registry.py`). The
 `transports` list field enables parallel multi-transport execution
@@ -46,7 +46,7 @@ Both implement `BotProtocol`. Adding a new transport requires only a new factory
 
 ## Startup Flow
 
-### `ductor` entry (`sygen_bot/__main__.py`)
+### `sygen` entry (`sygen_bot/__main__.py`)
 
 1. parse CLI args and dispatch command (implementation in `cli_commands/*`)
 2. default run path:
@@ -91,7 +91,7 @@ Matrix startup follows a similar pattern (orchestrator creation, bus wiring, obs
 
 ### Orchestrator factory (`orchestrator/lifecycle.py`)
 
-1. resolve paths and set `DUCTOR_HOME` for main agent
+1. resolve paths and set `SYGEN_HOME` for main agent
 2. optional Docker setup + Docker-mode skill resync
 3. inject runtime environment note into workspace rule files
 4. instantiate `Orchestrator`
@@ -190,11 +190,11 @@ Gemini safeguard:
 
 ### Delegated tasks (`TaskHub`)
 
-- shared registry: `~/.ductor/tasks.json`
-- folders: `~/.ductor/workspace/tasks/<task_id>/`
+- shared registry: `~/.sygen/tasks.json`
+- folders: `~/.sygen/workspace/tasks/<task_id>/`
 - endpoints via internal API (`/tasks/*`)
 - topic-aware routing: task results/questions retain `thread_id` and are injected back into originating topic session
-- task tools receive `DUCTOR_CHAT_ID` and optional `DUCTOR_TOPIC_ID`
+- task tools receive `SYGEN_CHAT_ID` and optional `SYGEN_TOPIC_ID`
 - single-task permanent delete: `/tasks/delete` + `TaskRegistry.delete()`
 
 ## MessageBus and Delivery

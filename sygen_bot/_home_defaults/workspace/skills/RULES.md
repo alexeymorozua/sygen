@@ -1,11 +1,11 @@
 # Skills Directory
 
-This directory is part of ductor's three-way skill sync.
+This directory is part of sygen's three-way skill sync.
 
 ## Sync Topology
 
 ```text
-~/.ductor/workspace/skills/
+~/.sygen/workspace/skills/
 <-> ~/.claude/skills/
 <-> $CODEX_HOME/skills (default: ~/.codex/skills)
 ```
@@ -14,9 +14,9 @@ This directory is part of ductor's three-way skill sync.
 
 - Sync runs on startup and every 30 seconds.
 - Canonical source prefers real directories over symlinks.
-- Priority when duplicates exist: `ductor > claude > codex`.
+- Priority when duplicates exist: `sygen > claude > codex`.
 - Real directories are never overwritten.
-- Broken ductor-managed links are cleaned automatically.
+- Broken sygen-managed links are cleaned automatically.
 
 ## Add a Skill
 

@@ -251,7 +251,7 @@ def test_check_gemini_auth_installed(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(_auth_mod, "find_gemini_cli", lambda: "/usr/bin/gemini")
-    monkeypatch.setattr(_auth_mod, "_ductor_config_path", lambda: tmp_path / "nonexistent" / "config.json")
+    monkeypatch.setattr(_auth_mod, "_sygen_config_path", lambda: tmp_path / "nonexistent" / "config.json")
     monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -353,7 +353,7 @@ def test_check_gemini_auth_oauth_selected_type_with_account(
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(_auth_mod, "find_gemini_cli", lambda: "/usr/bin/gemini")
-    monkeypatch.setattr(_auth_mod, "_ductor_config_path", lambda: tmp_path / "nonexistent" / "config.json")
+    monkeypatch.setattr(_auth_mod, "_sygen_config_path", lambda: tmp_path / "nonexistent" / "config.json")
     monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -378,7 +378,7 @@ def test_check_gemini_auth_selected_type_gemini_api_key(
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(_auth_mod, "find_gemini_cli", lambda: "/usr/bin/gemini")
-    monkeypatch.setattr(_auth_mod, "_ductor_config_path", lambda: tmp_path / "nonexistent" / "config.json")
+    monkeypatch.setattr(_auth_mod, "_sygen_config_path", lambda: tmp_path / "nonexistent" / "config.json")
     monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -393,7 +393,7 @@ def test_check_gemini_auth_selected_type_gemini_api_key(
     assert result.auth_file == settings
 
 
-def test_check_gemini_auth_ductor_config_key(
+def test_check_gemini_auth_sygen_config_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import sygen_bot.cli.auth as _auth_mod
@@ -404,18 +404,18 @@ def test_check_gemini_auth_ductor_config_key(
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
 
-    ductor_config = tmp_path / ".ductor" / "config" / "config.json"
-    ductor_config.parent.mkdir(parents=True)
-    ductor_config.write_text('{"gemini_api_key":"from-ductor-config"}')
-    monkeypatch.setattr(_auth_mod, "_ductor_config_path", lambda: ductor_config)
+    sygen_config = tmp_path / ".sygen" / "config" / "config.json"
+    sygen_config.parent.mkdir(parents=True)
+    sygen_config.write_text('{"gemini_api_key":"from-sygen-config"}')
+    monkeypatch.setattr(_auth_mod, "_sygen_config_path", lambda: sygen_config)
 
     result = check_gemini_auth()
 
     assert result.status == AuthStatus.AUTHENTICATED
-    assert result.auth_file == ductor_config
+    assert result.auth_file == sygen_config
 
 
-def test_check_gemini_auth_ductor_config_null_string_ignored(
+def test_check_gemini_auth_sygen_config_null_string_ignored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import sygen_bot.cli.auth as _auth_mod
@@ -426,10 +426,10 @@ def test_check_gemini_auth_ductor_config_null_string_ignored(
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
 
-    ductor_config = tmp_path / ".ductor" / "config" / "config.json"
-    ductor_config.parent.mkdir(parents=True)
-    ductor_config.write_text('{"gemini_api_key":"null"}')
-    monkeypatch.setattr(_auth_mod, "_ductor_config_path", lambda: ductor_config)
+    sygen_config = tmp_path / ".sygen" / "config" / "config.json"
+    sygen_config.parent.mkdir(parents=True)
+    sygen_config.write_text('{"gemini_api_key":"null"}')
+    monkeypatch.setattr(_auth_mod, "_sygen_config_path", lambda: sygen_config)
 
     result = check_gemini_auth()
 

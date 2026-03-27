@@ -13,7 +13,7 @@ from sygen_bot.cli.codex_discovery import CodexModelInfo, discover_codex_models
 _INIT_RESPONSE = json.dumps(
     {
         "id": 1,
-        "result": {"userAgent": "ductor/0.98.0"},
+        "result": {"userAgent": "sygen/0.98.0"},
     }
 )
 

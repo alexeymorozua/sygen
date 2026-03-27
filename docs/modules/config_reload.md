@@ -10,7 +10,7 @@ Centralized runtime config hot-reload watcher.
 
 Avoid unnecessary restarts when safe `config.json` fields change.
 
-`ConfigReloader` polls `~/.ductor/config/config.json` every 5 seconds, validates with `AgentConfig`, diffs top-level schema fields, and:
+`ConfigReloader` polls `~/.sygen/config/config.json` every 5 seconds, validates with `AgentConfig`, diffs top-level schema fields, and:
 
 - applies hot-reloadable fields immediately,
 - logs restart-required field changes through callback.
@@ -40,7 +40,7 @@ Important runtime nuance:
 
 - transport/auth: `transport`, `transports`, `telegram_token`, `matrix`
 - runtime topology: `docker`, `api`, `webhooks`, `interagent_port`
-- environment/core: `ductor_home`, `log_level`, `gemini_api_key`, `update_check`
+- environment/core: `sygen_home`, `log_level`, `gemini_api_key`, `update_check`
 - timeout/task policy: `timeouts`, `tasks`
 - classification is schema-based over `AgentConfig` top-level fields: any changed top-level field not in the hot-reloadable set is reported as restart-required.
 

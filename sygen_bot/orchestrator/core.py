@@ -62,7 +62,7 @@ from sygen_bot.session import SessionKey, SessionManager
 from sygen_bot.session.manager import SessionData
 from sygen_bot.session.named import NamedSessionRegistry
 from sygen_bot.webhook.manager import WebhookManager
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 if TYPE_CHECKING:
     from sygen_bot.background import BackgroundObserver
@@ -119,14 +119,14 @@ class Orchestrator:
     def __init__(
         self,
         config: AgentConfig,
-        paths: DuctorPaths,
+        paths: SygenPaths,
         *,
         docker_container: str = "",
         agent_name: str = "main",
         interagent_port: int = 8799,
     ) -> None:
         self._config = config
-        self._paths: DuctorPaths = paths
+        self._paths: SygenPaths = paths
         self._docker: DockerManager | None = None
         self._providers = ProviderManager(config)
         self._sessions = SessionManager(paths.sessions_path, config)
@@ -217,7 +217,7 @@ class Orchestrator:
         return self._model_router
 
     @property
-    def paths(self) -> DuctorPaths:
+    def paths(self) -> SygenPaths:
         """Public access to resolved workspace paths."""
         return self._paths
 

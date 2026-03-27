@@ -77,7 +77,7 @@ def _consume_restart_sentinel(bot: MatrixBot) -> str:
     paths_obj = bot._orchestrator.paths if bot._orchestrator else None
     if paths_obj is None:
         return ""
-    marker_path = paths_obj.ductor_home / "restart-requested"
+    marker_path = paths_obj.sygen_home / "restart-requested"
     if consume_restart_marker(marker_path=marker_path):
         return "restart marker"
     return ""

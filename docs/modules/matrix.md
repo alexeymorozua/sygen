@@ -74,13 +74,13 @@ Same command set as Telegram, with `!` or `/` prefix:
 
 ## Setup
 
-Matrix can be configured via the interactive setup wizard (`ductor onboarding`) or manually in `config.json`.
+Matrix can be configured via the interactive setup wizard (`sygen onboarding`) or manually in `config.json`.
 
 The wizard prompts for: homeserver URL, bot user ID, password, and allowed users. See [setup_wizard.md](setup_wizard.md).
 
 Runtime support for Matrix sub-agents is built in, but there is one CLI caveat:
 
-- `ductor agents add <name>` currently scaffolds Telegram sub-agents only
+- `sygen agents add <name>` currently scaffolds Telegram sub-agents only
 - Matrix sub-agents are added through `agents.json` or `create_agent.py --transport matrix` (see agent tools `RULES.md`)
 
 ## Configuration
@@ -107,6 +107,6 @@ matrix = ["matrix-nio>=0.25.0"]
 
 ### Credential flow
 
-1. On first start, the bot logs in with the `password` and saves credentials to `~/.ductor/<store_path>/credentials.json` (mode `0o600`)
+1. On first start, the bot logs in with the `password` and saves credentials to `~/.sygen/<store_path>/credentials.json` (mode `0o600`)
 2. On subsequent starts, the saved token is restored — password is no longer needed
 3. If `access_token` and `device_id` are both set in config instead of password, they are used directly and mirrored into the credentials store

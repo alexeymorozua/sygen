@@ -15,7 +15,7 @@ from sygen_bot.infra.base_observer import BaseObserver
 
 if TYPE_CHECKING:
     from sygen_bot.config import AgentConfig, CleanupConfig
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class CleanupObserver(BaseObserver):
     ``start()`` / ``stop()`` with an asyncio background task.
     """
 
-    def __init__(self, config: AgentConfig, paths: DuctorPaths) -> None:
+    def __init__(self, config: AgentConfig, paths: SygenPaths) -> None:
         super().__init__()
         self._config = config
         self._paths = paths

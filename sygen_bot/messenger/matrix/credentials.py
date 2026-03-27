@@ -65,7 +65,7 @@ async def login_or_restore(
         )
         raise RuntimeError(msg)
 
-    resp = await client.login(config.password, device_name="ductor")
+    resp = await client.login(config.password, device_name="sygen")
     if hasattr(resp, "access_token"):
         _save_credentials(creds_file, resp.user_id, resp.device_id, resp.access_token)
         logger.info("Matrix login successful, credentials saved")

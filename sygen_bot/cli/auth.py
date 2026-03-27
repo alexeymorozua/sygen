@@ -246,10 +246,10 @@ def _gemini_key_auth_source(gemini_home: Path) -> tuple[Path | None, datetime | 
             return None, None
         return dotenv_file, datetime.fromtimestamp(dotenv_file.stat().st_mtime, tz=UTC)
 
-    ductor_key, ductor_config_path = read_ductor_gemini_api_key()
-    if ductor_key and ductor_config_path is not None:
-        return ductor_config_path, datetime.fromtimestamp(
-            ductor_config_path.stat().st_mtime, tz=UTC
+    sygen_key, sygen_config_path = read_sygen_gemini_api_key()
+    if sygen_key and sygen_config_path is not None:
+        return sygen_config_path, datetime.fromtimestamp(
+            sygen_config_path.stat().st_mtime, tz=UTC
         )
     return None, None
 
@@ -330,12 +330,12 @@ def read_gemini_selected_auth_type(settings_file: Path) -> str | None:
     return None
 
 
-def read_ductor_gemini_api_key() -> tuple[str | None, Path | None]:
-    """Read ``gemini_api_key`` from ``~/.ductor/config/config.json``.
+def read_sygen_gemini_api_key() -> tuple[str | None, Path | None]:
+    """Read ``gemini_api_key`` from ``~/.sygen/config/config.json``.
 
     Returns ``(key, path)`` when configured, otherwise ``(None, None)``.
     """
-    config_path = _ductor_config_path()
+    config_path = _sygen_config_path()
     if not config_path.is_file():
         return None, None
 
@@ -371,7 +371,7 @@ def gemini_uses_api_key_mode() -> bool:
     return read_gemini_selected_auth_type(settings_file) == "gemini-api-key"
 
 
-def _ductor_config_path() -> Path:
+def _sygen_config_path() -> Path:
     from sygen_bot.workspace.paths import resolve_paths
 
     return resolve_paths().config_path

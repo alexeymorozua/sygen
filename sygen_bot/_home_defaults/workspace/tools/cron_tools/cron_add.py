@@ -315,9 +315,9 @@ def main() -> None:
         job["quiet_end"] = args.quiet_end
     if args.dependency:
         job["dependency"] = args.dependency.strip()
-    chat_id = os.environ.get("DUCTOR_CHAT_ID", "")
-    topic_id = os.environ.get("DUCTOR_TOPIC_ID", "")
-    transport = os.environ.get("DUCTOR_TRANSPORT", "tg")
+    chat_id = os.environ.get("SYGEN_CHAT_ID", "")
+    topic_id = os.environ.get("SYGEN_TOPIC_ID", "")
+    transport = os.environ.get("SYGEN_TRANSPORT", "tg")
     if chat_id:
         job["chat_id"] = int(chat_id)
     if topic_id:

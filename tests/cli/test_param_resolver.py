@@ -11,7 +11,7 @@ from sygen_bot.cli.param_resolver import (
     resolve_cli_config,
 )
 from sygen_bot.config import AgentConfig, reset_gemini_models, set_gemini_models
-from sygen_bot.errors import DuctorError
+from sygen_bot.errors import SygenError
 
 
 @pytest.fixture
@@ -20,7 +20,7 @@ def base_config() -> AgentConfig:
     return AgentConfig(
         provider="claude",
         model="sonnet",
-        ductor_home="~/ductor",
+        sygen_home="~/sygen",
         permission_mode="normal",
     )
 
@@ -65,7 +65,7 @@ def test_resolve_global_only(base_config: AgentConfig, codex_cache: CodexModelCa
     assert result.reasoning_effort == ""
     assert result.cli_parameters == []
     assert result.permission_mode == "normal"
-    assert result.working_dir == "~/ductor"
+    assert result.working_dir == "~/sygen"
     assert result.file_access == "all"
 
 
@@ -106,7 +106,7 @@ def test_resolve_invalid_claude_model(
     """Should raise error for invalid Claude model."""
     overrides = TaskOverrides(model="invalid-model")
 
-    with pytest.raises(DuctorError, match="Invalid Claude model"):
+    with pytest.raises(SygenError, match="Invalid Claude model"):
         resolve_cli_config(base_config, codex_cache, task_overrides=overrides)
 
 
@@ -119,7 +119,7 @@ def test_resolve_invalid_codex_model(
         model="nonexistent-model",
     )
 
-    with pytest.raises(DuctorError, match="Invalid Codex model"):
+    with pytest.raises(SygenError, match="Invalid Codex model"):
         resolve_cli_config(base_config, codex_cache, task_overrides=overrides)
 
 
@@ -188,7 +188,7 @@ def test_resolve_gemini_invalid_against_discovered_models(
     set_gemini_models(frozenset({"gemini-2.5-pro"}))
     overrides = TaskOverrides(provider="gemini", model="gemini-3-pro-preview")
 
-    with pytest.raises(DuctorError, match="Invalid Gemini model"):
+    with pytest.raises(SygenError, match="Invalid Gemini model"):
         resolve_cli_config(base_config, codex_cache, task_overrides=overrides)
 
 

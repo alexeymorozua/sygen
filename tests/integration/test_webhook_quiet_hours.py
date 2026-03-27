@@ -15,17 +15,17 @@ from sygen_bot.config import AgentConfig, HeartbeatConfig, WebhookConfig
 from sygen_bot.webhook.manager import WebhookManager
 from sygen_bot.webhook.models import WebhookEntry
 from sygen_bot.webhook.observer import WebhookObserver
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home",
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home",
         home_defaults=fw / "workspace",
         framework_root=fw,
     )
@@ -33,7 +33,7 @@ def _make_paths(tmp_path: Path) -> DuctorPaths:
     return paths
 
 
-def _make_manager(paths: DuctorPaths) -> WebhookManager:
+def _make_manager(paths: SygenPaths) -> WebhookManager:
     return WebhookManager(hooks_path=paths.webhooks_path)
 
 
@@ -50,7 +50,7 @@ def _make_codex_cache() -> CodexModelCache:
 
 
 def _make_observer(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     mgr: WebhookManager,
     **config_overrides: Any,
 ) -> WebhookObserver:
@@ -62,7 +62,7 @@ def _make_observer(
     )
 
 
-def _add_hook(mgr: WebhookManager, paths: DuctorPaths, **overrides: Any) -> WebhookEntry:
+def _add_hook(mgr: WebhookManager, paths: SygenPaths, **overrides: Any) -> WebhookEntry:
     defaults: dict[str, Any] = {
         "id": "test-hook",
         "title": "Test Hook",

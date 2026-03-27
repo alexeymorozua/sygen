@@ -1,4 +1,4 @@
-"""Agent management CLI subcommands (``ductor agents ...``)."""
+"""Agent management CLI subcommands (``sygen agents ...``)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from sygen_bot.i18n import t_rich
-from sygen_bot.workspace.paths import DuctorPaths, resolve_paths
+from sygen_bot.workspace.paths import SygenPaths, resolve_paths
 
 _console = Console()
 
@@ -36,7 +36,7 @@ def _parse_agents_subcommand(args: list[str]) -> tuple[str | None, list[str]]:
         if found and sub is not None:
             rest.append(a)
     if found and sub is None:
-        # bare "ductor agents" → default to list
+        # bare "sygen agents" → default to list
         return "list", []
     return sub, rest
 
@@ -47,19 +47,19 @@ def print_agents_help() -> None:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="bold green", min_width=36)
     table.add_column()
-    table.add_row("ductor agents", "List all sub-agents and their config")
-    table.add_row("ductor agents list", "List all sub-agents and their config")
-    table.add_row("ductor agents add <name>", "Add a new sub-agent (interactive)")
-    table.add_row("ductor agents remove <name>", "Remove a sub-agent")
+    table.add_row("sygen agents", "List all sub-agents and their config")
+    table.add_row("sygen agents list", "List all sub-agents and their config")
+    table.add_row("sygen agents add <name>", "Add a new sub-agent (interactive)")
+    table.add_row("sygen agents remove <name>", "Remove a sub-agent")
     _console.print(
         Panel(table, title="[bold]Agent Commands[/bold]", border_style="blue", padding=(1, 0)),
     )
     _console.print()
 
 
-def load_agents_registry(paths: DuctorPaths) -> list[dict[str, object]]:
+def load_agents_registry(paths: SygenPaths) -> list[dict[str, object]]:
     """Load sub-agent definitions from agents.json (raw dicts)."""
-    agents_path = paths.ductor_home / "agents.json"
+    agents_path = paths.sygen_home / "agents.json"
     if not agents_path.is_file():
         return []
     try:
@@ -159,7 +159,7 @@ def _parse_int_list(raw: str, *, allow_negative: bool = False) -> list[int]:
 
 
 def validate_agent_name(name: str | None, agents: list[dict[str, object]]) -> str | None:
-    """Validate an agent name for ``ductor agents add``. Returns clean name or None on error."""
+    """Validate an agent name for ``sygen agents add``. Returns clean name or None on error."""
     if not name:
         _console.print(t_rich("agents.add.usage"))
         return None
@@ -182,7 +182,7 @@ def agents_list() -> None:
         _console.print(t_rich("agents.add_hint"))
         return
     # Check if bot is running for live health
-    pid_file = paths.ductor_home / "bot.pid"
+    pid_file = paths.sygen_home / "bot.pid"
     bot_running = False
     if pid_file.exists():
         try:
@@ -260,7 +260,7 @@ def agents_add(rest: list[str]) -> None:
 
     from sygen_bot.infra.json_store import atomic_json_save
 
-    agents_path = paths.ductor_home / "agents.json"
+    agents_path = paths.sygen_home / "agents.json"
     atomic_json_save(agents_path, agents)
 
     _console.print(t_rich("agents.add.done", name=name))
@@ -295,14 +295,14 @@ def agents_remove(rest: list[str]) -> None:
     from sygen_bot.infra.json_store import atomic_json_save
 
     remaining = [a for a in agents if str(a.get("name", "")).lower() != name]
-    agents_path = paths.ductor_home / "agents.json"
+    agents_path = paths.sygen_home / "agents.json"
     atomic_json_save(agents_path, remaining)
     _console.print(t_rich("agents.remove.done", name=name))
-    _console.print(t_rich("agents.remove.data_hint", path=paths.ductor_home / "agents" / name))
+    _console.print(t_rich("agents.remove.data_hint", path=paths.sygen_home / "agents" / name))
 
 
 def cmd_agents(args: list[str]) -> None:
-    """Handle 'ductor agents [subcommand]'."""
+    """Handle 'sygen agents [subcommand]'."""
     sub, rest = _parse_agents_subcommand(args)
     if sub is None:
         print_agents_help()

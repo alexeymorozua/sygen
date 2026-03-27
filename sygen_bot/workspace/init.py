@@ -10,7 +10,7 @@ from pathlib import Path
 
 from sygen_bot.infra.atomic_io import atomic_text_save
 from sygen_bot.workspace.cron_tasks import ensure_task_rule_files
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 from sygen_bot.workspace.rules_selector import RulesSelector
 from sygen_bot.workspace.skill_sync import sync_bundled_skills, sync_skills
 
@@ -52,10 +52,10 @@ _SKIP_DIRS = frozenset({".venv", ".git", ".mypy_cache", "__pycache__", "node_mod
 # ---------------------------------------------------------------------------
 
 
-def _sync_home_defaults(paths: DuctorPaths) -> None:
-    """Walk the home-defaults template and copy to ``ductor_home``.
+def _sync_home_defaults(paths: SygenPaths) -> None:
+    """Walk the home-defaults template and copy to ``sygen_home``.
 
-    The template at ``<repo>/workspace/`` mirrors ``~/.ductor/`` exactly.
+    The template at ``<repo>/workspace/`` mirrors ``~/.sygen/`` exactly.
     Zone rules per file:
 
     - **Zone 2** (``_ZONE2_FILES``): always overwritten so framework updates
@@ -67,11 +67,11 @@ def _sync_home_defaults(paths: DuctorPaths) -> None:
     if not paths.home_defaults.is_dir():
         logger.warning("Home defaults directory not found: %s", paths.home_defaults)
         return
-    _walk_and_copy(paths.home_defaults, paths.ductor_home)
+    _walk_and_copy(paths.home_defaults, paths.sygen_home)
     # Ensure logs dir exists for the main agent only.  Sub-agents share the
     # central log file and don't need their own logs directory.
     # Sub-agent homes live under <main_home>/agents/<name>/.
-    if paths.ductor_home.parent.name != "agents":
+    if paths.sygen_home.parent.name != "agents":
         paths.logs_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -200,7 +200,7 @@ def _sync_group(directory: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _smart_merge_config(paths: DuctorPaths) -> None:
+def _smart_merge_config(paths: SygenPaths) -> None:
     """Create config from example or merge new keys into existing."""
     if not paths.config_example_path.exists():
         return
@@ -235,7 +235,7 @@ def _smart_merge_config(paths: DuctorPaths) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _migrate_tasks_to_cron_tasks(paths: DuctorPaths) -> None:
+def _migrate_tasks_to_cron_tasks(paths: SygenPaths) -> None:
     """One-time migration: rename tasks/ to cron_tasks/ if needed."""
     old_tasks = paths.workspace / "tasks"
     if old_tasks.is_dir() and not paths.cron_tasks_dir.exists():
@@ -243,7 +243,7 @@ def _migrate_tasks_to_cron_tasks(paths: DuctorPaths) -> None:
         logger.info("Migrated workspace/tasks/ -> workspace/cron_tasks/")
 
 
-def _clean_orphan_symlinks(paths: DuctorPaths) -> None:
+def _clean_orphan_symlinks(paths: SygenPaths) -> None:
     """Remove broken symlinks in the workspace root."""
     if not paths.workspace.is_dir():
         return
@@ -274,18 +274,18 @@ _REQUIRED_DIRS = (
 )
 
 
-def _ensure_required_dirs(paths: DuctorPaths) -> None:
+def _ensure_required_dirs(paths: SygenPaths) -> None:
     """Create any required directories that are missing."""
     for rel in _REQUIRED_DIRS:
-        d = paths.ductor_home / rel
+        d = paths.sygen_home / rel
         if not d.is_dir():
             d.mkdir(parents=True, exist_ok=True)
             logger.info("Created missing directory: %s", d)
 
 
-def init_workspace(paths: DuctorPaths) -> None:
+def init_workspace(paths: SygenPaths) -> None:
     """Initialize the workspace: defaults sync, rule sync, config merge, cleanup."""
-    logger.info("Workspace init started home=%s", paths.ductor_home)
+    logger.info("Workspace init started home=%s", paths.sygen_home)
     _migrate_tasks_to_cron_tasks(paths)
     sync_bundled_skills(paths)
     _sync_home_defaults(paths)
@@ -318,7 +318,7 @@ _DOCKER_NOTICE = """
 
 **IMPORTANT: YOU ARE RUNNING INSIDE A DOCKER CONTAINER (`{container}`).**
 
-- Your filesystem is isolated. `/ductor` is the mounted host directory `~/.ductor`.
+- Your filesystem is isolated. `/sygen` is the mounted host directory `~/.sygen`.
 - You cannot see or access the host system outside this mount.
 - Feel free to experiment -- the host is protected.
 """
@@ -495,7 +495,7 @@ def _build_identity_notice(agent_name: str, transport: str) -> str:
 
 
 def inject_runtime_environment(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     *,
     docker_container: str,
     agent_name: str = "main",

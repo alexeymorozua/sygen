@@ -7,7 +7,7 @@ Usage:
 
 Env vars (optional):
     FILESHARE_URL       - base URL of local fileshare (e.g. http://100.106.179.13:8080)
-    FILESHARE_DOWNLOADS - path to fileshare downloads/ dir (auto-detected from ~/.ductor/fileshare/downloads)
+    FILESHARE_DOWNLOADS - path to fileshare downloads/ dir (auto-detected from ~/.sygen/fileshare/downloads)
 
 Prints JSON: {"action": "telegram"|"upload", "path"|"url": "..."}
 """
@@ -28,7 +28,7 @@ def detect_fileshare():
     downloads_dir = os.environ.get("FILESHARE_DOWNLOADS", "")
 
     if not downloads_dir:
-        candidate = os.path.expanduser("~/.ductor/fileshare/downloads")
+        candidate = os.path.expanduser("~/.sygen/fileshare/downloads")
         if os.path.isdir(candidate):
             downloads_dir = candidate
 

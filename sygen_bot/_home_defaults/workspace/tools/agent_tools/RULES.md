@@ -129,7 +129,7 @@ Send any message to begin."
 ```
 
 To update an existing agent's notification, edit
-`~/.ductor/agents/<name>/workspace/JOIN_NOTIFICATION.md` directly.
+`~/.sygen/agents/<name>/workspace/JOIN_NOTIFICATION.md` directly.
 
 ## Matrix Bot Account Setup
 
@@ -140,7 +140,7 @@ to create one, depending on the homeserver setup.
 
 Register a new account through the homeserver's web interface or via
 Element/another Matrix client. Use a descriptive username like
-`ductor-bot` or `my-assistant`.
+`sygen-bot` or `my-assistant`.
 
 - Go to the homeserver's registration page or use Element → "Create Account"
 - Choose a username and password

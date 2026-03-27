@@ -320,12 +320,12 @@ class TestCronJobTransport:
         assert job.transport == "tg"
 
 
-# -- Executor DUCTOR_TRANSPORT env var --
+# -- Executor SYGEN_TRANSPORT env var --
 
 
 class TestExecutorTransportEnv:
     def test_build_subprocess_env_includes_transport(self) -> None:
-        """_build_subprocess_env sets DUCTOR_TRANSPORT from CLIConfig."""
+        """_build_subprocess_env sets SYGEN_TRANSPORT from CLIConfig."""
         from sygen_bot.cli.base import CLIConfig
         from sygen_bot.cli.executor import _build_subprocess_env
 
@@ -336,14 +336,14 @@ class TestExecutorTransportEnv:
         )
         env = _build_subprocess_env(config)
         assert env is not None
-        assert env["DUCTOR_TRANSPORT"] == "mx"
+        assert env["SYGEN_TRANSPORT"] == "mx"
 
     def test_build_subprocess_env_default_transport(self) -> None:
-        """_build_subprocess_env defaults DUCTOR_TRANSPORT to 'tg'."""
+        """_build_subprocess_env defaults SYGEN_TRANSPORT to 'tg'."""
         from sygen_bot.cli.base import CLIConfig
         from sygen_bot.cli.executor import _build_subprocess_env
 
         config = CLIConfig(working_dir="/tmp", chat_id=123)
         env = _build_subprocess_env(config)
         assert env is not None
-        assert env["DUCTOR_TRANSPORT"] == "tg"
+        assert env["SYGEN_TRANSPORT"] == "tg"

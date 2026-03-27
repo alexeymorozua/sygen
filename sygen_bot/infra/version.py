@@ -18,7 +18,7 @@ _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 
 def get_current_version() -> str:
-    """Return the installed version of ductor."""
+    """Return the installed version of sygen."""
     try:
         return importlib.metadata.version(_PACKAGE_NAME)
     except importlib.metadata.PackageNotFoundError:

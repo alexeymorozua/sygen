@@ -63,11 +63,11 @@ def _stop_docker_container(container_name: str) -> None:
 
 
 def stop_bot() -> None:
-    """Stop all running ductor instances and Docker container.
+    """Stop all running sygen instances and Docker container.
 
     1. Stop the system service (prevents Task Scheduler/systemd/launchd respawn)
     2. Kill the PID-file instance
-    3. Kill any remaining ductor processes system-wide
+    3. Kill any remaining sygen processes system-wide
     4. Wait for file locks to release (Windows only)
     5. Stop Docker container if enabled
     """
@@ -78,7 +78,7 @@ def stop_bot() -> None:
 
     # 2. Kill PID-file instance
     paths = resolve_paths()
-    pid_file = paths.ductor_home / "bot.pid"
+    pid_file = paths.sygen_home / "bot.pid"
     stopped = False
 
     if pid_file.exists():
@@ -95,10 +95,10 @@ def stop_bot() -> None:
         else:
             pid_file.unlink(missing_ok=True)
 
-    # 3. Kill all remaining ductor processes system-wide
-    from sygen_bot.infra.process_tree import kill_all_ductor_processes
+    # 3. Kill all remaining sygen processes system-wide
+    from sygen_bot.infra.process_tree import kill_all_sygen_processes
 
-    extra = kill_all_ductor_processes()
+    extra = kill_all_sygen_processes()
     if extra:
         _console.print(t_rich("lifecycle.killed_extra", count=extra))
         stopped = True
@@ -117,7 +117,7 @@ def stop_bot() -> None:
             data = json.loads(config_path.read_text(encoding="utf-8"))
             docker = data.get("docker", {})
             if isinstance(docker, dict) and docker.get("enabled"):
-                container = str(docker.get("container_name", "ductor-sandbox"))
+                container = str(docker.get("container_name", "sygen-sandbox"))
                 _stop_docker_container(container)
         except (json.JSONDecodeError, OSError):
             pass
@@ -145,7 +145,7 @@ def start_bot(verbose: bool = False) -> None:
     except KeyboardInterrupt:
         exit_code = 0
     if exit_code == EXIT_RESTART:
-        if os.environ.get("DUCTOR_SUPERVISOR") or os.environ.get("INVOCATION_ID"):
+        if os.environ.get("SYGEN_SUPERVISOR") or os.environ.get("INVOCATION_ID"):
             sys.exit(EXIT_RESTART)
         _re_exec_bot()
     elif exit_code:
@@ -180,7 +180,7 @@ def uninstall() -> None:
         _console.print(f"\n{t_rich('lifecycle.uninstall.cancelled')}\n")
         return
 
-    # 1. Stop bot + Docker container + all ductor processes
+    # 1. Stop bot + Docker container + all sygen processes
     stop_bot()
 
     # 2. Remove Docker image
@@ -190,7 +190,7 @@ def uninstall() -> None:
             data = json.loads(paths.config_path.read_text(encoding="utf-8"))
             docker = data.get("docker", {})
             if isinstance(docker, dict) and docker.get("enabled") and shutil.which("docker"):
-                image = str(docker.get("image_name", "ductor-sandbox"))
+                image = str(docker.get("image_name", "sygen-sandbox"))
                 _console.print(t_rich("lifecycle.uninstall.removing_image", image=image))
                 subprocess.run(
                     ["docker", "rmi", image],
@@ -202,25 +202,25 @@ def uninstall() -> None:
             pass
 
     # 3. Delete workspace
-    ductor_home = paths.ductor_home
-    if ductor_home.exists():
-        robust_rmtree(ductor_home)
-        if ductor_home.exists():
-            _console.print(t_rich("lifecycle.uninstall.delete_warning", home=ductor_home))
+    sygen_home = paths.sygen_home
+    if sygen_home.exists():
+        robust_rmtree(sygen_home)
+        if sygen_home.exists():
+            _console.print(t_rich("lifecycle.uninstall.delete_warning", home=sygen_home))
         else:
-            _console.print(t_rich("lifecycle.uninstall.deleted", home=ductor_home))
+            _console.print(t_rich("lifecycle.uninstall.deleted", home=sygen_home))
 
     # 4. Uninstall package
     _console.print(t_rich("lifecycle.uninstall.uninstalling"))
     if shutil.which("pipx"):
         subprocess.run(
-            ["pipx", "uninstall", "ductor"],
+            ["pipx", "uninstall", "sygen"],
             capture_output=True,
             check=False,
         )
     else:
         subprocess.run(
-            [sys.executable, "-m", "pip", "uninstall", "-y", "ductor"],
+            [sys.executable, "-m", "pip", "uninstall", "-y", "sygen"],
             capture_output=True,
             check=False,
         )

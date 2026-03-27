@@ -31,7 +31,7 @@ from sygen_bot.webhook.manager import WebhookManager
 from sygen_bot.webhook.models import WebhookResult
 from sygen_bot.webhook.observer import WebhookObserver
 from sygen_bot.workspace.init import watch_rule_files
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 from sygen_bot.workspace.skill_sync import watch_skill_sync
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class ObserverManager:
     """Owns all background observers and manages their lifecycle."""
 
-    def __init__(self, config: AgentConfig, paths: DuctorPaths) -> None:
+    def __init__(self, config: AgentConfig, paths: SygenPaths) -> None:
         self._config = config
         self._paths = paths
         self.heartbeat = HeartbeatObserver(config)

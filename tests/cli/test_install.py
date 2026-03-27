@@ -1,4 +1,4 @@
-"""Tests for ductor install CLI command."""
+"""Tests for sygen install CLI command."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ class TestInstallExtra:
             _install_extra("matrix")
             mock_run.assert_called_once()
             cmd = mock_run.call_args[0][0]
-            assert "ductor[matrix]" in cmd
+            assert "sygen[matrix]" in cmd
 
     def test_not_installed_runs_subprocess_pipx(self) -> None:
         with (
@@ -107,7 +107,7 @@ class TestInstallExtra:
             _install_extra("api")
             mock_run.assert_called_once()
             cmd = mock_run.call_args[0][0]
-            assert "ductor[api]" in cmd
+            assert "sygen[api]" in cmd
             assert "-e" not in cmd
 
     def test_not_installed_runs_subprocess_dev(self) -> None:

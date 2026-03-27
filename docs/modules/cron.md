@@ -39,7 +39,7 @@ Scheduling guards:
 
 ## Persistence
 
-File: `~/.ductor/cron_jobs.json`
+File: `~/.sygen/cron_jobs.json`
 
 - format: `{ "jobs": [...] }`
 - atomic writes via temp+replace
@@ -134,9 +134,9 @@ Fallback behavior (Matrix):
 
 The CLI subprocess receives routing context via environment variables:
 
-- `DUCTOR_CHAT_ID` -- current chat ID (set when `chat_id` is non-zero)
-- `DUCTOR_TOPIC_ID` -- current topic ID (set when `topic_id` is non-None)
-- `DUCTOR_TRANSPORT` -- transport identifier (`"tg"` or `"mx"`)
+- `SYGEN_CHAT_ID` -- current chat ID (set when `chat_id` is non-zero)
+- `SYGEN_TOPIC_ID` -- current topic ID (set when `topic_id` is non-None)
+- `SYGEN_TRANSPORT` -- transport identifier (`"tg"` or `"mx"`)
 
 These are injected by `_build_subprocess_env()` (host mode) and `docker_wrap()` (container mode).
 

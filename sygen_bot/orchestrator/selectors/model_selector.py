@@ -266,8 +266,8 @@ async def switch_model(
 
         # Sub-agent: also sync model/provider/effort to agents.json so the
         # registry stays current and survives restarts without merge hacks.
-        if orch.paths.ductor_home.parent.name == "agents":
-            agents_path = orch.paths.ductor_home.parent.parent / "agents.json"
+        if orch.paths.sygen_home.parent.name == "agents":
+            agents_path = orch.paths.sygen_home.parent.parent / "agents.json"
             agent_name = orch._cli_service._config.agent_name
             registry_updates = dict(updates)
             # Only Codex uses reasoning_effort — remove it when switching away

@@ -1,13 +1,13 @@
 # System Overview
 
-Fastest end-to-end mental model for ductor.
+Fastest end-to-end mental model for sygen.
 
 ## 1) Runtime shape
 
 One Python process hosts:
 
 - main agent stack (always)
-- optional sub-agent stacks from `~/.ductor/agents.json`
+- optional sub-agent stacks from `~/.sygen/agents.json`
 - shared `AgentSupervisor`
 - shared `InterAgentBus`
 - shared internal HTTP bridge (`InternalAgentAPI`, default port `8799`, configurable via `interagent_port`)
@@ -110,7 +110,7 @@ HTTP endpoints:
 
 Ownership checks are enforced for resume/cancel/delete when `from=<agent>` is supplied.
 
-## 7) Key runtime files (`~/.ductor`)
+## 7) Key runtime files (`~/.sygen`)
 
 - `config/config.json`
 - `sessions.json`
@@ -126,7 +126,7 @@ Ownership checks are enforced for resume/cancel/delete when `from=<agent>` is su
 - `logs/agent.log`
 - `workspace/` (rules, tools, files, tasks, cron_tasks, skills)
 
-Sub-agent home: `~/.ductor/agents/<name>/` with its own config/workspace/session files.
+Sub-agent home: `~/.sygen/agents/<name>/` with its own config/workspace/session files.
 
 ## 8) Where to read code first
 
@@ -159,13 +159,13 @@ Available on all agents:
 
 CLI:
 
-- `ductor`
-- `ductor status|stop|restart|upgrade|uninstall|onboarding|reset|help`
-- `ductor service ...`
-- `ductor docker ...` (includes `extras`, `extras-add`, `extras-remove` for optional AI/ML packages)
-- `ductor api ...`
-- `ductor agents ...` (`add` currently scaffolds Telegram sub-agents; Matrix sub-agents are added via `agents.json` or tool scripts)
-- `ductor install <extra>` (`matrix`, `api`)
+- `sygen`
+- `sygen status|stop|restart|upgrade|uninstall|onboarding|reset|help`
+- `sygen service ...`
+- `sygen docker ...` (includes `extras`, `extras-add`, `extras-remove` for optional AI/ML packages)
+- `sygen api ...`
+- `sygen agents ...` (`add` currently scaffolds Telegram sub-agents; Matrix sub-agents are added via `agents.json` or tool scripts)
+- `sygen install <extra>` (`matrix`, `api`)
 
 ## 10) Service runtime model
 
@@ -179,6 +179,6 @@ Operational notes:
 
 - onboarding offers service install on every platform where a backend is available
 - `stop_bot()` stops the installed service first so it does not immediately respawn the process
-- `ductor service logs` follows `journalctl` on Linux and tails file logs on macOS/Windows
+- `sygen service logs` follows `journalctl` on Linux and tails file logs on macOS/Windows
 
 Deep dive: [service_management](modules/service_management.md)

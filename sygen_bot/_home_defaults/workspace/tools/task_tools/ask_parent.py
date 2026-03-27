@@ -8,7 +8,7 @@ immediately — finish your current work and the parent will resume you.
 Usage:
     python3 ask_parent.py "Your question here"
 
-Environment variable DUCTOR_TASK_ID is automatically set by the framework
+Environment variable SYGEN_TASK_ID is automatically set by the framework
 when running inside a background task.
 """
 
@@ -35,11 +35,11 @@ def main() -> None:
         sys.exit(1)
 
     question = args[0]
-    task_id = os.environ.get("DUCTOR_TASK_ID", "")
+    task_id = os.environ.get("SYGEN_TASK_ID", "")
 
     if not task_id:
         print(
-            "Error: DUCTOR_TASK_ID not set. This tool can only be used inside a background task.",
+            "Error: SYGEN_TASK_ID not set. This tool can only be used inside a background task.",
             file=sys.stderr,
         )
         sys.exit(1)

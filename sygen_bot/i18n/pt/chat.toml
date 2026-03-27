@@ -341,7 +341,7 @@ Todos os agentes compartilham um único processo e podem se comunicar \
 pelo barramento inter-agentes."""
 commands_header = "**Comandos**"
 setup_header = "**Configuração**"
-setup_instruction = "Peça ao seu agente para criar um novo sub-agente ou edite `agents.json` no seu diretório home do ductor."
+setup_instruction = "Peça ao seu agente para criar um novo sub-agente ou edite `agents.json` no seu diretório home do sygen."
 
 # -- Erros (genéricos) --------------------------------------------------------
 
@@ -354,10 +354,10 @@ check_logs = "Erro: verifique os logs para detalhes."
 [gemini]
 missing_key = """\
 Gemini está configurado para autenticação por API key, mas `gemini_api_key` em \
-`~/.ductor/config/config.json` está `"null"` ou vazio.
-Por que isso é necessário: quando o ductor chama o Gemini CLI como processo externo, \
+`~/.sygen/config/config.json` está `"null"` ou vazio.
+Por que isso é necessário: quando o sygen chama o Gemini CLI como processo externo, \
 o Gemini CLI não expõe uma API key inserida internamente para o chamador.
-Defina uma API key real em `gemini_api_key` e reinicie o `ductor`."""
+Defina uma API key real em `gemini_api_key` e reinicie o `sygen`."""
 
 # -- Nova sessão (handler) ----------------------------------------------------
 

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from sygen_bot.cli.param_resolver import TaskExecutionConfig
     from sygen_bot.config import AgentConfig
     from sygen_bot.infra.task_runner import TaskResult
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class BaseTaskObserver:
 
     def __init__(
         self,
-        paths: DuctorPaths,
+        paths: SygenPaths,
         config: AgentConfig,
         codex_cache: CodexModelCache,
     ) -> None:

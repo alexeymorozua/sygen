@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from sygen_bot.cli.service import CLIService
     from sygen_bot.config import TasksConfig
     from sygen_bot.tasks.registry import TaskRegistry
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class TaskHub:
     def __init__(
         self,
         registry: TaskRegistry,
-        paths: DuctorPaths,
+        paths: SygenPaths,
         *,
         cli_service: CLIService | None = None,
         config: TasksConfig,
@@ -107,7 +107,7 @@ class TaskHub:
         """Register a per-agent CLI service for task execution."""
         self._cli_services[agent_name] = cli
 
-    def set_agent_paths(self, agent_name: str, paths: DuctorPaths) -> None:
+    def set_agent_paths(self, agent_name: str, paths: SygenPaths) -> None:
         """Register per-agent paths for task folder isolation."""
         self._agent_tasks_dirs[agent_name] = paths.tasks_dir
 

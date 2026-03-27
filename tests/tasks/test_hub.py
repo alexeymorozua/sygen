@@ -482,10 +482,10 @@ class TestPerAgentTasksDir:
         self, registry: TaskRegistry, tmp_path: Path
     ) -> None:
         """Task folders land in the submitting agent's workspace."""
-        from sygen_bot.workspace.paths import DuctorPaths
+        from sygen_bot.workspace.paths import SygenPaths
 
         agent_home = tmp_path / "agents" / "test"
-        agent_paths = DuctorPaths(ductor_home=agent_home)
+        agent_paths = SygenPaths(sygen_home=agent_home)
 
         hub = TaskHub(
             registry,

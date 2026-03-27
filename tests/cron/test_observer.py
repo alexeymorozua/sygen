@@ -21,19 +21,19 @@ from sygen_bot.cron.execution import (
 )
 from sygen_bot.cron.manager import CronJob, CronManager
 from sygen_bot.cron.observer import CronObserver
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
     )
     paths.cron_tasks_dir.mkdir(parents=True)
     return paths
 
 
-def _make_manager(paths: DuctorPaths) -> CronManager:
+def _make_manager(paths: SygenPaths) -> CronManager:
     return CronManager(jobs_path=paths.cron_jobs_path)
 
 
@@ -57,7 +57,7 @@ def _make_codex_cache() -> CodexModelCache:
 
 
 def _make_observer(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     mgr: CronManager,
     *,
     codex_cache: CodexModelCache | None = None,
@@ -84,7 +84,7 @@ def _make_job(job_id: str = "daily", **overrides: Any) -> CronJob:
     return CronJob(**defaults)
 
 
-def _write_jobs(paths: DuctorPaths, jobs: list[CronJob]) -> None:
+def _write_jobs(paths: SygenPaths, jobs: list[CronJob]) -> None:
     """Write jobs directly to JSON file."""
     data = {"jobs": [j.to_dict() for j in jobs]}
     paths.cron_jobs_path.parent.mkdir(parents=True, exist_ok=True)

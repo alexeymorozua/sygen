@@ -31,7 +31,7 @@ Result: smaller `core.py` with clearer responsibilities.
 
 High-level steps:
 
-1. resolve paths + set main-agent `DUCTOR_HOME`
+1. resolve paths + set main-agent `SYGEN_HOME`
 2. optional Docker setup + Docker skill resync
 3. runtime environment injection into workspace rule files
 4. instantiate `Orchestrator`

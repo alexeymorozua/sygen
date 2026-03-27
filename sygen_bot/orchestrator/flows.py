@@ -313,7 +313,7 @@ async def _gemini_missing_config_key_warning(
     orch: Orchestrator,
     request: AgentRequest,
 ) -> OrchestratorResult | None:
-    """Warn when Gemini API-key mode is selected but Ductor config key is empty."""
+    """Warn when Gemini API-key mode is selected but Sygen config key is empty."""
     _model_name, provider_name = _request_target(orch, request)
     if provider_name != "gemini":
         return None
@@ -342,7 +342,7 @@ async def normal(
     request, session = await _prepare_normal(orch, key, text, model_override=model_override)
     warning = await _gemini_missing_config_key_warning(orch, request)
     if warning is not None:
-        logger.warning("Gemini API-key mode without configured ductor key")
+        logger.warning("Gemini API-key mode without configured sygen key")
         return warning
 
     _begin_inflight(orch, request, session, is_recovery=is_recovery)
@@ -403,7 +403,7 @@ async def normal_streaming(
     request, session = await _prepare_normal(orch, key, text, model_override=model_override)
     warning = await _gemini_missing_config_key_warning(orch, request)
     if warning is not None:
-        logger.warning("Gemini API-key mode without configured ductor key")
+        logger.warning("Gemini API-key mode without configured sygen key")
         return warning
 
     _begin_inflight(orch, request, session, is_recovery=False)

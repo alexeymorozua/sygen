@@ -32,7 +32,7 @@ def _build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
 
     Returns None if no extra vars are needed (avoids inheriting a stripped env).
     For non-Docker execution, the subprocess inherits the parent env plus the
-    agent identification variables.  User secrets from ``~/.ductor/.env`` are
+    agent identification variables.  User secrets from ``~/.sygen/.env`` are
     merged in without overriding existing variables.
     """
     import os
@@ -44,31 +44,31 @@ def _build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
 
     # Merge user secrets (low priority — never override existing vars).
     working_dir = Path(config.working_dir)
-    ductor_home = working_dir.parent if working_dir.name == "workspace" else working_dir
-    env_file = ductor_home / ".env"
+    sygen_home = working_dir.parent if working_dir.name == "workspace" else working_dir
+    env_file = sygen_home / ".env"
     for key, value in load_env_secrets(env_file).items():
         if key not in env:
             env[key] = value
 
-    env["DUCTOR_AGENT_NAME"] = config.agent_name
-    env["DUCTOR_AGENT_ROLE"] = "main" if config.agent_name == "main" else "sub"
-    env["DUCTOR_INTERAGENT_PORT"] = str(config.interagent_port)
+    env["SYGEN_AGENT_NAME"] = config.agent_name
+    env["SYGEN_AGENT_ROLE"] = "main" if config.agent_name == "main" else "sub"
+    env["SYGEN_INTERAGENT_PORT"] = str(config.interagent_port)
     if config.chat_id:
-        env["DUCTOR_CHAT_ID"] = str(config.chat_id)
+        env["SYGEN_CHAT_ID"] = str(config.chat_id)
     if config.topic_id:
-        env["DUCTOR_TOPIC_ID"] = str(config.topic_id)
-    env["DUCTOR_TRANSPORT"] = config.transport
+        env["SYGEN_TOPIC_ID"] = str(config.topic_id)
+    env["SYGEN_TRANSPORT"] = config.transport
     working_dir = Path(config.working_dir)
-    ductor_home = working_dir.parent if working_dir.name == "workspace" else working_dir
-    env["DUCTOR_HOME"] = str(ductor_home)
+    sygen_home = working_dir.parent if working_dir.name == "workspace" else working_dir
+    env["SYGEN_HOME"] = str(sygen_home)
     # Shared knowledge is always at the main agent's home level.
-    # For main: ductor_home itself. For sub-agents: ../../ from agents/<name>/.
+    # For main: sygen_home itself. For sub-agents: ../../ from agents/<name>/.
     if config.agent_name == "main":
-        env["DUCTOR_SHARED_MEMORY_PATH"] = str(ductor_home / "SHAREDMEMORY.md")
+        env["SYGEN_SHARED_MEMORY_PATH"] = str(sygen_home / "SHAREDMEMORY.md")
     else:
         # Sub-agent home is <main_home>/agents/<name>/
-        main_home = ductor_home.parent.parent
-        env["DUCTOR_SHARED_MEMORY_PATH"] = str(main_home / "SHAREDMEMORY.md")
+        main_home = sygen_home.parent.parent
+        env["SYGEN_SHARED_MEMORY_PATH"] = str(main_home / "SHAREDMEMORY.md")
     return env
 
 

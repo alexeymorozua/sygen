@@ -1,4 +1,4 @@
-"""Status display CLI commands (``ductor status``, ``ductor help``)."""
+"""Status display CLI commands (``sygen status``, ``sygen help``)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from rich.text import Text
 
 from sygen_bot.i18n import t_rich
 from sygen_bot.infra.platform import is_windows
-from sygen_bot.workspace.paths import DuctorPaths, resolve_paths
+from sygen_bot.workspace.paths import SygenPaths, resolve_paths
 
 _console = Console()
 
@@ -34,7 +34,7 @@ class StatusSummary:
     error_count: int
 
 
-def build_status_lines(status: StatusSummary, *, paths: DuctorPaths) -> list[str]:
+def build_status_lines(status: StatusSummary, *, paths: SygenPaths) -> list[str]:
     """Assemble the status panel content lines."""
     lines: list[str] = []
     if status.bot_running:
@@ -52,7 +52,7 @@ def build_status_lines(status: StatusSummary, *, paths: DuctorPaths) -> list[str
         lines.append(t_rich("status.errors_none"))
     lines.append("")
     lines.append(t_rich("status.paths_header"))
-    lines.append(f"  Home:       [cyan]{paths.ductor_home}[/cyan]")
+    lines.append(f"  Home:       [cyan]{paths.sygen_home}[/cyan]")
     lines.append(f"  Config:     [cyan]{paths.config_path}[/cyan]")
     lines.append(f"  Workspace:  [cyan]{paths.workspace}[/cyan]")
     lines.append(f"  Logs:       [cyan]{paths.logs_dir}[/cyan]")
@@ -65,7 +65,7 @@ def count_log_errors(log_dir: Path) -> int:
     if not log_dir.is_dir():
         return 0
     log_files = sorted(
-        log_dir.glob("ductor*.log"),
+        log_dir.glob("sygen*.log"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -95,10 +95,10 @@ def print_status() -> None:
     docker_enabled = isinstance(docker_cfg, dict) and bool(docker_cfg.get("enabled"))
     docker_name: str | None = None
     if docker_enabled and isinstance(docker_cfg, dict):
-        docker_name = str(docker_cfg.get("container_name", "ductor-sandbox"))
+        docker_name = str(docker_cfg.get("container_name", "sygen-sandbox"))
 
     # Running state
-    pid_file = paths.ductor_home / "bot.pid"
+    pid_file = paths.sygen_home / "bot.pid"
     bot_running = False
     bot_pid: int | None = None
     bot_uptime = ""
@@ -171,23 +171,23 @@ def print_usage() -> None:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="bold green", min_width=24)
     table.add_column()
-    table.add_row("ductor", t_rich("help.ductor"))
-    table.add_row("ductor onboarding", t_rich("help.onboarding"))
-    table.add_row("ductor stop", t_rich("help.stop"))
-    table.add_row("ductor restart", t_rich("help.restart"))
-    table.add_row("ductor reset", t_rich("help.reset"))
-    table.add_row("ductor upgrade", t_rich("help.upgrade"))
-    table.add_row("ductor uninstall", t_rich("help.uninstall"))
+    table.add_row("sygen", t_rich("help.sygen"))
+    table.add_row("sygen onboarding", t_rich("help.onboarding"))
+    table.add_row("sygen stop", t_rich("help.stop"))
+    table.add_row("sygen restart", t_rich("help.restart"))
+    table.add_row("sygen reset", t_rich("help.reset"))
+    table.add_row("sygen upgrade", t_rich("help.upgrade"))
+    table.add_row("sygen uninstall", t_rich("help.uninstall"))
     is_macos = sys.platform == "darwin"
     svc_hint = "Task Scheduler" if is_windows() else ("launchd" if is_macos else "systemd")
-    table.add_row("ductor service install", t_rich("help.service_install", hint=svc_hint))
-    table.add_row("ductor service", t_rich("help.service"))
-    table.add_row("ductor agents", t_rich("help.agents"))
-    table.add_row("ductor docker", t_rich("help.docker"))
-    table.add_row("ductor api", t_rich("help.api"))
-    table.add_row("ductor install <extra>", t_rich("help.install"))
-    table.add_row("ductor status", t_rich("help.status"))
-    table.add_row("ductor help", t_rich("help.help"))
+    table.add_row("sygen service install", t_rich("help.service_install", hint=svc_hint))
+    table.add_row("sygen service", t_rich("help.service"))
+    table.add_row("sygen agents", t_rich("help.agents"))
+    table.add_row("sygen docker", t_rich("help.docker"))
+    table.add_row("sygen api", t_rich("help.api"))
+    table.add_row("sygen install <extra>", t_rich("help.install"))
+    table.add_row("sygen status", t_rich("help.status"))
+    table.add_row("sygen help", t_rich("help.help"))
     table.add_row("-v, --verbose", t_rich("help.verbose"))
 
     _console.print(

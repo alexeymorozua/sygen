@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from sygen_bot.workspace.init import init_workspace, inject_runtime_environment
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
 @pytest.fixture(autouse=True)
@@ -22,13 +22,13 @@ def _mock_rules_selector():
 def _setup_home_defaults(fw_root: Path) -> None:
     """Create a minimal home-defaults template for testing.
 
-    Mirrors the repo ``workspace/`` structure (1:1 copy of ~/.ductor/).
+    Mirrors the repo ``workspace/`` structure (1:1 copy of ~/.sygen/).
     """
     ws = fw_root / "workspace"
 
-    # Top-level CLAUDE.md (ductor home)
+    # Top-level CLAUDE.md (sygen home)
     ws.mkdir(parents=True)
-    (ws / "CLAUDE.md").write_text("# Ductor Home CLAUDE.md")
+    (ws / "CLAUDE.md").write_text("# Sygen Home CLAUDE.md")
 
     config_dir = ws / "config"
     config_dir.mkdir()
@@ -64,11 +64,11 @@ def _setup_home_defaults(fw_root: Path) -> None:
     (fw_root / "config.example.json").write_text('{"provider": "claude", "model": "opus"}')
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw_root = tmp_path / "framework"
     _setup_home_defaults(fw_root)
-    return DuctorPaths(
-        ductor_home=tmp_path / "ductor_home",
+    return SygenPaths(
+        sygen_home=tmp_path / "sygen_home",
         home_defaults=fw_root / "workspace",
         framework_root=fw_root,
     )
@@ -248,19 +248,19 @@ def test_does_not_overwrite_user_tool_scripts(tmp_path: Path) -> None:
     assert (user_dir / "my_tool.py").read_text() == "# my custom version"
 
 
-def test_ductor_home_claude_md_overwritten(tmp_path: Path) -> None:
-    """The ductor_home/CLAUDE.md is Zone 2 (always overwritten)."""
+def test_sygen_home_claude_md_overwritten(tmp_path: Path) -> None:
+    """The sygen_home/CLAUDE.md is Zone 2 (always overwritten)."""
     paths = _make_paths(tmp_path)
     init_workspace(paths)
 
-    home_claude = paths.ductor_home / "CLAUDE.md"
+    home_claude = paths.sygen_home / "CLAUDE.md"
     assert home_claude.exists()
-    assert home_claude.read_text() == "# Ductor Home CLAUDE.md"
+    assert home_claude.read_text() == "# Sygen Home CLAUDE.md"
 
     # Simulate user editing it -- should be overwritten on reinit
     home_claude.write_text("# User edit")
     init_workspace(paths)
-    assert home_claude.read_text() == "# Ductor Home CLAUDE.md"
+    assert home_claude.read_text() == "# Sygen Home CLAUDE.md"
 
 
 # -- config smart-merge --
@@ -331,10 +331,10 @@ def test_cleans_orphan_symlinks(tmp_path: Path) -> None:
 def test_inject_docker_notice(tmp_path: Path) -> None:
     paths = _make_paths(tmp_path)
     init_workspace(paths)
-    inject_runtime_environment(paths, docker_container="ductor-sandbox")
+    inject_runtime_environment(paths, docker_container="sygen-sandbox")
     content = (paths.workspace / "CLAUDE.md").read_text()
     assert "DOCKER CONTAINER" in content
-    assert "ductor-sandbox" in content
+    assert "sygen-sandbox" in content
     # AGENTS.md mirror should also have it
     agents = (paths.workspace / "AGENTS.md").read_text()
     assert "DOCKER CONTAINER" in agents

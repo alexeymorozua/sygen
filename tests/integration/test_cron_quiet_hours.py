@@ -13,17 +13,17 @@ from sygen_bot.cli.codex_cache import CodexModelCache
 from sygen_bot.config import AgentConfig, HeartbeatConfig
 from sygen_bot.cron.manager import CronJob, CronManager
 from sygen_bot.cron.observer import CronObserver
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home",
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home",
         home_defaults=fw / "workspace",
         framework_root=fw,
     )
@@ -31,7 +31,7 @@ def _make_paths(tmp_path: Path) -> DuctorPaths:
     return paths
 
 
-def _make_manager(paths: DuctorPaths) -> CronManager:
+def _make_manager(paths: SygenPaths) -> CronManager:
     return CronManager(jobs_path=paths.cron_jobs_path)
 
 
@@ -44,7 +44,7 @@ def _make_codex_cache() -> CodexModelCache:
 
 
 def _make_observer(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     mgr: CronManager,
     **config_overrides: Any,
 ) -> CronObserver:
@@ -56,7 +56,7 @@ def _make_observer(
     )
 
 
-def _add_job(mgr: CronManager, paths: DuctorPaths, **overrides: Any) -> CronJob:
+def _add_job(mgr: CronManager, paths: SygenPaths, **overrides: Any) -> CronJob:
     defaults: dict[str, Any] = {
         "id": "test-job",
         "title": "Test Job",

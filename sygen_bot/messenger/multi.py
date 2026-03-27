@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from sygen_bot.multiagent.bus import AsyncInterAgentResult
     from sygen_bot.orchestrator.core import Orchestrator
     from sygen_bot.tasks.models import TaskResult
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class MultiBotAdapter:
         for bot in self._all:
             await bot.on_task_question(task_id, question, prompt_preview, chat_id, thread_id)
 
-    def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
+    def file_roots(self, paths: SygenPaths) -> list[Path] | None:
         return self._primary.file_roots(paths)
 
     # -- BotProtocol: run / shutdown -------------------------------------------

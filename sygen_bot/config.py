@@ -62,8 +62,8 @@ class DockerConfig(BaseModel):
     """Settings for Docker-based CLI sandboxing."""
 
     enabled: bool = False
-    image_name: str = "ductor-sandbox"
-    container_name: str = "ductor-sandbox"
+    image_name: str = "sygen-sandbox"
+    container_name: str = "sygen-sandbox"
     auto_build: bool = True
     mount_host_cache: bool = False
     mounts: list[str] = Field(default_factory=list)
@@ -191,13 +191,13 @@ class MatrixConfig(BaseModel):
     """Matrix homeserver connection settings."""
 
     homeserver: str = ""  # https://matrix.myserver.com
-    user_id: str = ""  # @ductor:myserver.com
+    user_id: str = ""  # @sygen:myserver.com
     password: str = ""  # for initial login
     access_token: str = ""  # persisted after first login
     device_id: str = ""  # persisted after first login
     allowed_rooms: list[str] = Field(default_factory=list)  # ["!abc:server", "#room:server"]
     allowed_users: list[str] = Field(default_factory=list)  # ["@user:server"]
-    store_path: str = "matrix_store"  # relative to ductor_home
+    store_path: str = "matrix_store"  # relative to sygen_home
 
 
 class TasksConfig(BaseModel):
@@ -338,7 +338,7 @@ class AgentConfig(BaseModel):
     log_level: str = "INFO"
     provider: str = "claude"
     model: str = "opus"
-    ductor_home: str = "~/.ductor"
+    sygen_home: str = "~/.sygen"
     idle_timeout_minutes: int = 10080
     session_age_warning_hours: int = 0
     daily_reset_hour: int = 4
@@ -367,7 +367,7 @@ class AgentConfig(BaseModel):
     skill_marketplace: SkillMarketplaceConfig = Field(default_factory=SkillMarketplaceConfig)
     user_timezone: str = ""
     language: str = "en"
-    update_check: bool = False
+    update_check: bool = True
     group_mention_only: bool = False
     interagent_port: int = 8799
     transport: str = "telegram"  # "telegram" | "matrix"
@@ -376,6 +376,9 @@ class AgentConfig(BaseModel):
     allowed_user_ids: list[int] = Field(default_factory=list)
     allowed_group_ids: list[int] = Field(default_factory=list)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
+
+    def __init__(self, **data: object) -> None:
+        super().__init__(**data)
 
     @field_validator("gemini_api_key", mode="before")
     @classmethod

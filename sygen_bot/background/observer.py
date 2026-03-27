@@ -17,7 +17,7 @@ from sygen_bot.infra.task_runner import run_oneshot_task
 if TYPE_CHECKING:
     from sygen_bot.cli.param_resolver import TaskExecutionConfig
     from sygen_bot.cli.service import CLIService
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class BackgroundObserver:
 
     def __init__(
         self,
-        paths: DuctorPaths,
+        paths: SygenPaths,
         *,
         timeout_seconds: float,
         cli_service: CLIService | None = None,

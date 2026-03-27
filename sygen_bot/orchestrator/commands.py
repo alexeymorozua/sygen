@@ -174,11 +174,11 @@ def _resolve_log_path(orch: Orchestrator) -> Path:
     """Return the best available log file path.
 
     Sub-agents don't have their own log files — fall back to the central
-    log in the main ductor home (parent of ``agents/<name>``).
+    log in the main sygen home (parent of ``agents/<name>``).
     """
     log_path = orch.paths.logs_dir / "agent.log"
     if not log_path.exists():
-        main_logs = orch.paths.ductor_home.parent.parent / "logs" / "agent.log"
+        main_logs = orch.paths.sygen_home.parent.parent / "logs" / "agent.log"
         if main_logs.exists():
             return main_logs
     return log_path

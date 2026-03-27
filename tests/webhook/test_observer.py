@@ -16,19 +16,19 @@ from sygen_bot.config import AgentConfig, WebhookConfig
 from sygen_bot.webhook.manager import WebhookManager
 from sygen_bot.webhook.models import WebhookEntry, WebhookResult, render_template
 from sygen_bot.webhook.observer import _SAFETY_END, _SAFETY_START, WebhookObserver
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    paths = DuctorPaths(
-        ductor_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
+    paths = SygenPaths(
+        sygen_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
     )
     paths.cron_tasks_dir.mkdir(parents=True)
     return paths
 
 
-def _make_manager(paths: DuctorPaths) -> WebhookManager:
+def _make_manager(paths: SygenPaths) -> WebhookManager:
     return WebhookManager(hooks_path=paths.webhooks_path)
 
 
@@ -58,7 +58,7 @@ def _make_hook(hook_id: str = "test-hook", **overrides: Any) -> WebhookEntry:
 
 
 def _make_observer(
-    paths: DuctorPaths,
+    paths: SygenPaths,
     mgr: WebhookManager,
     *,
     codex_cache: CodexModelCache | None = None,

@@ -13,7 +13,7 @@ from sygen_bot.orchestrator.flows import normal
 from sygen_bot.routing.router import ModelRouter
 from sygen_bot.session.key import SessionKey
 from sygen_bot.workspace.init import init_workspace
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
 def _mock_response(**kwargs: object) -> AgentResponse:

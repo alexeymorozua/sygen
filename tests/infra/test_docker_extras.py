@@ -384,16 +384,16 @@ class TestExtrasCliRemove:
 
 
 def _make_docker_paths(tmp_path: Path) -> tuple[Path, object]:
-    """Create DuctorPaths and framework dir for Docker manager tests."""
-    from sygen_bot.workspace.paths import DuctorPaths
+    """Create SygenPaths and framework dir for Docker manager tests."""
+    from sygen_bot.workspace.paths import SygenPaths
 
-    home = tmp_path / ".ductor"
+    home = tmp_path / ".sygen"
     home.mkdir()
     (home / "workspace").mkdir()
     (home / "workspace" / "tools").mkdir()
     fw = tmp_path / "framework"
     fw.mkdir()
-    paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+    paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
     return fw, paths
 
 

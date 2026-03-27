@@ -120,11 +120,11 @@ def _send_posix_signal(targets: list[int], sig: signal.Signals) -> None:
             os.kill(target, sig)
 
 
-def kill_all_ductor_processes() -> int:
-    """Find and force-kill remaining ``ductor`` processes system-wide.
+def kill_all_sygen_processes() -> int:
+    """Find and force-kill remaining ``sygen`` processes system-wide.
 
     On Windows this uses two strategies:
-    1. ``tasklist`` scan for ``ductor.exe`` processes
+    1. ``tasklist`` scan for ``sygen.exe`` processes
     2. PowerShell scan for ``python.exe``/``pythonw.exe`` running from the
        pipx venv directory (covers ``pythonw.exe -m sygen_bot``)
 
@@ -138,13 +138,13 @@ def kill_all_ductor_processes() -> int:
         return 0
 
     current = os.getpid()
-    killed = _kill_ductor_exe_windows(current)
+    killed = _kill_sygen_exe_windows(current)
     killed += _kill_venv_python_windows(current)
     return killed
 
 
-def _kill_ductor_exe_windows(current_pid: int) -> int:
-    """Kill processes whose image name is ``ductor.exe``."""
+def _kill_sygen_exe_windows(current_pid: int) -> int:
+    """Kill processes whose image name is ``sygen.exe``."""
     try:
         result = subprocess.run(
             ["tasklist", "/FO", "CSV", "/NH"],
@@ -162,13 +162,13 @@ def _kill_ductor_exe_windows(current_pid: int) -> int:
         if len(parts) < 2:
             continue
         name = parts[0].lower()
-        if name not in ("ductor.exe", "ductor"):
+        if name not in ("sygen.exe", "sygen"):
             continue
         with contextlib.suppress(ValueError):
             pid = int(parts[1])
             if pid == current_pid or pid <= 0:
                 continue
-            logger.info("Killing ductor process: pid=%d name=%s", pid, name)
+            logger.info("Killing sygen process: pid=%d name=%s", pid, name)
             _run_taskkill(pid, force=True)
             killed += 1
     return killed
@@ -177,8 +177,8 @@ def _kill_ductor_exe_windows(current_pid: int) -> int:
 def _kill_venv_python_windows(current_pid: int) -> int:
     r"""Kill ``python.exe``/``pythonw.exe`` processes running from the pipx venv.
 
-    When ductor is installed via ``pipx``, the bot runs as
-    ``pythonw.exe -m sygen_bot`` inside ``~\pipx\venvs\ductor\``.
+    When sygen is installed via ``pipx``, the bot runs as
+    ``pythonw.exe -m sygen_bot`` inside ``~\pipx\venvs\sygen\``.
     These processes lock the venv executables and prevent ``pipx install --force``.
     """
     try:
@@ -189,7 +189,7 @@ def _kill_venv_python_windows(current_pid: int) -> int:
                 "-Command",
                 (
                     "Get-Process python,pythonw -ErrorAction SilentlyContinue"
-                    " | Where-Object { $_.Path -like '*pipx*ductor*' }"
+                    " | Where-Object { $_.Path -like '*pipx*sygen*' }"
                     " | Select-Object -ExpandProperty Id"
                 ),
             ],

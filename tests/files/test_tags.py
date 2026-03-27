@@ -138,21 +138,21 @@ class TestPathFromFileTag:
 
     def test_docker_path_translated(self) -> None:
         with (
-            patch.dict("os.environ", {"DUCTOR_HOME": "/home/user/.ductor"}),
+            patch.dict("os.environ", {"SYGEN_HOME": "/home/user/.sygen"}),
             patch("sygen_bot.files.tags.is_windows", return_value=False),
         ):
-            path = path_from_file_tag("/ductor/workspace/output_to_user/img.png")
-        assert path == Path("/home/user/.ductor/workspace/output_to_user/img.png")
+            path = path_from_file_tag("/sygen/workspace/output_to_user/img.png")
+        assert path == Path("/home/user/.sygen/workspace/output_to_user/img.png")
 
     def test_docker_path_root(self) -> None:
         with (
-            patch.dict("os.environ", {"DUCTOR_HOME": "/home/user/.ductor"}),
+            patch.dict("os.environ", {"SYGEN_HOME": "/home/user/.sygen"}),
             patch("sygen_bot.files.tags.is_windows", return_value=False),
         ):
-            path = path_from_file_tag("/ductor/sessions.json")
-        assert path == Path("/home/user/.ductor/sessions.json")
+            path = path_from_file_tag("/sygen/sessions.json")
+        assert path == Path("/home/user/.sygen/sessions.json")
 
     def test_non_docker_path_not_translated(self) -> None:
         with patch("sygen_bot.files.tags.is_windows", return_value=False):
-            path = path_from_file_tag("/home/user/.ductor/workspace/file.txt")
-        assert path == Path("/home/user/.ductor/workspace/file.txt")
+            path = path_from_file_tag("/home/user/.sygen/workspace/file.txt")
+        assert path == Path("/home/user/.sygen/workspace/file.txt")

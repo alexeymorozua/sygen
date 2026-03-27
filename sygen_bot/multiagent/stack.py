@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from sygen_bot.config import AgentConfig
 from sygen_bot.workspace.init import init_workspace
-from sygen_bot.workspace.paths import DuctorPaths, resolve_paths
+from sygen_bot.workspace.paths import SygenPaths, resolve_paths
 
 if TYPE_CHECKING:
     from sygen_bot.messenger.protocol import BotProtocol
@@ -26,7 +26,7 @@ class AgentStack:
 
     name: str
     config: AgentConfig
-    paths: DuctorPaths
+    paths: SygenPaths
     bot: BotProtocol
     is_main: bool = False
 
@@ -45,7 +45,7 @@ class AgentStack:
         """
         import asyncio
 
-        paths = resolve_paths(ductor_home=config.ductor_home)
+        paths = resolve_paths(sygen_home=config.sygen_home)
         await asyncio.to_thread(init_workspace, paths)
 
         from sygen_bot.messenger.registry import create_bot
@@ -55,7 +55,7 @@ class AgentStack:
         logger.info(
             "AgentStack created: name=%s home=%s main=%s transport=%s",
             name,
-            paths.ductor_home,
+            paths.sygen_home,
             is_main,
             config.transport,
         )

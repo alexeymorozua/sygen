@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 
-def _paths(tmp_path: Path) -> DuctorPaths:
+def _paths(tmp_path: Path) -> SygenPaths:
     fw = tmp_path / "fw"
-    return DuctorPaths(
-        ductor_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
+    return SygenPaths(
+        sygen_home=tmp_path / "home", home_defaults=fw / "workspace", framework_root=fw
     )
 
 

@@ -1,4 +1,4 @@
-"""Centralised loading of user-defined environment secrets from ``~/.ductor/.env``.
+"""Centralised loading of user-defined environment secrets from ``~/.sygen/.env``.
 
 The file uses standard dotenv syntax::
 

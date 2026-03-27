@@ -11,7 +11,7 @@ In-process multi-agent supervisor (`AgentSupervisor`) for main agent + optional 
 `run_bot()` always starts `AgentSupervisor`.
 
 - main agent always runs under supervision
-- sub-agents are loaded from `~/.ductor/agents.json`
+- sub-agents are loaded from `~/.sygen/agents.json`
 - crash/restart policy is handled per agent task inside one asyncio process
 
 ## Startup lifecycle
@@ -20,7 +20,7 @@ In-process multi-agent supervisor (`AgentSupervisor`) for main agent + optional 
 
 1. start `InterAgentBus`
 2. start `InternalAgentAPI` on `config.interagent_port` (default `8799`): `127.0.0.1:<port>` in host mode, `0.0.0.0:<port>` in Docker mode
-3. if `tasks.enabled=true`: create shared `TaskHub` (`~/.ductor/tasks.json` + `~/.ductor/workspace/tasks/`) and attach it to `InternalAgentAPI`
+3. if `tasks.enabled=true`: create shared `TaskHub` (`~/.sygen/tasks.json` + `~/.sygen/workspace/tasks/`) and attach it to `InternalAgentAPI`
 4. create/start main `AgentStack`
 5. wait for main startup readiness (`_main_ready`) before sub-agent startup; the timeout uses a 120s base and is extended dynamically when Docker extras increase sandbox setup/build time
 6. load + start sub-agents from `agents.json`

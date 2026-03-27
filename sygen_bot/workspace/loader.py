@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,13 @@ def read_file(path: Path) -> str | None:
         return None
 
 
-def read_mainmemory(paths: DuctorPaths) -> str:
+def read_mainmemory(paths: SygenPaths) -> str:
     """Read MAINMEMORY.md, returning empty string if missing."""
     return read_file(paths.mainmemory_path) or ""
 
 
 
-def read_always_load_modules(paths: DuctorPaths) -> str:
+def read_always_load_modules(paths: SygenPaths) -> str:
     """Read 'Always Load' memory modules (user.md, decisions.md).
 
     Scans the MAINMEMORY.md index for the 'Always Load' table and reads

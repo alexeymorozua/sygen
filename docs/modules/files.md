@@ -81,6 +81,6 @@ Applied across all transports:
 
 ## Runtime paths
 
-- Telegram uploads: `~/.ductor/workspace/telegram_files/YYYY-MM-DD/`
-- Matrix uploads: `~/.ductor/workspace/matrix_files/YYYY-MM-DD/`
-- API uploads: `~/.ductor/workspace/api_files/YYYY-MM-DD/`
+- Telegram uploads: `~/.sygen/workspace/telegram_files/YYYY-MM-DD/`
+- Matrix uploads: `~/.sygen/workspace/matrix_files/YYYY-MM-DD/`
+- API uploads: `~/.sygen/workspace/api_files/YYYY-MM-DD/`

@@ -39,14 +39,14 @@ if TYPE_CHECKING:
     from sygen_bot.multiagent.bus import AsyncInterAgentResult
     from sygen_bot.orchestrator.core import Orchestrator
     from sygen_bot.tasks.models import TaskResult
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
 
-def _expand_marker(ductor_home: str) -> Path:
+def _expand_marker(sygen_home: str) -> Path:
     """Return the restart-marker path (sync, no I/O)."""
-    return Path(ductor_home).expanduser() / "restart-requested"
+    return Path(sygen_home).expanduser() / "restart-requested"
 
 
 def resolve_broadcast_rooms(config: AgentConfig, last_active_room: str | None) -> list[str]:
@@ -96,13 +96,13 @@ class MatrixBot:
         except ImportError:
             raise ImportError(
                 "matrix-nio is required for Matrix transport. "
-                "Install with: pip install 'ductor[matrix]'"
+                "Install with: pip install 'sygen[matrix]'"
             ) from None
 
         self._config = config
         self._agent_name = agent_name
         mx = config.matrix
-        self._store_path = Path(config.ductor_home).expanduser() / mx.store_path
+        self._store_path = Path(config.sygen_home).expanduser() / mx.store_path
         self._store_path.mkdir(parents=True, exist_ok=True)
 
         self._client = AsyncClient(mx.homeserver, mx.user_id)
@@ -178,7 +178,7 @@ class MatrixBot:
     def set_abort_all_callback(self, callback: Callable[[], Awaitable[int]]) -> None:
         self._abort_all_callback = callback
 
-    def file_roots(self, paths: DuctorPaths) -> list[Path] | None:
+    def file_roots(self, paths: SygenPaths) -> list[Path] | None:
         return resolve_allowed_roots(self._config.file_access, paths.workspace)
 
     async def run(self) -> int:
@@ -470,7 +470,7 @@ class MatrixBot:
         """Request bot restart via restart marker."""
         from sygen_bot.infra.restart import EXIT_RESTART, write_restart_marker
 
-        marker = _expand_marker(self._config.ductor_home)
+        marker = _expand_marker(self._config.sygen_home)
         write_restart_marker(marker_path=marker)
         await self._send_rich(
             room_id,
@@ -965,7 +965,7 @@ class MatrixBot:
                 current_version=current,
             )
             if changed:
-                marker = _expand_marker(self._config.ductor_home)
+                marker = _expand_marker(self._config.sygen_home)
                 write_restart_marker(marker_path=marker)
                 await self._send_rich(
                     room_id, t("startup.matrix_upgraded_restarting", old=current, new=installed)
@@ -1150,7 +1150,7 @@ class MatrixBot:
         """Watch for restart marker file (created by /restart command)."""
         from sygen_bot.infra.restart import EXIT_RESTART
 
-        marker = _expand_marker(self._config.ductor_home)
+        marker = _expand_marker(self._config.sygen_home)
         while True:
             await asyncio.sleep(2)
             if marker.exists():

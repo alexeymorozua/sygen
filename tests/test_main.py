@@ -11,7 +11,7 @@ import pytest
 
 from sygen_bot.config import AgentConfig
 from sygen_bot.infra.version import get_current_version
-from sygen_bot.workspace.paths import DuctorPaths
+from sygen_bot.workspace.paths import SygenPaths
 
 # Shorthand module paths for patching the new submodules.
 _LIFECYCLE = "sygen_bot.cli_commands.lifecycle"
@@ -25,14 +25,14 @@ class TestLoadConfig:
     def test_creates_config_from_example(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import load_config
 
-        home = tmp_path / ".ductor"
+        home = tmp_path / ".sygen"
         fw = tmp_path / "framework"
         fw.mkdir()
         example = {"telegram_token": "TEST", "provider": "claude"}
         (fw / "config.example.json").write_text(json.dumps(example))
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+            paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
             mock_paths.return_value = paths
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
@@ -43,7 +43,7 @@ class TestLoadConfig:
     def test_preserves_existing_user_config(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import load_config
 
-        home = tmp_path / ".ductor"
+        home = tmp_path / ".sygen"
         config_dir = home / "config"
         config_dir.mkdir(parents=True)
         fw = tmp_path / "framework"
@@ -52,7 +52,7 @@ class TestLoadConfig:
         (config_dir / "config.json").write_text(json.dumps(user_cfg))
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+            paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
             mock_paths.return_value = paths
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
@@ -63,7 +63,7 @@ class TestLoadConfig:
     def test_merges_new_defaults_into_existing(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import load_config
 
-        home = tmp_path / ".ductor"
+        home = tmp_path / ".sygen"
         config_dir = home / "config"
         config_dir.mkdir(parents=True)
         fw = tmp_path / "framework"
@@ -72,7 +72,7 @@ class TestLoadConfig:
         (config_dir / "config.json").write_text(json.dumps(old_cfg))
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+            paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
             mock_paths.return_value = paths
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
@@ -85,12 +85,12 @@ class TestLoadConfig:
     def test_creates_default_config_when_no_example(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import load_config
 
-        home = tmp_path / ".ductor"
+        home = tmp_path / ".sygen"
         fw = tmp_path / "framework"
         fw.mkdir()
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+            paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
             mock_paths.return_value = paths
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
@@ -103,7 +103,7 @@ class TestLoadConfig:
     def test_normalizes_existing_null_gemini_api_key_to_string(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import load_config
 
-        home = tmp_path / ".ductor"
+        home = tmp_path / ".sygen"
         config_dir = home / "config"
         config_dir.mkdir(parents=True)
         fw = tmp_path / "framework"
@@ -112,7 +112,7 @@ class TestLoadConfig:
         (config_dir / "config.json").write_text(json.dumps(user_cfg), encoding="utf-8")
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+            paths = SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
             mock_paths.return_value = paths
             with patch("sygen_bot.__main__.init_workspace"):
                 config = load_config()
@@ -127,8 +127,8 @@ class TestIsConfigured:
         from sygen_bot.__main__ import _is_configured
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(
-                ductor_home=tmp_path / "home",
+            paths = SygenPaths(
+                sygen_home=tmp_path / "home",
                 home_defaults=tmp_path / "fw" / "workspace",
                 framework_root=tmp_path / "fw",
             )
@@ -145,8 +145,8 @@ class TestIsConfigured:
         (config_dir / "config.json").write_text(json.dumps(cfg))
 
         with patch("sygen_bot.__main__.resolve_paths") as mock_paths:
-            paths = DuctorPaths(
-                ductor_home=home,
+            paths = SygenPaths(
+                sygen_home=home,
                 home_defaults=tmp_path / "fw" / "workspace",
                 framework_root=tmp_path / "fw",
             )
@@ -158,14 +158,14 @@ class TestRunTelegram:
     async def test_exits_on_missing_token(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import run_telegram
 
-        config = AgentConfig(telegram_token="", ductor_home=str(tmp_path))
+        config = AgentConfig(telegram_token="", sygen_home=str(tmp_path))
         with pytest.raises(SystemExit):
             await run_telegram(config)
 
     async def test_exits_on_placeholder_token(self, tmp_path: Path) -> None:
         from sygen_bot.__main__ import run_telegram
 
-        config = AgentConfig(telegram_token="YOUR_TOKEN_HERE", ductor_home=str(tmp_path))
+        config = AgentConfig(telegram_token="YOUR_TOKEN_HERE", sygen_home=str(tmp_path))
         with pytest.raises(SystemExit):
             await run_telegram(config)
 
@@ -173,7 +173,7 @@ class TestRunTelegram:
         from sygen_bot.__main__ import run_telegram
 
         config = AgentConfig(
-            telegram_token="valid:token", allowed_user_ids=[], ductor_home=str(tmp_path)
+            telegram_token="valid:token", allowed_user_ids=[], sygen_home=str(tmp_path)
         )
         with pytest.raises(SystemExit):
             await run_telegram(config)
@@ -182,7 +182,7 @@ class TestRunTelegram:
         from sygen_bot.__main__ import run_telegram
 
         config = AgentConfig(
-            telegram_token="valid:token", allowed_user_ids=[123], ductor_home=str(tmp_path)
+            telegram_token="valid:token", allowed_user_ids=[123], sygen_home=str(tmp_path)
         )
         mock_supervisor = MagicMock()
         mock_supervisor.start = AsyncMock(return_value=0)
@@ -203,14 +203,14 @@ class TestRunTelegram:
         mock_supervisor.stop_all.assert_called_once()
 
 
-def _make_paths(tmp_path: Path) -> DuctorPaths:
+def _make_paths(tmp_path: Path) -> SygenPaths:
     home = tmp_path / "home"
     fw = tmp_path / "fw"
     fw.mkdir(parents=True, exist_ok=True)
-    return DuctorPaths(ductor_home=home, home_defaults=fw / "workspace", framework_root=fw)
+    return SygenPaths(sygen_home=home, home_defaults=fw / "workspace", framework_root=fw)
 
 
-def _write_config(paths: DuctorPaths, data: dict[str, object]) -> None:
+def _write_config(paths: SygenPaths, data: dict[str, object]) -> None:
     paths.config_path.parent.mkdir(parents=True, exist_ok=True)
     paths.config_path.write_text(json.dumps(data), encoding="utf-8")
 
@@ -297,8 +297,8 @@ class TestStopBot:
         from sygen_bot.cli_commands.lifecycle import stop_bot
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
-        pid_file = paths.ductor_home / "bot.pid"
+        paths.sygen_home.mkdir(parents=True)
+        pid_file = paths.sygen_home / "bot.pid"
         pid_file.write_text("12345", encoding="utf-8")
         with (
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
@@ -312,7 +312,7 @@ class TestStopBot:
         from sygen_bot.cli_commands.lifecycle import stop_bot
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         with patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths):
             stop_bot()
 
@@ -320,7 +320,7 @@ class TestStopBot:
         from sygen_bot.cli_commands.lifecycle import stop_bot
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         _write_config(
             paths,
             {
@@ -344,13 +344,13 @@ class TestUpgradeCli:
         from sygen_bot.cli_commands.lifecycle import upgrade
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         with (
             patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
             patch(
                 "sygen_bot.infra.updater.perform_upgrade_pipeline",
-                new=AsyncMock(return_value=(True, "9.9.9", "upgraded ductor")),
+                new=AsyncMock(return_value=(True, "9.9.9", "upgraded sygen")),
             ) as mock_pipeline,
             patch(f"{_LIFECYCLE}._re_exec_bot") as mock_exec,
             patch(f"{_LIFECYCLE}.stop_bot"),
@@ -363,13 +363,13 @@ class TestUpgradeCli:
         from sygen_bot.cli_commands.lifecycle import upgrade
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         with (
             patch("sygen_bot.infra.install.detect_install_mode", return_value="pip"),
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
             patch(
                 "sygen_bot.infra.updater.perform_upgrade_pipeline",
-                new=AsyncMock(return_value=(True, "9.9.9", "installed ductor-2.0.0")),
+                new=AsyncMock(return_value=(True, "9.9.9", "installed sygen-2.0.0")),
             ) as mock_pipeline,
             patch(f"{_LIFECYCLE}._re_exec_bot") as mock_exec,
             patch(f"{_LIFECYCLE}.stop_bot"),
@@ -382,7 +382,7 @@ class TestUpgradeCli:
         from sygen_bot.cli_commands.lifecycle import upgrade
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         current = get_current_version()
         with (
             patch("sygen_bot.infra.install.detect_install_mode", return_value="pipx"),
@@ -401,7 +401,7 @@ class TestUpgradeCli:
         from sygen_bot.cli_commands.lifecycle import upgrade
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         with (
             patch("sygen_bot.infra.install.detect_install_mode", return_value="pip"),
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
@@ -474,7 +474,7 @@ class TestStartBotRestart:
             patch("sygen_bot.logging_config.setup_logging"),
             patch("sygen_bot.__main__.load_config", return_value=self._mock_config()),
             patch(f"{_LIFECYCLE}.asyncio.run", side_effect=_mock_asyncio_run(42)),
-            patch.dict("os.environ", {"DUCTOR_SUPERVISOR": "1"}),
+            patch.dict("os.environ", {"SYGEN_SUPERVISOR": "1"}),
             pytest.raises(SystemExit) as exc_info,
         ):
             start_bot()
@@ -541,7 +541,7 @@ class TestCountLogErrors:
 
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
-        (log_dir / "ductor.log").write_text(
+        (log_dir / "sygen.log").write_text(
             "2024-01-01 INFO Started\n2024-01-01 ERROR Something broke\n"
             "2024-01-01 INFO Continued\n2024-01-01 ERROR Another error\n",
             encoding="utf-8",
@@ -566,7 +566,7 @@ class TestUninstall:
         from sygen_bot.cli_commands.lifecycle import uninstall
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         _write_config(paths, {"telegram_token": "x", "allowed_user_ids": [1]})
         with (
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
@@ -577,13 +577,13 @@ class TestUninstall:
         ):
             mock_confirm.return_value.ask.return_value = True
             uninstall()
-        assert not paths.ductor_home.exists()
+        assert not paths.sygen_home.exists()
 
     def test_uninstall_cancelled(self, tmp_path: Path) -> None:
         from sygen_bot.cli_commands.lifecycle import uninstall
 
         paths = _make_paths(tmp_path)
-        paths.ductor_home.mkdir(parents=True)
+        paths.sygen_home.mkdir(parents=True)
         _write_config(paths, {"telegram_token": "x", "allowed_user_ids": [1]})
         with (
             patch(f"{_LIFECYCLE}.resolve_paths", return_value=paths),
@@ -591,7 +591,7 @@ class TestUninstall:
         ):
             mock_confirm.return_value.ask.return_value = False
             uninstall()
-        assert paths.ductor_home.exists()
+        assert paths.sygen_home.exists()
 
 
 class TestMainDispatch:
@@ -599,7 +599,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "help"]),
+            patch("sys.argv", ["sygen", "help"]),
             patch("sygen_bot.__main__._print_usage") as mock_usage,
         ):
             main()
@@ -609,7 +609,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "status"]),
+            patch("sys.argv", ["sygen", "status"]),
             patch("sygen_bot.__main__._cmd_status") as mock_status,
         ):
             main()
@@ -619,7 +619,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "stop"]),
+            patch("sys.argv", ["sygen", "stop"]),
             patch("sygen_bot.__main__._stop_bot") as mock_stop,
         ):
             main()
@@ -629,7 +629,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor"]),
+            patch("sys.argv", ["sygen"]),
             patch("sygen_bot.__main__._is_configured", return_value=True),
             patch("sygen_bot.__main__._start_bot") as mock_start,
         ):
@@ -640,7 +640,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor"]),
+            patch("sys.argv", ["sygen"]),
             patch("sygen_bot.__main__._is_configured", return_value=False),
             patch("sygen_bot.cli.init_wizard.run_onboarding", return_value=False) as mock_onboard,
             patch("sygen_bot.__main__._start_bot") as mock_start,
@@ -653,7 +653,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor"]),
+            patch("sys.argv", ["sygen"]),
             patch("sygen_bot.__main__._is_configured", return_value=False),
             patch("sygen_bot.cli.init_wizard.run_onboarding", return_value=True),
             patch("sygen_bot.__main__._start_bot") as mock_start,
@@ -665,7 +665,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "-v"]),
+            patch("sys.argv", ["sygen", "-v"]),
             patch("sygen_bot.__main__._is_configured", return_value=True),
             patch("sygen_bot.__main__._start_bot") as mock_start,
         ):
@@ -676,7 +676,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "-h"]),
+            patch("sys.argv", ["sygen", "-h"]),
             patch("sygen_bot.__main__._print_usage") as mock_usage,
         ):
             main()
@@ -686,7 +686,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "upgrade"]),
+            patch("sys.argv", ["sygen", "upgrade"]),
             patch("sygen_bot.__main__._upgrade") as mock_upgrade,
         ):
             main()
@@ -696,7 +696,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "onboarding"]),
+            patch("sys.argv", ["sygen", "onboarding"]),
             patch("sygen_bot.__main__._cmd_setup") as mock_setup,
         ):
             main()
@@ -706,7 +706,7 @@ class TestMainDispatch:
         from sygen_bot.__main__ import main
 
         with (
-            patch("sys.argv", ["ductor", "reset"]),
+            patch("sys.argv", ["sygen", "reset"]),
             patch("sygen_bot.__main__._cmd_setup") as mock_setup,
         ):
             main()

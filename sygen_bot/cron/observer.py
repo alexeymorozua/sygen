@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from sygen_bot.cli.codex_cache import CodexModelCache
     from sygen_bot.config import AgentConfig
     from sygen_bot.cron.manager import CronJob
-    from sygen_bot.workspace.paths import DuctorPaths
+    from sygen_bot.workspace.paths import SygenPaths
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class CronObserver(BaseTaskObserver):
 
     def __init__(
         self,
-        paths: DuctorPaths,
+        paths: SygenPaths,
         manager: CronManager,
         *,
         config: AgentConfig,

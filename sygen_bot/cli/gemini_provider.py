@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT = 300.0
 
-# Must match ``_DUCTOR_MOUNT`` in ``sygen_bot.infra.docker``.
-_CONTAINER_DUCTOR = "/ductor"
+# Must match ``_SYGEN_MOUNT`` in ``sygen_bot.infra.docker``.
+_CONTAINER_SYGEN = "/sygen"
 
 
 @dataclass(slots=True)
@@ -125,7 +125,7 @@ class GeminiCLI(BaseCLI):
         return env
 
     def _inject_config_gemini_api_key(self, env: dict[str, str]) -> None:
-        """Inject GEMINI_API_KEY from ductor config when API-key auth mode is active."""
+        """Inject GEMINI_API_KEY from sygen config when API-key auth mode is active."""
         existing = (env.get("GEMINI_API_KEY") or "").strip()
         if existing and existing.lower() not in NULLISH_TEXT_VALUES:
             return
@@ -143,7 +143,7 @@ class GeminiCLI(BaseCLI):
             return
 
         env["GEMINI_API_KEY"] = key
-        logger.debug("Injected GEMINI_API_KEY from ductor config for Gemini API key mode")
+        logger.debug("Injected GEMINI_API_KEY from sygen config for Gemini API key mode")
 
     async def send(
         self,
@@ -311,7 +311,7 @@ class GeminiCLI(BaseCLI):
     def _create_system_prompt_path(self) -> str | None:
         """Create a temporary system prompt file when prompt content is present.
 
-        In Docker mode the file is written to ``~/.ductor/tmp/`` which is
+        In Docker mode the file is written to ``~/.sygen/tmp/`` which is
         bind-mounted into the container so it can be read via a translated
         container-side path.
         """
@@ -319,7 +319,7 @@ class GeminiCLI(BaseCLI):
             return None
         directory: str | None = None
         if self._config.docker_container:
-            tmp_dir = resolve_paths().ductor_home / "tmp"
+            tmp_dir = resolve_paths().sygen_home / "tmp"
             tmp_dir.mkdir(parents=True, exist_ok=True)
             directory = str(tmp_dir)
         return create_system_prompt_file(
@@ -362,10 +362,10 @@ class GeminiCLI(BaseCLI):
 
     @staticmethod
     def _host_to_container_path(host_path: str) -> str | None:
-        """Translate a host path under ``~/.ductor/`` to its container mount."""
-        prefix = str(resolve_paths().ductor_home)
+        """Translate a host path under ``~/.sygen/`` to its container mount."""
+        prefix = str(resolve_paths().sygen_home)
         if host_path.startswith(prefix):
-            return _CONTAINER_DUCTOR + host_path[len(prefix) :].replace("\\", "/")
+            return _CONTAINER_SYGEN + host_path[len(prefix) :].replace("\\", "/")
         return None
 
     def _resolve_exec(
