@@ -58,21 +58,33 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 
 ### UX
 - **Mobile-friendly tables** — Markdown tables are auto-converted to grouped lists for Telegram readability
-- **Emoji status reactions** — three modes:
-  - `off` — no reactions
-  - `seen` (default) — 👀 on receipt, ✅ on completion
-  - `detailed` — 👀 → 🤔 thinking → ⚙️ tool use → 📦 compacting → ✅ done
-- **Configurable streaming** — enable/disable intermediate message updates
+- **Emoji status reactions** — track agent progress on your original message
+- **Configurable streaming** — three combined modes (see table below)
 - **Technical footer** — optional model, tokens, cost, duration display
 - **Inline buttons** — quick-reply buttons in Telegram messages
 
-### Maintenance (Out of the Box)
-Three maintenance crons ship enabled by default:
-- **Weekly cleanup** — remove one-shot crons, orphaned sessions, old temp files (Sunday 10:00)
-- **Daily security audit** — check tokens, file permissions, disk usage, bot health (08:00)
-- **Real-time memory consolidation** — module size enforcement (120-line limit) via hook system, no cron needed
+#### Streaming & Reaction Modes
 
-All crons inherit provider and model from user config — works with Claude, Gemini, or any supported backend.
+| Mode | Config | Reactions | Text delivery |
+|---|---|---|---|
+| **Quiet** | `streaming.enabled: false`, `scene.reaction_style: "seen"` | 👀 → ✅ | Single message after completion |
+| **Full streaming** | `streaming.enabled: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚙️ → 📦 → ✅ | Real-time, dynamically updated |
+| **Buffered** | `streaming.enabled: true`, `streaming.buffered: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚙️ → 📦 → ✅ | Single message after completion |
+
+**Reaction emoji meaning:**
+- 👀 — message received, processing started
+- 🤔 — model is thinking
+- ⚙️ — executing a tool (bash, file read, etc.)
+- 📦 — context compacting (long conversation optimization)
+- ✅ — response complete
+
+**Buffered mode** is the recommended choice when you want to see what the agent is doing (via reactions) but prefer clean, non-flickering text delivery. Internally, the agent streams events for reaction updates, but text is collected in a buffer and sent as a single message at the end.
+
+Set `scene.reaction_style: "off"` to disable all reactions.
+
+### Maintenance (Built-in)
+- **Auto file cleanup** — daily removal of old media files, output, tasks, and cron results (configurable retention)
+- **Real-time memory consolidation** — module size enforcement (120-line limit) via hook system, no cron needed
 
 ### Memory System
 - **Modular structure** — separate files per topic (user, decisions, infrastructure, tools, crons)
@@ -96,8 +108,9 @@ All settings in `~/.sygen/config/config.json`. Key sections:
 | Section | What it controls |
 |---|---|
 | `model` | AI provider and model name |
-| `streaming` | Real-time output (enabled, min/max chars, idle timeout) |
-| `scene` | Emoji reactions (`reaction_style`), technical footer |
+| `streaming` | Real-time output (enabled, buffered, min/max chars, idle timeout) |
+| `scene` | Emoji reactions (`reaction_style`: off/seen/detailed), technical footer |
+| `cleanup` | Auto file cleanup (enabled, retention days per category) |
 | `timeouts` | Response timeouts per mode |
 | `media` | Image quality, audio transcription |
 | `mcp` | MCP servers (enabled, server list) |
