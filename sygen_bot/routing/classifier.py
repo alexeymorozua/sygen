@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import httpx
@@ -14,8 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _CLASSIFIER_PROMPT = """\
-You are a message complexity classifier. Rate the user message 1-3 and decide \
-whether it should run as a background task (b) or inline (i).
+You are a message complexity classifier. Rate the user message 1-3.
 
 1 = LIGHT: greetings, yes/no, thanks, simple factual questions, status checks, \
 reminders, short confirmations, translations of short phrases, simple math, \
@@ -29,36 +27,14 @@ config changes
 deep analysis, research with reasoning, refactoring, planning, code review of \
 large diffs, creative writing with complex requirements
 
-Background (b) criteria — tasks that likely take >30 seconds:
-- Web research, browsing, comparisons, data gathering
-- File generation, document creation, report writing
-- Multi-step analysis, deep code review, complex refactoring
-- Any task involving multiple tool calls or external lookups
-
-Inline (i) criteria — quick responses:
-- Conversational replies, questions, confirmations
-- Simple lookups, short answers, config changes
-- Single-step operations, quick code fixes
-
 Context matters: a short message can be complex ("refactor auth module") and a \
 long message can be simple (pasting an error for quick lookup).
 
-Reply with ONLY the number and letter: 1i, 2i, 2b, 3i, or 3b"""
+Reply with ONLY the number: 1, 2, or 3"""
 
 _TIER_MAP: dict[str, str] = {"1": "light", "2": "medium", "3": "heavy"}
 _DEFAULT_TIER = "medium"
 _TIMEOUT_SECONDS = 3.0
-
-
-@dataclass(frozen=True, slots=True)
-class ClassificationResult:
-    """Result of message classification: complexity tier + background flag."""
-
-    tier: str
-    background: bool
-
-
-_DEFAULT_RESULT = ClassificationResult(tier=_DEFAULT_TIER, background=False)
 
 
 class MessageClassifier:
@@ -77,14 +53,6 @@ class MessageClassifier:
 
         Returns ``'medium'`` on any error or timeout (safe default).
         """
-        result = await self.classify_full(message)
-        return result.tier
-
-    async def classify_full(self, message: str) -> ClassificationResult:
-        """Classify *message* returning tier and background flag.
-
-        Returns ``ClassificationResult('medium', False)`` on any error or timeout.
-        """
         try:
             provider = self._config.classifier_provider
             if provider == "anthropic":
@@ -95,14 +63,15 @@ class MessageClassifier:
                 raw = await self._call_google(message)
             else:
                 logger.warning("Unknown classifier provider: %s", provider)
-                return _DEFAULT_RESULT
-            return _parse_classification(raw)
+                return _DEFAULT_TIER
+            tier = _TIER_MAP.get(raw.strip()[:1], _DEFAULT_TIER)
+            return tier
         except httpx.TimeoutException:
-            logger.warning("Classifier timed out, falling back to medium/inline")
-            return _DEFAULT_RESULT
+            logger.warning("Classifier timed out, falling back to medium")
+            return _DEFAULT_TIER
         except Exception:
-            logger.warning("Classifier error, falling back to medium/inline", exc_info=True)
-            return _DEFAULT_RESULT
+            logger.warning("Classifier error, falling back to medium", exc_info=True)
+            return _DEFAULT_TIER
 
     # -- Provider implementations --------------------------------------------
 
@@ -163,19 +132,3 @@ class MessageClassifier:
         resp.raise_for_status()
         data = resp.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
-
-
-def _parse_classification(raw: str) -> ClassificationResult:
-    """Parse classifier response like '2b', '3i', or plain '2' into a result."""
-    cleaned = raw.strip()[:2]
-    if not cleaned:
-        return _DEFAULT_RESULT
-
-    digit = cleaned[0]
-    tier = _TIER_MAP.get(digit, _DEFAULT_TIER)
-
-    background = False
-    if len(cleaned) >= 2:
-        background = cleaned[1].lower() == "b"
-
-    return ClassificationResult(tier=tier, background=background)

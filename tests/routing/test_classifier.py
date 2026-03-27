@@ -8,11 +8,7 @@ import httpx
 import pytest
 
 from sygen_bot.config import RoutingConfig
-from sygen_bot.routing.classifier import (
-    ClassificationResult,
-    MessageClassifier,
-    _parse_classification,
-)
+from sygen_bot.routing.classifier import MessageClassifier
 
 
 def _make_config(**overrides: object) -> RoutingConfig:
@@ -161,65 +157,3 @@ async def test_close(classifier: MessageClassifier) -> None:
     with patch.object(classifier._client, "aclose", new_callable=AsyncMock) as mock_close:
         await classifier.close()
     mock_close.assert_awaited_once()
-
-
-# -- _parse_classification --
-
-
-def test_parse_classification_tier_only() -> None:
-    assert _parse_classification("2") == ClassificationResult(tier="medium", background=False)
-
-
-def test_parse_classification_inline() -> None:
-    assert _parse_classification("3i") == ClassificationResult(tier="heavy", background=False)
-
-
-def test_parse_classification_background() -> None:
-    assert _parse_classification("2b") == ClassificationResult(tier="medium", background=True)
-
-
-def test_parse_classification_heavy_background() -> None:
-    assert _parse_classification("3b") == ClassificationResult(tier="heavy", background=True)
-
-
-def test_parse_classification_light_inline() -> None:
-    assert _parse_classification("1i") == ClassificationResult(tier="light", background=False)
-
-
-def test_parse_classification_whitespace() -> None:
-    assert _parse_classification("  2b\n") == ClassificationResult(tier="medium", background=True)
-
-
-def test_parse_classification_empty() -> None:
-    assert _parse_classification("") == ClassificationResult(tier="medium", background=False)
-
-
-def test_parse_classification_unknown_digit() -> None:
-    assert _parse_classification("5b") == ClassificationResult(tier="medium", background=True)
-
-
-# -- classify_full --
-
-
-async def test_classify_full_background(classifier: MessageClassifier) -> None:
-    mock_response = httpx.Response(
-        200,
-        json={"content": [{"text": "3b"}]},
-        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
-    )
-    with patch.object(classifier._client, "post", new_callable=AsyncMock, return_value=mock_response):
-        result = await classifier.classify_full("research best Python frameworks")
-    assert result.tier == "heavy"
-    assert result.background is True
-
-
-async def test_classify_full_inline(classifier: MessageClassifier) -> None:
-    mock_response = httpx.Response(
-        200,
-        json={"content": [{"text": "1i"}]},
-        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
-    )
-    with patch.object(classifier._client, "post", new_callable=AsyncMock, return_value=mock_response):
-        result = await classifier.classify_full("hello")
-    assert result.tier == "light"
-    assert result.background is False

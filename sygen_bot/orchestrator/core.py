@@ -194,9 +194,9 @@ class Orchestrator:
         self._register_commands()
 
     def _build_model_router(self) -> ModelRouter | None:
-        """Create a ModelRouter if any routing feature is enabled and configured."""
+        """Create a ModelRouter if routing is enabled and configured."""
         rc = self._config.routing
-        if rc.api_key and (rc.enabled or rc.auto_delegate):
+        if rc.enabled and rc.api_key:
             classifier = MessageClassifier(rc)
             return ModelRouter(rc, classifier)
         return None
@@ -389,23 +389,12 @@ class Orchestrator:
 
         prompt_text = directives.cleaned or dispatch.text
 
-        # --- Auto-delegation: classifier decides background vs inline ---
-        model_override = directives.model
-        if model_override is None and self._model_router is not None and self._task_hub is not None:
-            decision = await self._model_router.resolve(
-                prompt_text, self._config.provider
-            )
-            model_override = decision.model
-            if decision.background:
-                return await self._auto_delegate(dispatch.key, prompt_text, decision)
-        # --- End auto-delegation ---
-
         if dispatch.streaming:
             return await normal_streaming(
                 self,
                 dispatch.key,
                 prompt_text,
-                model_override=model_override,
+                model_override=directives.model,
                 cbs=dispatch.streaming_callbacks(),
             )
 
@@ -413,50 +402,7 @@ class Orchestrator:
             self,
             dispatch.key,
             prompt_text,
-            model_override=model_override,
-        )
-
-    async def _auto_delegate(
-        self,
-        key: SessionKey,
-        prompt: str,
-        decision: object,
-    ) -> OrchestratorResult:
-        """Create a background task when the classifier recommends delegation."""
-        from sygen_bot.tasks.models import TaskSubmit
-
-        hub = self._task_hub
-        if hub is None:
-            return OrchestratorResult(text="Task system unavailable.")
-
-        # Auto-generate a short task name from the first words
-        words = prompt.split()[:5]
-        name = " ".join(words)
-        if len(name) > 40:
-            name = name[:37] + "..."
-
-        agent_name = self._cli_service._config.agent_name
-        submit = TaskSubmit(
-            chat_id=key.chat_id,
-            prompt=prompt,
-            message_id=0,
-            thread_id=key.topic_id,
-            parent_agent=agent_name,
-            name=name,
-        )
-
-        try:
-            task_id = hub.submit(submit)
-        except ValueError as exc:
-            logger.warning("Auto-delegate failed: %s", exc)
-            return OrchestratorResult(text=str(exc))
-
-        logger.info(
-            "Auto-delegated to background task=%s name='%s'", task_id, name
-        )
-        return OrchestratorResult(
-            text=f"⚙️ Delegated to background task.\nYou can continue chatting — "
-            f"the result will arrive when ready.",
+            model_override=directives.model,
         )
 
     def _register_commands(self) -> None:
