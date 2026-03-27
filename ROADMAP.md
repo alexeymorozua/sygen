@@ -12,7 +12,6 @@ New ideas will be added as they emerge.
 | Full Rebrand | 1.0.0 | Complete rebrand across entire codebase (213 files), no backward compat |
 | PyPI Release | 1.0.0 | `pip install sygen`, auto-publish on GitHub release |
 | ClawHub Skill Marketplace | 1.0.0 | Browse/install community skills with security scanning (static + VirusTotal) |
-| Multi-Model Routing | 1.0.0 | Auto model selection by task complexity via API classifier |
 | MCP Integration | 1.0.0 | Native MCP client — MCPClient, MCPManager, ToolRouter, `/mcp` command |
 | CI/CD | 1.0.0 | GitHub Actions, pytest on Python 3.11/3.12/3.13, 3500+ tests |
 | Cost Tracking | core | Per-session cost/token tracking, `/status` display, budget limits (`max_budget_usd`) |
