@@ -38,15 +38,18 @@ logger = logging.getLogger(__name__)
 
 
 def _save_cron_result(paths: SygenPaths, title: str, result: str, status: str) -> None:
-    """Save the latest cron result to a buffer file for agent context."""
+    """Save cron result to a per-job buffer file for agent context."""
     try:
+        results_dir = paths.cron_results_dir
+        results_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in title)
+        file_path = results_dir / f"{safe_name}.md"
         content = (
-            f"# Latest Cron Result\n\n"
             f"**Job:** {title}\n"
             f"**Status:** {status}\n\n"
             f"{result.strip()}\n"
         )
-        paths.cron_results_path.write_text(content, encoding="utf-8")
+        file_path.write_text(content, encoding="utf-8")
     except OSError:
         logger.warning("Failed to save cron result buffer", exc_info=True)
 

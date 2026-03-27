@@ -27,14 +27,28 @@ def read_mainmemory(paths: SygenPaths) -> str:
 
 
 def read_cron_results(paths: SygenPaths) -> str:
-    """Read latest cron result buffer, returning empty string if missing."""
-    return read_file(paths.cron_results_path) or ""
+    """Read all per-job cron result buffers, returning empty string if none."""
+    results_dir = paths.cron_results_dir
+    if not results_dir.is_dir():
+        return ""
+    parts: list[str] = []
+    for md_file in sorted(results_dir.glob("*.md")):
+        content = read_file(md_file)
+        if content and content.strip():
+            parts.append(content.strip())
+    if not parts:
+        return ""
+    return "# Latest Cron Results\n\n" + "\n\n---\n\n".join(parts)
 
 
 def clear_cron_results(paths: SygenPaths) -> None:
-    """Remove the cron results buffer file."""
+    """Remove all cron result buffer files."""
+    results_dir = paths.cron_results_dir
+    if not results_dir.is_dir():
+        return
     try:
-        paths.cron_results_path.unlink(missing_ok=True)
+        for md_file in results_dir.glob("*.md"):
+            md_file.unlink(missing_ok=True)
     except OSError:
         logger.warning("Failed to clear cron results buffer", exc_info=True)
 
