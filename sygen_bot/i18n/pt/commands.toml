@@ -18,6 +18,11 @@ diagnose = "Diagnóstico do sistema"
 upgrade = "Verificar atualizações"
 restart = "Reiniciar bot"
 
+where = "Chats rastreados"
+leave = "Sair de um grupo"
+mcp = "Gerenciar MCP"
+skill = "Mercado de skills"
+
 [multiagent]
 agents = "Listar todos os agentes"
 agent_start = "Iniciar sub-agente"

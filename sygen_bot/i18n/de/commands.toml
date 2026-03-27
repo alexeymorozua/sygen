@@ -18,6 +18,11 @@ diagnose = "System-Diagnose"
 upgrade = "Nach Updates suchen"
 restart = "Bot neustarten"
 
+where = "Verfolgte Chats"
+leave = "Gruppe verlassen"
+mcp = "MCP-Server verwalten"
+skill = "Skill-Marktplatz"
+
 [multiagent]
 agents = "Alle Agents auflisten"
 agent_start = "Sub-Agent starten"

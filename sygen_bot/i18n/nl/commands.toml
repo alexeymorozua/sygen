@@ -18,6 +18,11 @@ diagnose = "Systeemdiagnose"
 upgrade = "Controleer op updates"
 restart = "Bot herstarten"
 
+where = "Gevolgde chats"
+leave = "Groep verlaten"
+mcp = "MCP-server beheren"
+skill = "Skill-marktplaats"
+
 [multiagent]
 agents = "Alle agents tonen"
 agent_start = "Sub-agent starten"
