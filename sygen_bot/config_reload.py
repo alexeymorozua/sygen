@@ -56,6 +56,7 @@ _HOT_RELOADABLE: frozenset[str] = frozenset(
         "allowed_group_ids",
         "group_mention_only",
         "scene",
+        "routing",
         "image",
         "language",
         "mcp",

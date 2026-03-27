@@ -215,6 +215,8 @@ async def shutdown(orch: Orchestrator) -> None:
         await orch._api_stop()
     if orch._mcp_manager is not None:
         await orch._mcp_manager.stop()
+    if orch._model_router is not None:
+        await orch._model_router.close()
     await asyncio.to_thread(cleanup_ductor_links, orch._paths)
     await orch._observers.stop_all()
     if orch._docker:
