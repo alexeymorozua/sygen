@@ -21,7 +21,7 @@ sygen routes chat input to official provider CLIs (`claude`, `codex`, `gemini`),
 15. `docs/modules/cli_commands.md` -- CLI command split from `__main__.py`.
 16. `docs/modules/workspace.md` -- `~/.sygen` seeding, rules sync, skill sync.
 17. `docs/modules/multiagent.md` -- supervisor, bus bridge, sub-agent runtime.
-18. Remaining module docs (`background`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `files`, `text`, `skill_system`).
+18. Remaining module docs (`background`, `cron`, `webhook`, `heartbeat`, `cleanup`, `infra`, `supervisor`, `security`, `logging`, `files`, `text`, `skill_system`, `mcp`, `skill_marketplace`, `ci_cd`).
 
 ## System in 60 Seconds
 
@@ -86,3 +86,6 @@ Runtime behavior notes:
   - [multiagent](modules/multiagent.md)
   - [security](modules/security.md)
   - [logging](modules/logging.md)
+  - [mcp](modules/mcp.md)
+  - [skill_marketplace](modules/skill_marketplace.md)
+  - [ci_cd](modules/ci_cd.md)
