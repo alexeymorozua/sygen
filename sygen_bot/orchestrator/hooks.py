@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +19,27 @@ class HookContext:
     is_new_session: bool
     provider: str
     model: str
+    memory_modules_dir: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MessageHook:
-    """A named hook that appends text to the prompt when its condition is met."""
+    """A named hook that appends text to the prompt when its condition is met.
+
+    Either *suffix* (static text) or *suffix_fn* (dynamic, receives HookContext)
+    must be provided.  When both are set, *suffix_fn* takes precedence.
+    """
 
     name: str
     condition: Callable[[HookContext], bool]
-    suffix: str
+    suffix: str = ""
+    suffix_fn: Callable[[HookContext], str] | None = None
+
+    def resolve_suffix(self, ctx: HookContext) -> str:
+        """Return the suffix text, using *suffix_fn* when available."""
+        if self.suffix_fn is not None:
+            return self.suffix_fn(ctx)
+        return self.suffix
 
 
 class MessageHookRegistry:
@@ -46,7 +59,7 @@ class MessageHookRegistry:
         for hook in self._hooks:
             if hook.condition(ctx):
                 logger.info("Hook fired: %s msgs=%d", hook.name, ctx.message_count)
-                suffixes.append(hook.suffix)
+                suffixes.append(hook.resolve_suffix(ctx))
         if not suffixes:
             return prompt
         return prompt + "\n\n" + "\n\n".join(suffixes)
@@ -83,21 +96,65 @@ def _is_delegation_reminder_due(ctx: HookContext) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Memory module size check
+# ---------------------------------------------------------------------------
+
+_MODULE_LINE_LIMIT = 80
+
+
+def _check_module_sizes(modules_dir: Path | None) -> str:
+    """Scan memory modules and return warnings for oversized files."""
+    if modules_dir is None or not modules_dir.is_dir():
+        return ""
+    warnings: list[str] = []
+    for md_file in sorted(modules_dir.glob("*.md")):
+        try:
+            line_count = len(md_file.read_text(encoding="utf-8").splitlines())
+        except OSError:
+            continue
+        if line_count > _MODULE_LINE_LIMIT:
+            warnings.append(
+                f"- `{md_file.name}`: {line_count} lines (limit {_MODULE_LINE_LIMIT})"
+            )
+    return "\n".join(warnings)
+
+
+# ---------------------------------------------------------------------------
 # Built-in hooks
 # ---------------------------------------------------------------------------
 
-MAINMEMORY_REMINDER = MessageHook(
-    name="mainmemory_reminder",
-    condition=every_n_messages(6),
-    suffix=(
+
+def _mainmemory_condition(ctx: HookContext) -> bool:
+    return every_n_messages(6)(ctx)
+
+
+def _mainmemory_suffix(ctx: HookContext) -> str:
+    """Build MEMORY CHECK suffix with dynamic module size warnings."""
+    base = (
         "## MEMORY CHECK\n"
-        "Silently review: memory_system/MAINMEMORY.md, user_tools/, cron_tasks/.\n"
+        "Review: memory_system/MAINMEMORY.md, user_tools/, cron_tasks/.\n"
         "Compare what you already know with this conversation so far.\n"
         "If something important is missing from memory (personality, preferences, "
-        "decisions, facts) -- update MAINMEMORY.md silently.\n"
+        "decisions, facts) -- update MAINMEMORY.md.\n"
         "If you notice a gap that only the user can fill, ask ONE natural follow-up "
-        "question that fits the current conversation. Do not interrogate."
-    ),
+        "question that fits the current conversation. Do not interrogate.\n"
+        "IMPORTANT: Always respond to the user with text, even if your main action "
+        "was a memory update."
+    )
+    size_warnings = _check_module_sizes(ctx.memory_modules_dir)
+    if size_warnings:
+        base += (
+            f"\n\n**Memory modules over {_MODULE_LINE_LIMIT}-line limit — "
+            "consolidate now (deduplicate, remove stale entries, merge related items):**\n"
+            + size_warnings
+        )
+    return base
+
+
+MAINMEMORY_REMINDER = MessageHook(
+    name="mainmemory_reminder",
+    condition=_mainmemory_condition,
+    suffix_fn=_mainmemory_suffix,
 )
 
 DELEGATION_BRIEF = MessageHook(
@@ -129,8 +186,10 @@ MEMORY_REFLECTION = MessageHook(
         "Check: were there any new decisions, corrections, error solutions, "
         "user preferences, or important facts that you did NOT yet write to "
         "memory_system/MAINMEMORY.md?\n"
-        "If yes — update MAINMEMORY.md now, silently.\n"
-        "If everything is already recorded — do nothing."
+        "If yes — update MAINMEMORY.md now.\n"
+        "If everything is already recorded — do nothing.\n"
+        "IMPORTANT: Always respond to the user with text, even if your main action "
+        "was a memory update."
     ),
 )
 

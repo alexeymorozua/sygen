@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -11,6 +12,8 @@ from sygen_bot.orchestrator.core import Orchestrator
 from sygen_bot.orchestrator.flows import normal
 from sygen_bot.orchestrator.hooks import (
     MAINMEMORY_REMINDER,
+    _MODULE_LINE_LIMIT,
+    _check_module_sizes,
     HookContext,
     MessageHook,
     MessageHookRegistry,
@@ -109,8 +112,80 @@ class TestMainmemoryReminder:
         assert MAINMEMORY_REMINDER.condition(_ctx(message_count=4)) is False
 
     def test_suffix_contains_key_phrases(self) -> None:
-        assert "MAINMEMORY.md" in MAINMEMORY_REMINDER.suffix
-        assert "MEMORY CHECK" in MAINMEMORY_REMINDER.suffix
+        ctx = _ctx(message_count=5)
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
+        assert "MAINMEMORY.md" in resolved
+        assert "MEMORY CHECK" in resolved
+        assert "Always respond to the user" in resolved
+
+
+class TestSuffixFn:
+    def test_suffix_fn_takes_precedence(self) -> None:
+        hook = MessageHook(
+            name="test",
+            condition=lambda _: True,
+            suffix="static",
+            suffix_fn=lambda ctx: "dynamic",
+        )
+        assert hook.resolve_suffix(_ctx()) == "dynamic"
+
+    def test_falls_back_to_suffix(self) -> None:
+        hook = MessageHook(name="test", condition=lambda _: True, suffix="static")
+        assert hook.resolve_suffix(_ctx()) == "static"
+
+    def test_registry_uses_resolve_suffix(self) -> None:
+        reg = MessageHookRegistry()
+        reg.register(
+            MessageHook(
+                name="dyn",
+                condition=lambda _: True,
+                suffix_fn=lambda ctx: f"count={ctx.message_count}",
+            )
+        )
+        result = reg.apply("hello", _ctx(message_count=42))
+        assert "count=42" in result
+
+
+class TestCheckModuleSizes:
+    def test_no_dir_returns_empty(self) -> None:
+        assert _check_module_sizes(None) == ""
+        assert _check_module_sizes(Path("/nonexistent")) == ""
+
+    def test_under_limit_returns_empty(self, tmp_path: Path) -> None:
+        (tmp_path / "small.md").write_text("line\n" * 50)
+        assert _check_module_sizes(tmp_path) == ""
+
+    def test_over_limit_returns_warning(self, tmp_path: Path) -> None:
+        (tmp_path / "big.md").write_text("line\n" * 100)
+        result = _check_module_sizes(tmp_path)
+        assert "big.md" in result
+        assert "100 lines" in result
+        assert f"limit {_MODULE_LINE_LIMIT}" in result
+
+    def test_multiple_files(self, tmp_path: Path) -> None:
+        (tmp_path / "ok.md").write_text("line\n" * 50)
+        (tmp_path / "big1.md").write_text("line\n" * 90)
+        (tmp_path / "big2.md").write_text("line\n" * 120)
+        result = _check_module_sizes(tmp_path)
+        assert "big1.md" in result
+        assert "big2.md" in result
+        assert "ok.md" not in result
+
+    def test_mainmemory_hook_includes_size_warning(self, tmp_path: Path) -> None:
+        (tmp_path / "decisions.md").write_text("line\n" * 150)
+        ctx = _ctx(message_count=5)
+        ctx_with_dir = HookContext(
+            chat_id=ctx.chat_id,
+            message_count=ctx.message_count,
+            is_new_session=ctx.is_new_session,
+            provider=ctx.provider,
+            model=ctx.model,
+            memory_modules_dir=tmp_path,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx_with_dir)
+        assert "consolidate now" in resolved
+        assert "decisions.md" in resolved
+        assert "150 lines" in resolved
 
 
 # ---------------------------------------------------------------------------
