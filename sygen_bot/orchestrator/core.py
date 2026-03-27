@@ -54,6 +54,7 @@ from sygen_bot.orchestrator.hooks import (
     MessageHookRegistry,
 )
 from sygen_bot.orchestrator.observers import ObserverManager
+from sygen_bot.routing import MessageClassifier, ModelRouter
 from sygen_bot.orchestrator.providers import ProviderManager
 from sygen_bot.orchestrator.registry import CommandRegistry, OrchestratorResult
 from sygen_bot.security import detect_suspicious_patterns
@@ -183,12 +184,37 @@ class Orchestrator:
         self._hook_registry.register(MEMORY_REFLECTION)
         self._hook_registry.register(DELEGATION_BRIEF)
         self._hook_registry.register(DELEGATION_REMINDER)
+        self._model_router: ModelRouter | None = self._build_model_router()
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
         self._task_hub: TaskHub | None = None  # Set by supervisor or __main__.py
         self._mcp_manager: MCPManager | None = None
         self._tool_router: ToolRouter | None = None
         self._command_registry = CommandRegistry()
         self._register_commands()
+
+    def _build_model_router(self) -> ModelRouter | None:
+        """Create a ModelRouter if routing is enabled and configured."""
+        rc = self._config.routing
+        if rc.enabled and rc.api_key:
+            classifier = MessageClassifier(rc)
+            return ModelRouter(rc, classifier)
+        return None
+
+    def _rebuild_model_router(self) -> None:
+        """Tear down and recreate the model router after config change."""
+        import asyncio
+
+        if self._model_router is not None:
+            task = asyncio.create_task(self._model_router.close())
+            task.add_done_callback(lambda _: None)
+        self._model_router = self._build_model_router()
+        state = "enabled" if self._model_router else "disabled"
+        logger.info("Model router %s via hot-reload", state)
+
+    @property
+    def model_router(self) -> ModelRouter | None:
+        """Public access to the model router (None when routing is disabled)."""
+        return self._model_router
 
     @property
     def paths(self) -> DuctorPaths:
@@ -667,6 +693,9 @@ class Orchestrator:
         if "mcp" in hot:
             task = asyncio.create_task(self._apply_mcp_hot_reload(config))
             task.add_done_callback(lambda _: None)
+
+        if "routing" in hot:
+            self._rebuild_model_router()
 
         handler = getattr(self, "_config_hot_reload_handler", None)
         if handler is not None:

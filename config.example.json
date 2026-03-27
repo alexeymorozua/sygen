@@ -163,6 +163,18 @@
         "quality": 85
     },
 
+    "routing": {
+        "enabled": false,
+        "api_key": "",
+        "classifier_provider": "anthropic",
+        "classifier_model": "claude-haiku-4-5-20251001",
+        "tiers": {
+            "claude": { "light": "haiku", "medium": "sonnet", "heavy": "opus" },
+            "codex": { "light": "gpt-4o-mini", "medium": "gpt-4o", "heavy": "o3" },
+            "gemini": { "light": "flash", "medium": "pro", "heavy": "pro" }
+        }
+    },
+
     "scene": {
         "reaction_style": "seen",
         "technical_footer": false

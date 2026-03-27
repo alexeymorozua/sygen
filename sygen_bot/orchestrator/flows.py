@@ -65,6 +65,13 @@ async def _prepare_normal(
 
     Returns (request, session) so the caller can update the session after the CLI call.
     """
+    # Automatic routing: only when user did NOT set an explicit @model directive.
+    if model_override is None and orch._model_router is not None:
+        current_provider = orch._config.provider
+        routed = await orch._model_router.resolve_model(text, current_provider)
+        if routed is not None:
+            model_override = routed
+
     requested_model = model_override or orch._config.model
     req_model, req_provider = orch.resolve_runtime_target(requested_model)
 
