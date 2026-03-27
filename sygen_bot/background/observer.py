@@ -8,6 +8,7 @@ import logging
 import secrets
 import time
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sygen_bot.background.models import BackgroundResult, BackgroundSubmit, BackgroundTask
@@ -35,10 +36,14 @@ class BackgroundObserver:
         *,
         timeout_seconds: float,
         cli_service: CLIService | None = None,
+        trace_retention_days: int = 30,
+        trace_max_files: int = 1000,
     ) -> None:
         self._paths = paths
         self._timeout_seconds = timeout_seconds
         self._cli_service = cli_service
+        self._trace_retention_days = trace_retention_days
+        self._trace_max_files = trace_max_files
         self._on_result: BgResultCallback | None = None
         self._tasks: dict[str, BackgroundTask] = {}
 
@@ -134,20 +139,20 @@ class BackgroundObserver:
             )
 
             elapsed = time.monotonic() - t0
-            await self._deliver(
-                BackgroundResult(
-                    task_id=bg_task.task_id,
-                    chat_id=bg_task.chat_id,
-                    message_id=bg_task.message_id,
-                    thread_id=bg_task.thread_id,
-                    prompt_preview=bg_task.prompt[:60],
-                    result_text=result.result_text,
-                    status="error:cli_not_found" if result.execution is None else result.status,
-                    elapsed_seconds=elapsed,
-                    provider=bg_task.provider,
-                    model=bg_task.model,
-                )
+            bg_result = BackgroundResult(
+                task_id=bg_task.task_id,
+                chat_id=bg_task.chat_id,
+                message_id=bg_task.message_id,
+                thread_id=bg_task.thread_id,
+                prompt_preview=bg_task.prompt[:60],
+                result_text=result.result_text,
+                status="error:cli_not_found" if result.execution is None else result.status,
+                elapsed_seconds=elapsed,
+                provider=bg_task.provider,
+                model=bg_task.model,
             )
+            await self._deliver(bg_result)
+            self._record_trace(bg_task, bg_result)
         except asyncio.CancelledError:
             elapsed = time.monotonic() - t0
             with contextlib.suppress(Exception):
@@ -212,22 +217,22 @@ class BackgroundObserver:
                 if response.timed_out:
                     status = "error:timeout"
 
-            await self._deliver(
-                BackgroundResult(
-                    task_id=bg_task.task_id,
-                    chat_id=bg_task.chat_id,
-                    message_id=bg_task.message_id,
-                    thread_id=bg_task.thread_id,
-                    prompt_preview=bg_task.prompt[:60],
-                    result_text=response.result or "",
-                    status=status,
-                    elapsed_seconds=elapsed,
-                    provider=bg_task.provider,
-                    model=bg_task.model,
-                    session_name=bg_task.session_name,
-                    session_id=response.session_id or "",
-                )
+            bg_result = BackgroundResult(
+                task_id=bg_task.task_id,
+                chat_id=bg_task.chat_id,
+                message_id=bg_task.message_id,
+                thread_id=bg_task.thread_id,
+                prompt_preview=bg_task.prompt[:60],
+                result_text=response.result or "",
+                status=status,
+                elapsed_seconds=elapsed,
+                provider=bg_task.provider,
+                model=bg_task.model,
+                session_name=bg_task.session_name,
+                session_id=response.session_id or "",
             )
+            await self._deliver(bg_result)
+            self._record_trace(bg_task, bg_result)
         except asyncio.CancelledError:
             elapsed = time.monotonic() - t0
             with contextlib.suppress(Exception):
@@ -268,6 +273,29 @@ class BackgroundObserver:
                         session_name=bg_task.session_name,
                     )
                 )
+
+    def _record_trace(self, bg_task: BackgroundTask, result: BackgroundResult) -> None:
+        from sygen_bot.observability.recorder import record_trace
+
+        now = datetime.now(timezone.utc)
+        started = datetime.fromtimestamp(
+            time.time() - result.elapsed_seconds, tz=timezone.utc
+        )
+        record_trace(
+            self._paths.logs_dir,
+            trace_type="task",
+            name=bg_task.session_name or bg_task.task_id,
+            started=started,
+            finished=now,
+            duration_sec=result.elapsed_seconds,
+            status=result.status,
+            provider=result.provider,
+            model=result.model,
+            error=result.status if result.status != "ok" and not result.status.startswith("ok") else None,
+            summary=result.result_text[:200] if result.result_text else None,
+            retention_days=self._trace_retention_days,
+            max_files=self._trace_max_files,
+        )
 
     async def _deliver(self, result: BackgroundResult) -> None:
         if self._on_result is None:

@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
+import time
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from sygen_bot.cli.param_resolver import TaskOverrides
@@ -143,6 +145,9 @@ class WebhookObserver(BaseTaskObserver):
         safe_prompt = f"{_SAFETY_START}\n{rendered}\n{_SAFETY_END}"
 
         logger.info("Webhook dispatch starting hook=%s mode=%s", hook_id, hook.mode)
+        t0 = time.monotonic()
+        provider = hook.provider or self._config.provider
+        model = hook.model or self._config.model
         try:
             if hook.mode == "wake":
                 result = await self._dispatch_wake(hook_id, hook.title, safe_prompt)
@@ -174,6 +179,11 @@ class WebhookObserver(BaseTaskObserver):
         except Exception:
             logger.exception("Webhook dispatch error hook=%s", hook_id)
             self._manager.record_trigger(hook_id, error="error:exception")
+            elapsed = time.monotonic() - t0
+            self._record_trace(
+                name=hook.title, elapsed=elapsed, status="error:exception",
+                result_text="", provider=provider, model=model,
+            )
             return WebhookResult(
                 hook_id=hook_id,
                 hook_title=hook.title,
@@ -182,10 +192,16 @@ class WebhookObserver(BaseTaskObserver):
                 status="error:exception",
             )
 
+        elapsed = time.monotonic() - t0
         logger.info("Webhook dispatch completed hook=%s status=%s", hook_id, result.status)
 
         error = result.status if result.status != "success" else None
         self._manager.record_trigger(hook_id, error=error)
+
+        self._record_trace(
+            name=result.hook_title, elapsed=elapsed, status=result.status,
+            result_text=result.result_text, provider=provider, model=model,
+        )
 
         if self._on_result:
             try:
@@ -196,6 +212,36 @@ class WebhookObserver(BaseTaskObserver):
                 logger.exception("Webhook result handler error hook=%s", hook_id)
 
         return result
+
+    def _record_trace(
+        self,
+        *,
+        name: str,
+        elapsed: float,
+        status: str,
+        result_text: str,
+        provider: str,
+        model: str,
+    ) -> None:
+        from sygen_bot.observability.recorder import record_trace
+
+        now = datetime.now(timezone.utc)
+        started = datetime.fromtimestamp(time.time() - elapsed, tz=timezone.utc)
+        record_trace(
+            self._paths.logs_dir,
+            trace_type="webhook",
+            name=name,
+            started=started,
+            finished=now,
+            duration_sec=elapsed,
+            status=status,
+            provider=provider,
+            model=model,
+            error=status if status not in ("success", "ok") else None,
+            summary=result_text[:200] if result_text else None,
+            retention_days=self._config.trace_retention_days,
+            max_files=self._config.trace_max_files,
+        )
 
     async def _dispatch_wake(
         self,

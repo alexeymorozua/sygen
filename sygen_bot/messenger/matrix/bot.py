@@ -662,7 +662,7 @@ class MatrixBot:
             f"**{t('help.cat_automation')}**\n{_line('session')}\n{_line('tasks')}\n{_line('cron')}",
             f"**{t('help.cat_multiagent')}**\n{_line('agent_commands')}\n{_line('agents')}\n"
             f"{_line('agent_start')}\n{_line('agent_stop')}\n{_line('agent_restart')}",
-            f"**{t('help.cat_browse')}**\n{_line('showfiles')}\n{_line('info')}\n{_line('help')}",
+            f"**{t('help.cat_browse')}**\n{_line('logs')}\n{_line('showfiles')}\n{_line('info')}\n{_line('help')}",
             f"**{t('help.cat_maintenance')}**\n{_line('diagnose')}\n{_line('upgrade')}\n{_line('restart')}",
             SEP,
             t("help.matrix_footer"),

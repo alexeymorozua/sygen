@@ -7,7 +7,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from cronsim import CronSim, CronSimError
@@ -381,6 +381,17 @@ class CronObserver(BaseTaskObserver):
             routing,
         )
 
+        self._record_trace(
+            name=job_title,
+            started_mono=t0,
+            elapsed_ms=elapsed_ms,
+            status=result.status,
+            result_text=result.result_text,
+            error=None,
+            provider=overrides.provider or self._config.provider,
+            model=overrides.model or self._config.model,
+        )
+
         self._manager.update_run_status(job_id, status=result.status)
         # Refresh our mtime baseline so the file-watcher doesn't treat the
         # run-status write as a user-initiated change and trigger a full
@@ -414,6 +425,41 @@ class CronObserver(BaseTaskObserver):
             job_title,
         )
         return True
+
+    def _record_trace(
+        self,
+        *,
+        name: str,
+        started_mono: float,
+        elapsed_ms: float,
+        status: str,
+        result_text: str,
+        error: str | None,
+        provider: str,
+        model: str,
+    ) -> None:
+        from sygen_bot.observability.recorder import record_trace
+
+        now = datetime.now(timezone.utc)
+        duration_sec = elapsed_ms / 1000
+        started = datetime.fromtimestamp(
+            time.time() - duration_sec, tz=timezone.utc
+        )
+        record_trace(
+            self._paths.logs_dir,
+            trace_type="cron",
+            name=name,
+            started=started,
+            finished=now,
+            duration_sec=duration_sec,
+            status=status,
+            provider=provider,
+            model=model,
+            error=error,
+            summary=result_text[:200] if result_text else None,
+            retention_days=self._config.trace_retention_days,
+            max_files=self._config.trace_max_files,
+        )
 
     async def _update_mtime(self) -> None:
         """Cache the current mtime of the jobs file."""

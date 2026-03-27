@@ -107,6 +107,54 @@ async def cmd_cron(orch: Orchestrator, _key: SessionKey, _text: str) -> Orchestr
     return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 
+async def cmd_logs(orch: Orchestrator, _key: SessionKey, text: str) -> OrchestratorResult:
+    """Handle /logs [subcommand]."""
+    from datetime import datetime, timedelta, timezone
+
+    from sygen_bot.observability.recorder import Trace, read_traces
+
+    parts = text.split(None, 1)
+    sub = parts[1].strip() if len(parts) > 1 else ""
+
+    kwargs: dict[str, object] = {"limit": 10}
+    header = "📋 Recent traces"
+
+    if sub == "cron":
+        kwargs["trace_type"] = "cron"
+        header = "📋 Recent cron traces"
+    elif sub == "tasks":
+        kwargs["trace_type"] = "task"
+        header = "📋 Recent task traces"
+    elif sub == "errors":
+        kwargs["errors_only"] = True
+        kwargs["since"] = datetime.now(timezone.utc) - timedelta(hours=24)
+        header = "⚠️ Errors (last 24h)"
+    elif sub:
+        kwargs["name"] = sub
+        header = f"📋 Traces: {sub}"
+
+    traces: list[Trace] = await asyncio.to_thread(
+        read_traces, orch.paths.logs_dir, **kwargs  # type: ignore[arg-type]
+    )
+
+    if not traces:
+        return OrchestratorResult(text=f"{header}\n\nNo traces found.")
+
+    lines = [header, ""]
+    for tr in traces:
+        icon = {"ok": "✅", "error": "❌", "timeout": "⏱", "aborted": "🚫"}.get(tr.status, "❓")
+        lines.append(f"{icon} <b>{tr.name}</b>")
+        lines.append(f"   {tr.type} · {tr.status} · {tr.duration_sec}s · {tr.provider}/{tr.model}")
+        lines.append(f"   {tr.started}")
+        if tr.error and sub == "errors":
+            lines.append(f"   ⚠️ {tr.error}")
+        if tr.summary:
+            lines.append(f"   → {tr.summary[:100]}")
+        lines.append("")
+
+    return OrchestratorResult(text="\n".join(lines))
+
+
 async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /upgrade: pull latest changes from git."""
     logger.info("Upgrade check requested")
