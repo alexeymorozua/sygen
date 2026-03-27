@@ -5,9 +5,6 @@
 ### AutoMemory Consolidation
 Programmatic memory deduplication, contradiction detection, and staleness pruning. Cron-based cleanup tasks exist; goal is automated algorithms in core.
 
-### Web Dashboard
-Admin panel for bot management — logs, config editing, cron/webhook monitoring.
-
 ### Discord Channel
 Discord as an additional messaging transport.
 
