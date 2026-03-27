@@ -2,14 +2,6 @@
 
 Based on competitor research (OpenClaw, ClaudeClaw, Goose, Aider, Cursor, Devin — 15 projects analyzed, 2026-03-26).
 
-## High Priority
-
-### PyPI Public Release
-Publish Sygen to PyPI for `pip install sygen`.
-- Register account on pypi.org
-- Auto-update system already configured (version.py + UpdateObserver)
-- Needs: PyPI account, decide on public vs private release
-
 ## Medium Priority
 
 ### Web Dashboard (Admin Panel)
@@ -62,6 +54,7 @@ Allow users to drop custom tools into a `plugins/` directory with auto-discovery
 | Issue #75 Fix | 2026-03-27 | Cancel orphaned asyncio Tasks in cron reschedule — prevents double job execution |
 | Multi-Model Routing | 2026-03-27 | Auto model selection by complexity via API classifier (Anthropic/OpenAI/Google). Optional, off by default. `sygen_bot/routing/`, 28 tests |
 | ClawHub Skill Marketplace | 2026-03-27 | Browse/install community skills from OpenClaw's ClawHub with security scanning (static analysis + VirusTotal). `/skill` command, `sygen_bot/skills/`, 63 tests |
+| PyPI Public Release | 2026-03-27 | Published as `sygen` v1.0.0 on pypi.org. GitHub Actions auto-publish workflow on release. `pip install sygen` |
 
 ## Evaluated & Rejected
 
