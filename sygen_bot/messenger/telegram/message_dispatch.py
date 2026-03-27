@@ -122,8 +122,58 @@ async def run_streaming_message(
     dispatch: StreamingDispatch,
 ) -> str:
     """Execute one streaming turn and deliver text/files to Telegram."""
-    logger.info("Streaming flow started")
+    buffered = dispatch.streaming_cfg.buffered
+    logger.info("Streaming flow started buffered=%s", buffered)
 
+    style = (dispatch.scene_config.reaction_style if dispatch.scene_config else "off")
+    is_detailed = style == "detailed"
+    msg = dispatch.message
+
+    if buffered:
+        # Buffered mode: collect text internally, only send reactions,
+        # then deliver the full response as one message at the end.
+        text_buffer: list[str] = []
+
+        async def on_text(delta: str) -> None:
+            text_buffer.append(delta)
+
+        async def on_tool(tool_name: str) -> None:
+            if is_detailed:
+                await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI["tool"])
+
+        async def on_system(status: str | None) -> None:
+            if is_detailed and status and status in _STATUS_EMOJI:
+                await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI[status])
+
+        async with TypingContext(dispatch.bot, dispatch.key.chat_id, thread_id=dispatch.thread_id):
+            result = await dispatch.orchestrator.handle_message_streaming(
+                dispatch.key,
+                dispatch.text,
+                on_text_delta=on_text,
+                on_tool_activity=on_tool,
+                on_system_status=on_system,
+            )
+
+        if style != "off":
+            await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI["done"])
+
+        footer = _build_footer(result, dispatch.scene_config)
+        result.text += footer
+        await send_rich(
+            dispatch.bot,
+            dispatch.key.chat_id,
+            result.text,
+            SendRichOpts(
+                reply_to_message_id=dispatch.message.message_id,
+                allowed_roots=dispatch.allowed_roots,
+                thread_id=dispatch.thread_id,
+            ),
+        )
+
+        logger.info("Streaming buffered flow completed")
+        return result.text
+
+    # Non-buffered (default): stream text to Telegram in real-time.
     editor = create_stream_editor(
         dispatch.bot,
         dispatch.key.chat_id,
@@ -140,10 +190,6 @@ async def run_streaming_message(
         ),
         on_flush=editor.append_text,
     )
-
-    style = (dispatch.scene_config.reaction_style if dispatch.scene_config else "off")
-    is_detailed = style == "detailed"
-    msg = dispatch.message
 
     async def on_text(delta: str) -> None:
         await coalescer.feed(delta)
