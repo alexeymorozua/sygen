@@ -2,7 +2,7 @@
 
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://python.org)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/alexeymorozua?label=Sponsor&logo=GitHub)](https://github.com/sponsors/alexeymorozua)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/timedesign)
 
 **AI assistant framework** with multi-agent orchestration, background tasks, and persistent memory.
 
