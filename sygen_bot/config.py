@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -245,8 +246,15 @@ class RoutingConfig(BaseModel):
     enabled: bool = True
     auto_delegate: bool = True
     api_key: str = ""
+    api_key_env: str = ""
     classifier_provider: str = "anthropic"  # anthropic, openai, google
     classifier_model: str = "claude-haiku-4-5-20251001"
+
+    @model_validator(mode="after")
+    def _resolve_api_key_from_env(self) -> RoutingConfig:
+        if not self.api_key and self.api_key_env:
+            self.api_key = os.environ.get(self.api_key_env, "")
+        return self
     tiers: dict[str, RoutingTierConfig] = Field(
         default_factory=lambda: {
             "claude": RoutingTierConfig(light="haiku", medium="sonnet", heavy="opus"),
