@@ -196,5 +196,10 @@
         "timeout_seconds": 7200.0
     },
 
+    "skill_marketplace": {
+        "enabled": false,
+        "virustotal_api_key": null
+    },
+
     "interagent_port": 8799
 }
