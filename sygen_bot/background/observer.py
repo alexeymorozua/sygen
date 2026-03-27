@@ -38,12 +38,14 @@ class BackgroundObserver:
         cli_service: CLIService | None = None,
         trace_retention_days: int = 30,
         trace_max_files: int = 1000,
+        agent_name: str = "",
     ) -> None:
         self._paths = paths
         self._timeout_seconds = timeout_seconds
         self._cli_service = cli_service
         self._trace_retention_days = trace_retention_days
         self._trace_max_files = trace_max_files
+        self._agent_name = agent_name
         self._on_result: BgResultCallback | None = None
         self._tasks: dict[str, BackgroundTask] = {}
 
@@ -295,6 +297,7 @@ class BackgroundObserver:
             summary=result.result_text[:200] if result.result_text else None,
             retention_days=self._trace_retention_days,
             max_files=self._trace_max_files,
+            agent_name=self._agent_name,
         )
 
     async def _deliver(self, result: BackgroundResult) -> None:
