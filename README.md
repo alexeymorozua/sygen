@@ -49,6 +49,12 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Cron scheduler** — recurring tasks with timezone support
 - **Webhook server** — HTTP endpoints that trigger agent actions
 - **Docker sandbox** — optional secure execution for untrusted code
+- **Silent output** — `[SILENT]` marker lets cron/webhook tasks suppress delivery when nothing to report
+
+### Observability
+- **Execution traces** — every cron, task, and webhook run is logged to SQLite (`traces.db`)
+- **`/logs` command** — view recent traces, filter by type (`/logs cron`), errors (`/logs errors`), or name
+- **Auto-rotation** — traces older than 30 days cleaned up automatically, no maintenance needed
 
 ### Built-in Tools (Defaults)
 - **Web search** — Perplexity Sonar (primary) + DuckDuckGo (fallback, no API key needed)
@@ -60,6 +66,7 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Quick notes** — structured idea capture template
 
 ### UX
+- **Mobile-friendly tables** — Markdown tables are auto-converted to grouped lists for Telegram readability
 - **Emoji status reactions** — three modes:
   - `off` — no reactions
   - `seen` (default) — 👀 on receipt, ✅ on completion

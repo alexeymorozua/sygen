@@ -119,6 +119,32 @@ class TestMarkdownToTelegramHTML:
         assert "Price: $2.99" in result
         assert "<pre>" not in result
 
+    def test_table_multiple_rows(self) -> None:
+        from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
+
+        md = "| Name | Price | Rating |\n|---|---|---|\n| Spotify | $9.99 | 4.8 |\n| Netflix | $15.49 | 4.5 |"
+        result = markdown_to_telegram_html(md)
+        assert "<b>Spotify</b>" in result
+        assert "<b>Netflix</b>" in result
+        assert "Price: $9.99" in result
+        assert "Rating: 4.5" in result
+
+    def test_table_header_only_no_crash(self) -> None:
+        from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
+
+        md = "| A | B | C |\n|---|---|---|"
+        result = markdown_to_telegram_html(md)
+        assert "A" in result
+
+    def test_table_with_surrounding_text(self) -> None:
+        from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
+
+        md = "Results:\n\n| Item | Cost |\n|---|---|\n| Book | $10 |\n\nDone."
+        result = markdown_to_telegram_html(md)
+        assert "Results:" in result
+        assert "<b>Book</b>" in result
+        assert "Done." in result
+
     def test_nested_bold_inside_heading(self) -> None:
         from sygen_bot.messenger.telegram.formatting import markdown_to_telegram_html
 
