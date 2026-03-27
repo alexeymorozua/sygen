@@ -64,11 +64,10 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Inline buttons** — quick-reply buttons in Telegram messages
 
 ### Maintenance (Out of the Box)
-Four maintenance crons ship enabled by default:
+Three maintenance crons ship enabled by default:
 - **Weekly cleanup** — remove one-shot crons, orphaned sessions, old temp files (Sunday 10:00)
-- **Monthly memory cleanup** — deduplicate and merge memory entries (15th, 10:00)
-- **Monthly memory review** — deep audit for contradictions and staleness (1st, 10:00)
 - **Daily security audit** — check tokens, file permissions, disk usage, bot health (08:00)
+- **Real-time memory consolidation** — module size enforcement (120-line limit) via hook system, no cron needed
 
 All crons inherit provider and model from user config — works with Claude, Gemini, or any supported backend.
 
@@ -230,7 +229,7 @@ Sygen does not hardcode any AI provider or model in defaults. All crons, tools, 
 ## Updates
 
 ```bash
-/upgrade          # pulls latest from GitHub (git pull --ff-only)
+pip install --upgrade sygen
 ```
 
 ## License

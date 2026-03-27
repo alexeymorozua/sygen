@@ -2,7 +2,7 @@
 
 > AI assistant framework with multi-agent orchestration, background tasks, and persistent memory. Executes official provider CLIs (`claude`, `codex`, `gemini`) as subprocesses, supports optional direct WebSocket API transport, streams responses, persists per-chat/provider state, and runs automation (cron, webhook, heartbeat, cleanup) in-process.
 
-Sygen is a Python service that routes user input to official CLI tools instead of SDK proxy layers. Based on Ductor, developed independently. Core principle: keep runtime state inspectable and local (`~/.ductor/`) with JSON/Markdown files and minimal hidden state.
+Sygen is a Python service that routes user input to official CLI tools instead of SDK proxy layers. Core principle: keep runtime state inspectable and local (`~/.sygen/`) with JSON/Markdown files and minimal hidden state.
 
 Current stack: Python 3.11+, aiogram 3.x, matrix-nio (optional extra), aiohttp, Pydantic 2.x, asyncio.
 
@@ -21,7 +21,7 @@ Runtime supervision model:
 
 - `AgentSupervisor` is always active.
 - Main agent is mandatory.
-- Sub-agents are optional and loaded from `~/.ductor/agents.json`.
+- Sub-agents are optional and loaded from `~/.sygen/agents.json`.
 - Inter-agent communication uses in-memory bus + internal localhost HTTP bridge.
 
 ## Non-Obvious Runtime Facts
@@ -48,7 +48,7 @@ Timeout behavior (current implementation):
 
 ## Persistent State (Main Home)
 
-`~/.ductor/` typically contains:
+`~/.sygen/` typically contains:
 
 - `config/config.json`
 - `sessions.json`
@@ -63,7 +63,7 @@ Timeout behavior (current implementation):
 - `logs/agent.log`
 - `workspace/` (memory, tools, cron tasks, files, skills)
 
-Sub-agent homes live under `~/.ductor/agents/<name>/` with their own config/session/workspace state.
+Sub-agent homes live under `~/.sygen/agents/<name>/` with their own config/session/workspace state.
 
 ## Transport Surfaces
 
@@ -105,34 +105,34 @@ Current operational nuances:
 
 Start here:
 
-- [System Overview](https://github.com/PleasePrompto/ductor/blob/main/docs/system_overview.md): fastest end-to-end runtime understanding
-- [Developer Quickstart](https://github.com/PleasePrompto/ductor/blob/main/docs/developer_quickstart.md): contributor onboarding + key behavioral facts
-- [Architecture](https://github.com/PleasePrompto/ductor/blob/main/docs/architecture.md): startup sequence, routing, callbacks, background systems
-- [Configuration](https://github.com/PleasePrompto/ductor/blob/main/docs/config.md): full config schema, merge behavior, timeout matrix
-- [Service Management](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/service_management.md): systemd, launchd, Task Scheduler behavior
-- [Matrix Setup](https://github.com/PleasePrompto/ductor/blob/main/docs/matrix-setup.md): Matrix install/config/runtime caveats
+- [System Overview](https://github.com/alexeymorozua/sygen/blob/main/docs/system_overview.md): fastest end-to-end runtime understanding
+- [Developer Quickstart](https://github.com/alexeymorozua/sygen/blob/main/docs/developer_quickstart.md): contributor onboarding + key behavioral facts
+- [Architecture](https://github.com/alexeymorozua/sygen/blob/main/docs/architecture.md): startup sequence, routing, callbacks, background systems
+- [Configuration](https://github.com/alexeymorozua/sygen/blob/main/docs/config.md): full config schema, merge behavior, timeout matrix
+- [Service Management](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/service_management.md): systemd, launchd, Task Scheduler behavior
+- [Matrix Setup](https://github.com/alexeymorozua/sygen/blob/main/docs/matrix-setup.md): Matrix install/config/runtime caveats
 
 Module-level references:
 
-- [bot](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/bot.md)
-- [orchestrator](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/orchestrator.md)
-- [cli](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/cli.md)
-- [session](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/session.md)
-- [background](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/background.md)
-- [tasks](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/tasks.md)
-- [cron](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/cron.md)
-- [webhook](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/webhook.md)
-- [heartbeat](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/heartbeat.md)
-- [infra](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/infra.md)
-- [multiagent](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/multiagent.md)
-- [api](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/api.md)
-- [workspace](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/workspace.md)
-- [setup wizard / CLI commands](https://github.com/PleasePrompto/ductor/blob/main/docs/modules/setup_wizard.md)
+- [bot](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/bot.md)
+- [orchestrator](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/orchestrator.md)
+- [cli](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/cli.md)
+- [session](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/session.md)
+- [background](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/background.md)
+- [tasks](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/tasks.md)
+- [cron](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/cron.md)
+- [webhook](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/webhook.md)
+- [heartbeat](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/heartbeat.md)
+- [infra](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/infra.md)
+- [multiagent](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/multiagent.md)
+- [api](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/api.md)
+- [workspace](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/workspace.md)
+- [setup wizard / CLI commands](https://github.com/alexeymorozua/sygen/blob/main/docs/modules/setup_wizard.md)
 
 Project root docs:
 
-- [README](https://github.com/PleasePrompto/ductor/blob/main/README.md)
-- [Docs index](https://github.com/PleasePrompto/ductor/blob/main/docs/README.md)
-- [Installation](https://github.com/PleasePrompto/ductor/blob/main/docs/installation.md)
-- [Automation quickstart](https://github.com/PleasePrompto/ductor/blob/main/docs/automation.md)
-- [pyproject.toml](https://github.com/PleasePrompto/ductor/blob/main/pyproject.toml)
+- [README](https://github.com/alexeymorozua/sygen/blob/main/README.md)
+- [Docs index](https://github.com/alexeymorozua/sygen/blob/main/docs/README.md)
+- [Installation](https://github.com/alexeymorozua/sygen/blob/main/docs/installation.md)
+- [Automation quickstart](https://github.com/alexeymorozua/sygen/blob/main/docs/automation.md)
+- [pyproject.toml](https://github.com/alexeymorozua/sygen/blob/main/pyproject.toml)

@@ -51,7 +51,7 @@ body:
     id: environment
     attributes:
       label: "Environment"
-      description: "Is ductor running locally or in Docker?"
+      description: "Is sygen running locally or in Docker?"
       options:
         - Local (pip install)
         - Docker
@@ -75,9 +75,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: "ductor version"
-      description: "Run `ductor --version` or check `pip show ductor`."
-      placeholder: "e.g. 0.5.5"
+      label: "sygen version"
+      description: "Run `sygen --version` or check `pip show sygen`."
+      placeholder: "e.g. 1.0.0"
     validations:
       required: true
 
@@ -94,7 +94,7 @@ body:
     id: logs
     attributes:
       label: "Relevant log output"
-      description: "Paste logs from `ductor service logs` or `~/.ductor/logs/agent.log`."
+      description: "Paste logs from `sygen service logs` or `~/.sygen/logs/agent.log`."
       render: shell
     validations:
       required: false
