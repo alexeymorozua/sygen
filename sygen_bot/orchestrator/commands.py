@@ -143,7 +143,7 @@ async def cmd_logs(orch: Orchestrator, _key: SessionKey, text: str) -> Orchestra
     lines = [header, ""]
     for tr in traces:
         icon = {"ok": "✅", "error": "❌", "timeout": "⏱", "aborted": "🚫"}.get(tr.status, "❓")
-        lines.append(f"{icon} <b>{tr.name}</b>")
+        lines.append(f"{icon} **{tr.name}**")
         lines.append(f"   {tr.type} · {tr.status} · {tr.duration_sec}s · {tr.provider}/{tr.model}")
         lines.append(f"   {tr.started}")
         if tr.error and sub == "errors":
