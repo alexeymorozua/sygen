@@ -33,6 +33,13 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 - **Optional** — disabled by default, requires a separate API key for the classifier
 - **Zero overhead when off** — no extra calls, no latency
 
+### Skill Marketplace (ClawHub)
+- **13,000+ community skills** — search and install from OpenClaw's ClawHub registry
+- **Security scanning** — static analysis (20 suspicious patterns) + VirusTotal API before every install
+- **User always decides** — full security report shown, install only on explicit confirmation
+- **Zero dependencies** — no npm/OpenClaw required, pure HTTP API integration
+- **`/skill` command** — search, install, list, remove from Telegram
+
 ### Automation
 - **Cron scheduler** — recurring tasks with timezone support
 - **Webhook server** — HTTP endpoints that trigger agent actions
@@ -93,6 +100,7 @@ All settings in `~/.ductor/config/config.json`. Key sections:
 | `media` | Image quality, audio transcription |
 | `mcp` | MCP servers (enabled, server list) |
 | `routing` | Smart model routing (enabled, API key, tiers) |
+| `skill_marketplace` | ClawHub integration (enabled, VirusTotal API key) |
 
 ## Architecture
 
@@ -186,6 +194,34 @@ Automatically route messages to the optimal model based on complexity. Requires 
 **Override:** `@opus`, `@haiku`, or `/model` always takes priority over routing.
 
 **Cost:** ~$0.0001 per classification (~$0.30/month at 100 messages/day).
+
+## Skill Marketplace Setup
+
+Search and install community skills from ClawHub with built-in security scanning.
+
+```json
+{
+  "skill_marketplace": {
+    "enabled": true,
+    "virustotal_api_key": "your-vt-api-key"
+  }
+}
+```
+
+VirusTotal API key is optional (free at virustotal.com). Without it, only static analysis runs.
+
+**Commands:**
+- `/skill search <query>` — search ClawHub for skills
+- `/skill install <name>` — download, scan, show report, confirm install
+- `/skill list` — list installed skills
+- `/skill remove <name>` — remove a skill
+
+**Install flow:**
+1. Skill is downloaded to a temp directory
+2. Static analysis scans all scripts for suspicious patterns (eval, exec, network calls, sensitive paths)
+3. VirusTotal checks file hashes against 70+ antivirus engines
+4. Security report is shown with clear status indicators
+5. User confirms or cancels — nothing is installed without approval
 
 ## Provider-Neutral Design
 
