@@ -396,6 +396,7 @@ class CronObserver(BaseTaskObserver):
             error=None,
             provider=overrides.provider or self._config.provider,
             model=overrides.model or self._config.model,
+            job_id=job_id,
         )
 
         self._manager.update_run_status(job_id, status=result.status)
@@ -443,6 +444,7 @@ class CronObserver(BaseTaskObserver):
         error: str | None,
         provider: str,
         model: str,
+        job_id: str = "",
     ) -> None:
         from sygen_bot.observability.recorder import record_trace
 
@@ -465,6 +467,8 @@ class CronObserver(BaseTaskObserver):
             summary=result_text[:200] if result_text else None,
             retention_days=self._config.trace_retention_days,
             max_files=self._config.trace_max_files,
+            agent_name=self._config.agent_name,
+            job_id=job_id,
         )
 
     async def _update_mtime(self) -> None:
