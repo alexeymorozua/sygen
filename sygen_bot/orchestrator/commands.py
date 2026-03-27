@@ -17,7 +17,7 @@ from sygen_bot.orchestrator.selectors.models import Button, ButtonGrid
 from sygen_bot.orchestrator.selectors.session_selector import session_selector_start
 from sygen_bot.orchestrator.selectors.task_selector import task_selector_start
 from sygen_bot.text.response_format import SEP, fmt, new_session_text
-from sygen_bot.workspace.loader import read_mainmemory
+from sygen_bot.workspace.loader import clear_cron_results, read_mainmemory
 
 if TYPE_CHECKING:
     from sygen_bot.orchestrator.core import Orchestrator
@@ -33,6 +33,7 @@ async def cmd_reset(orch: Orchestrator, key: SessionKey, _text: str) -> Orchestr
     """Handle /new: kill processes and reset only active provider session."""
     logger.info("Reset requested")
     await orch._process_registry.kill_all(key.chat_id)
+    clear_cron_results(orch.paths)
     provider = await orch.reset_active_provider_session(key)
     return OrchestratorResult(text=new_session_text(provider))
 
