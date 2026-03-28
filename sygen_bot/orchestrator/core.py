@@ -684,10 +684,20 @@ class Orchestrator:
                 task.add_done_callback(lambda _: None)
                 logger.info("Cleanup observer stopped via hot-reload")
 
+        if "memory" in hot:
+            mo = self._observers.memory
+            if config.memory.enabled and not mo.running:
+                task = asyncio.create_task(mo.start())
+                task.add_done_callback(lambda _: None)
+                logger.info("Memory observer started via hot-reload")
+            elif not config.memory.enabled and mo.running:
+                task = asyncio.create_task(mo.stop())
+                task.add_done_callback(lambda _: None)
+                logger.info("Memory observer stopped via hot-reload")
+
         if "mcp" in hot:
             task = asyncio.create_task(self._apply_mcp_hot_reload(config))
             task.add_done_callback(lambda _: None)
-
 
         handler = getattr(self, "_config_hot_reload_handler", None)
         if handler is not None:

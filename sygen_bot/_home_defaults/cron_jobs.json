@@ -1,14 +1,5 @@
 [
   {
-    "id": "weekly-cleanup",
-    "title": "Weekly Cleanup",
-    "schedule": "0 10 * * 0",
-    "enabled": true,
-    "provider": null,
-    "model": null,
-    "task_dir": "cron_tasks/weekly-cleanup"
-  },
-  {
     "id": "monthly-memory-cleanup",
     "title": "Monthly Memory Cleanup",
     "schedule": "0 10 15 * *",
