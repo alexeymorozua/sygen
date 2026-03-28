@@ -70,7 +70,7 @@ class _StreamCallbacks:
                 event.pre_tokens,
             )
             if self._on_status is not None:
-                await self._on_status(None)
+                await self._on_status("compacting")
         elif isinstance(event, ResultEvent):
             return "", event
         return "", None
