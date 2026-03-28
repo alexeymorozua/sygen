@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _STATUS_EMOJI: dict[str, str] = {
-    "thinking": "\U0001f914",   # 🤔
-    "tool": "\u2699\ufe0f",     # ⚙️
-    "compacting": "\U0001f4e6", # 📦
-    "done": "\u2705",           # ✅
+    "thinking": "\U0001f914",       # 🤔
+    "tool": "\u26a1",               # ⚡
+    "compacting": "\U0001f4af",     # 💯
+    "done": "\U0001f44d",           # 👍
 }
 
 
