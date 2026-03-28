@@ -67,11 +67,21 @@ def _sync_home_defaults(paths: SygenPaths) -> None:
     if not paths.home_defaults.is_dir():
         logger.warning("Home defaults directory not found: %s", paths.home_defaults)
         return
+    is_subagent = paths.sygen_home.parent.name == "agents"
+    # Sub-agents don't get default maintenance crons (security-audit,
+    # memory cleanup/review) — the main agent handles these cross-agent.
+    # Pre-seed an empty cron_jobs.json so _walk_and_copy (Zone 3) skips it.
+    if is_subagent:
+        cron_path = paths.cron_jobs_path
+        if not cron_path.exists():
+            cron_path.parent.mkdir(parents=True, exist_ok=True)
+            cron_path.write_text("[]\n", encoding="utf-8")
+            logger.info("Sub-agent: seeded empty cron_jobs.json (main handles maintenance)")
+
     _walk_and_copy(paths.home_defaults, paths.sygen_home)
     # Ensure logs dir exists for the main agent only.  Sub-agents share the
     # central log file and don't need their own logs directory.
-    # Sub-agent homes live under <main_home>/agents/<name>/.
-    if paths.sygen_home.parent.name != "agents":
+    if not is_subagent:
         paths.logs_dir.mkdir(parents=True, exist_ok=True)
 
 
