@@ -76,7 +76,7 @@ Orchestrator and delivery code queries capabilities at runtime to
 decide between streaming-edit vs. segment-based streaming, inline
 buttons vs. reaction buttons, etc.
 
-`supports_seen_indicator` signals whether the transport can acknowledge incoming messages with a "seen" indicator. Telegram uses an emoji reaction; Matrix uses a read receipt. The feature is gated by `config.scene.reaction_style` -- when set to `"off"`, no reactions are sent. When `"seen"`, only 👀 and ✅ are shown. When `"detailed"`, intermediate statuses (🤔 thinking, ⚙️ tool use, 📦 compacting) are also displayed.
+`supports_seen_indicator` signals whether the transport can acknowledge incoming messages with a "seen" indicator. Telegram uses an emoji reaction; Matrix uses a read receipt. The feature is gated by `config.scene.reaction_style` -- when set to `"off"`, no reactions are sent. When `"seen"`, only 👀 and 👍 are shown. When `"detailed"`, intermediate statuses (🤔 thinking, ⚡ tool use, 💯 compacting) are also displayed.
 
 ## Transport Registry
 
