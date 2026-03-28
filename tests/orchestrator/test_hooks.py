@@ -116,7 +116,7 @@ class TestMainmemoryReminder:
         resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
         assert "MAINMEMORY.md" in resolved
         assert "MEMORY CHECK" in resolved
-        assert "Always respond to the user" in resolved
+        assert "First answer the user's message fully" in resolved
 
 
 class TestSuffixFn:
