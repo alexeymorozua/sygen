@@ -18,6 +18,7 @@ from sygen_bot.background import BackgroundObserver, BackgroundResult
 if TYPE_CHECKING:
     from sygen_bot.bus.bus import MessageBus
 from sygen_bot.cleanup import CleanupObserver
+from sygen_bot.memory import MemoryObserver
 from sygen_bot.cli.codex_cache import CodexModelCache
 from sygen_bot.cli.codex_cache_observer import CodexCacheObserver
 from sygen_bot.cli.gemini_cache_observer import GeminiCacheObserver
@@ -62,6 +63,7 @@ class ObserverManager:
         self._paths = paths
         self.heartbeat = HeartbeatObserver(config)
         self.cleanup = CleanupObserver(config, paths)
+        self.memory = MemoryObserver(config, paths)
 
         self.cron: CronObserver | None = None
         self.webhook: WebhookObserver | None = None
@@ -139,6 +141,7 @@ class ObserverManager:
         if self.webhook:
             await self.webhook.start()
         await self.cleanup.start()
+        await self.memory.start()
 
         self._rule_sync_task = asyncio.create_task(watch_rule_files(self._paths.workspace))
         logger.info("Rule file watcher started (CLAUDE.md <-> AGENTS.md <-> GEMINI.md)")
@@ -175,6 +178,7 @@ class ObserverManager:
         if self.cron:
             await self.cron.stop()
         await self.cleanup.stop()
+        await self.memory.stop()
         if self.codex_cache_obs:
             await self.codex_cache_obs.stop()
             self.codex_cache_obs = None

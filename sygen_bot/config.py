@@ -146,6 +146,15 @@ class CleanupConfig(BaseModel):
         super().__init__(**data)
 
 
+class MemoryConfig(BaseModel):
+    """Settings for mechanical memory maintenance (dedup, limits, session cleanup)."""
+
+    enabled: bool = True
+    module_line_limit: int = 80
+    session_max_age_days: int = 30
+    check_hour: int = 4  # 4 AM — runs after file cleanup (3 AM)
+
+
 class ImageConfig(BaseModel):
     """Settings for incoming image processing."""
 
@@ -336,6 +345,7 @@ class AgentConfig(BaseModel):
     docker: DockerConfig = Field(default_factory=DockerConfig)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
     cleanup: CleanupConfig = Field(default_factory=CleanupConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     webhooks: WebhookConfig = Field(default_factory=WebhookConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     cli_parameters: CLIParametersConfig = Field(default_factory=CLIParametersConfig)

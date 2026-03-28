@@ -84,7 +84,8 @@ Set `scene.reaction_style: "off"` to disable all reactions.
 
 ### Maintenance (Built-in)
 - **Auto file cleanup** — daily removal of old media files, output, tasks, and cron results (configurable retention)
-- **Real-time memory consolidation** — module size enforcement (120-line limit) via hook system, no cron needed
+- **Memory maintenance** — automatic deduplication, module size enforcement, orphan session cleanup, one-shot cron removal
+- **Default crons** — monthly memory review (LLM-based quality check) and daily security audit are installed as crons since they require LLM intelligence
 
 ### Memory System
 - **Modular structure** — separate files per topic (user, decisions, infrastructure, tools, crons)
@@ -111,6 +112,7 @@ All settings in `~/.sygen/config/config.json`. Key sections:
 | `streaming` | Real-time output (enabled, buffered, min/max chars, idle timeout) |
 | `scene` | Emoji reactions (`reaction_style`: off/seen/detailed), technical footer |
 | `cleanup` | Auto file cleanup (enabled, retention days per category) |
+| `memory` | Memory maintenance (enabled, module line limit, session max age, check hour) |
 | `timeouts` | Response timeouts per mode |
 | `media` | Image quality, audio transcription |
 | `mcp` | MCP servers (enabled, server list) |
