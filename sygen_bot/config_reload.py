@@ -51,6 +51,7 @@ _HOT_RELOADABLE: frozenset[str] = frozenset(
         "streaming",
         "heartbeat",
         "cleanup",
+        "memory",
         "cli_parameters",
         "allowed_user_ids",
         "allowed_group_ids",
