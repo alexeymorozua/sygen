@@ -7,7 +7,7 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_folder": "cron_tasks/monthly-memory-cleanup",
+      "task_folder": "monthly-memory-cleanup",
       "agent_instruction": ""
     },
     {
@@ -17,7 +17,7 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_folder": "cron_tasks/monthly-memory-review",
+      "task_folder": "monthly-memory-review",
       "agent_instruction": ""
     },
     {
@@ -27,7 +27,7 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_folder": "cron_tasks/security-audit",
+      "task_folder": "security-audit",
       "agent_instruction": ""
     }
   ]
