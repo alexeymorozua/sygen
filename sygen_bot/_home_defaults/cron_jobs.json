@@ -7,7 +7,8 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_dir": "cron_tasks/monthly-memory-cleanup"
+      "task_folder": "cron_tasks/monthly-memory-cleanup",
+      "agent_instruction": ""
     },
     {
       "id": "monthly-memory-review",
@@ -16,7 +17,8 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_dir": "cron_tasks/monthly-memory-review"
+      "task_folder": "cron_tasks/monthly-memory-review",
+      "agent_instruction": ""
     },
     {
       "id": "security-audit",
@@ -25,7 +27,8 @@
       "enabled": true,
       "provider": null,
       "model": null,
-      "task_dir": "cron_tasks/security-audit"
+      "task_folder": "cron_tasks/security-audit",
+      "agent_instruction": ""
     }
   ]
 }
