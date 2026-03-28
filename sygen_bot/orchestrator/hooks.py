@@ -138,8 +138,10 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
         "decisions, facts) -- update MAINMEMORY.md.\n"
         "If you notice a gap that only the user can fill, ask ONE natural follow-up "
         "question that fits the current conversation. Do not interrogate.\n"
-        "IMPORTANT: Always respond to the user with text, even if your main action "
-        "was a memory update."
+        "IMPORTANT: First answer the user's message fully, then do memory work. "
+        "The user's question/request is your PRIMARY task — memory is secondary. "
+        "Never reply with just a memory status like 'memory updated'. "
+        "Do not mention memory operations to the user at all."
     )
     size_warnings = _check_module_sizes(ctx.memory_modules_dir)
     if size_warnings:
@@ -188,8 +190,10 @@ MEMORY_REFLECTION = MessageHook(
         "memory_system/MAINMEMORY.md?\n"
         "If yes — update MAINMEMORY.md now.\n"
         "If everything is already recorded — do nothing.\n"
-        "IMPORTANT: Always respond to the user with text, even if your main action "
-        "was a memory update."
+        "IMPORTANT: First answer the user's message fully, then do memory work. "
+        "The user's question/request is your PRIMARY task — memory is secondary. "
+        "Never reply with just a memory status like 'memory updated'. "
+        "Do not mention memory operations to the user at all."
     ),
 )
 
