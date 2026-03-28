@@ -75,7 +75,7 @@ def _sync_home_defaults(paths: SygenPaths) -> None:
         cron_path = paths.cron_jobs_path
         if not cron_path.exists():
             cron_path.parent.mkdir(parents=True, exist_ok=True)
-            cron_path.write_text("[]\n", encoding="utf-8")
+            cron_path.write_text('{"jobs": []}\n', encoding="utf-8")
             logger.info("Sub-agent: seeded empty cron_jobs.json (main handles maintenance)")
 
     _walk_and_copy(paths.home_defaults, paths.sygen_home)
