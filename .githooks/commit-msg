@@ -1,0 +1,4 @@
+#!/bin/sh
+# Strip Co-Authored-By trailers from commit messages.
+# Keeps contributor list clean on GitHub.
+sed -i '/^Co-Authored-By:/d' "$1"
