@@ -155,30 +155,80 @@ async def cmd_logs(orch: Orchestrator, _key: SessionKey, text: str) -> Orchestra
     return OrchestratorResult(text="\n".join(lines))
 
 
-async def cmd_upgrade(_orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
-    """Handle /upgrade: pull latest changes from git."""
-    logger.info("Upgrade check requested")
-    import subprocess
+async def cmd_upgrade(orch: Orchestrator, key: SessionKey, _text: str) -> OrchestratorResult:
+    """Handle /upgrade: upgrade sygen package and show changelog."""
+    logger.info("Upgrade requested")
+    from sygen_bot.infra.install import detect_install_mode, is_upgradeable
+    from sygen_bot.infra.updater import perform_upgrade_pipeline, write_upgrade_sentinel
+    from sygen_bot.infra.version import fetch_changelog
 
-    sygen_dir = Path.home() / "Agents" / "sygen"
-    if not (sygen_dir / ".git").is_dir():
-        return OrchestratorResult(text="Sygen repository not found at ~/Agents/sygen/")
+    current = get_current_version()
 
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(sygen_dir), "pull", "--ff-only", "origin", "main"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        output = result.stdout.strip()
-        if "Already up to date" in output:
-            return OrchestratorResult(text="\u2705 Sygen is up to date.")
+    if not is_upgradeable():
+        # Dev/editable install — fall back to git pull
+        import subprocess
+
+        sygen_dir = Path.home() / "Agents" / "sygen"
+        if not (sygen_dir / ".git").is_dir():
+            return OrchestratorResult(text="\u274c Dev install, but git repo not found.")
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(sygen_dir), "pull", "--ff-only", "origin", "main"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            output = result.stdout.strip()
+            if "Already up to date" in output:
+                return OrchestratorResult(text="\u2705 Already up to date.")
+            return OrchestratorResult(
+                text=fmt(
+                    "\u2705 Updated:",
+                    SEP,
+                    f"```\n{output}\n```",
+                    "\nRestart to apply: /restart",
+                ),
+            )
+        except Exception as e:
+            return OrchestratorResult(text=f"\u274c Update failed: {e}")
+
+    # pip/pipx install — use the upgrade pipeline
+    info = await check_pypi()
+    if info and not info.update_available:
+        return OrchestratorResult(text=f"\u2705 Already on latest version: `{current}`")
+
+    changed, installed_version, output = await perform_upgrade_pipeline(
+        current_version=current,
+    )
+
+    if not changed:
+        tail = output[-400:] if output else ""
+        details = f"\n```\n{tail}\n```" if tail else ""
         return OrchestratorResult(
-            text=f"\u2705 Updated:\n```\n{output}\n```\nRestart to apply: /restart",
+            text=f"\u274c Upgrade failed (still on `{current}`){details}",
         )
-    except Exception as e:
-        return OrchestratorResult(text=f"\u274c Update failed: {e}")
+
+    # Fetch changelog for the new version
+    changelog = await fetch_changelog(installed_version)
+    changelog_block = f"\n\n{changelog}" if changelog else ""
+
+    # Write sentinel for post-restart notification
+    await asyncio.to_thread(
+        write_upgrade_sentinel,
+        orch.paths.sygen_home,
+        chat_id=key.chat_id,
+        old_version=current,
+        new_version=installed_version,
+    )
+
+    return OrchestratorResult(
+        text=fmt(
+            f"\u2705 Updated: `{current}` → `{installed_version}`",
+            SEP,
+            changelog_block,
+            f"\nRestart to apply: /restart",
+        ),
+    )
 
 
 def _build_codex_cache_block(orch: Orchestrator) -> str:
