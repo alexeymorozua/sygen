@@ -1,13 +1,16 @@
-"""Tests for /upgrade Telegram command (git pull based)."""
+"""Tests for /upgrade command (pip/pipx + git fallback)."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from sygen_bot.orchestrator.commands import cmd_upgrade
 from sygen_bot.orchestrator.core import Orchestrator
+from sygen_bot.session.key import SessionKey
 
 
 def _make_completed_process(
@@ -33,8 +36,91 @@ def _mock_git_dir_exists(exists: bool = True):
     return patch.object(Path, "__truediv__", _patched_truediv)
 
 
-class TestCmdUpgrade:
-    """Test /upgrade command handler (git pull logic)."""
+def _version_info(current: str = "1.0.0", latest: str = "1.0.1", update: bool = True):
+    """Create a mock VersionInfo."""
+    mock = MagicMock()
+    mock.current = current
+    mock.latest = latest
+    mock.update_available = update
+    return mock
+
+
+class TestCmdUpgradePip:
+    """Test /upgrade for pip/pipx installs."""
+
+    @pytest.fixture(autouse=True)
+    def _upgradeable(self):
+        with patch(
+            "sygen_bot.infra.install.detect_install_mode", return_value="pip"
+        ), patch(
+            "sygen_bot.infra.install.is_upgradeable", return_value=True
+        ):
+            yield
+
+    async def test_already_up_to_date(self, orch: Orchestrator) -> None:
+        info = _version_info(current="1.0.6", latest="1.0.6", update=False)
+        with patch("sygen_bot.orchestrator.commands.check_pypi", new_callable=AsyncMock, return_value=info):
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
+
+        assert "latest" in result.text.lower() or "up to date" in result.text.lower()
+
+    async def test_successful_upgrade(self, orch: Orchestrator) -> None:
+        info = _version_info(current="1.0.6", latest="1.0.7", update=True)
+        with (
+            patch("sygen_bot.orchestrator.commands.check_pypi", new_callable=AsyncMock, return_value=info),
+            patch(
+                "sygen_bot.infra.updater.perform_upgrade_pipeline",
+                new_callable=AsyncMock,
+                return_value=(True, "1.0.7", "Successfully installed sygen-1.0.7"),
+            ),
+            patch(
+                "sygen_bot.infra.version.fetch_changelog",
+                new_callable=AsyncMock,
+                return_value="- Fixed emoji reactions",
+            ),
+            patch(
+                "sygen_bot.infra.updater.write_upgrade_sentinel",
+            ),
+        ):
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
+
+        assert "1.0.7" in result.text
+        assert "/restart" in result.text
+        assert "emoji" in result.text.lower()
+
+    async def test_upgrade_failed(self, orch: Orchestrator) -> None:
+        info = _version_info(current="1.0.6", latest="1.0.7", update=True)
+        with (
+            patch("sygen_bot.orchestrator.commands.check_pypi", new_callable=AsyncMock, return_value=info),
+            patch(
+                "sygen_bot.infra.updater.perform_upgrade_pipeline",
+                new_callable=AsyncMock,
+                return_value=(False, "1.0.6", "ERROR: pip install failed"),
+            ),
+        ):
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
+
+        assert "failed" in result.text.lower() or "\u274c" in result.text
+
+    async def test_no_buttons(self, orch: Orchestrator) -> None:
+        info = _version_info(current="1.0.6", latest="1.0.6", update=False)
+        with patch("sygen_bot.orchestrator.commands.check_pypi", new_callable=AsyncMock, return_value=info):
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
+
+        assert result.buttons is None
+
+
+class TestCmdUpgradeGitFallback:
+    """Test /upgrade for dev/source installs (git pull fallback)."""
+
+    @pytest.fixture(autouse=True)
+    def _dev_install(self):
+        with patch(
+            "sygen_bot.infra.install.detect_install_mode", return_value="dev"
+        ), patch(
+            "sygen_bot.infra.install.is_upgradeable", return_value=False
+        ):
+            yield
 
     async def test_already_up_to_date(self, orch: Orchestrator) -> None:
         proc = _make_completed_process(stdout="Already up to date.\n")
@@ -42,10 +128,9 @@ class TestCmdUpgrade:
             _mock_git_dir_exists(True),
             patch("subprocess.run", return_value=proc),
         ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
 
         assert "up to date" in result.text.lower()
-        assert result.buttons is None
 
     async def test_successful_update(self, orch: Orchestrator) -> None:
         proc = _make_completed_process(
@@ -55,14 +140,14 @@ class TestCmdUpgrade:
             _mock_git_dir_exists(True),
             patch("subprocess.run", return_value=proc),
         ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
 
         assert "Updated" in result.text or "updated" in result.text.lower()
-        assert "restart" in result.text.lower() or "/restart" in result.text
+        assert "/restart" in result.text
 
     async def test_repo_not_found(self, orch: Orchestrator) -> None:
         with _mock_git_dir_exists(False):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
 
         assert "not found" in result.text.lower()
 
@@ -74,39 +159,16 @@ class TestCmdUpgrade:
                 side_effect=subprocess.TimeoutExpired(cmd="git pull", timeout=30),
             ),
         ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
 
         assert "failed" in result.text.lower()
 
-    async def test_no_buttons_on_up_to_date(self, orch: Orchestrator) -> None:
+    async def test_no_buttons(self, orch: Orchestrator) -> None:
         proc = _make_completed_process(stdout="Already up to date.\n")
         with (
             _mock_git_dir_exists(True),
             patch("subprocess.run", return_value=proc),
         ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
+            result = await cmd_upgrade(orch, SessionKey(chat_id=1), "/upgrade")
 
-        assert result.buttons is None
-
-    async def test_no_buttons_on_successful_update(self, orch: Orchestrator) -> None:
-        proc = _make_completed_process(stdout="Updating abc..def\nFast-forward\n")
-        with (
-            _mock_git_dir_exists(True),
-            patch("subprocess.run", return_value=proc),
-        ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
-
-        assert result.buttons is None
-
-    async def test_no_buttons_on_error(self, orch: Orchestrator) -> None:
-        with (
-            _mock_git_dir_exists(True),
-            patch(
-                "subprocess.run",
-                side_effect=OSError("git not found"),
-            ),
-        ):
-            result = await cmd_upgrade(orch, 1, "/upgrade")
-
-        assert "failed" in result.text.lower()
         assert result.buttons is None

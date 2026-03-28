@@ -38,9 +38,12 @@ async def _handle_recovery(bot: TelegramBot, sentinel: dict[str, object] | None)
         old_v = upgrade.get("old_version", "?")
         new_v = upgrade.get("new_version", get_current_version())
         if uid:
-            await bot.notification_service.notify(
-                uid, t("startup.upgrade_complete", old=old_v, new=new_v)
-            )
+            from sygen_bot.infra.version import fetch_changelog
+
+            header = t("startup.upgrade_complete", old=old_v, new=new_v)
+            changelog = await fetch_changelog(new_v)
+            text = f"{header}\n\n{changelog}" if changelog else header
+            await bot.notification_service.notify(uid, text)
 
     from sygen_bot.infra.startup_state import detect_startup_kind, save_startup_state
     from sygen_bot.text.response_format import startup_notification_text

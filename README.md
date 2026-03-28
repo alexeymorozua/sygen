@@ -67,16 +67,16 @@ Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini
 
 | Mode | Config | Reactions | Text delivery |
 |---|---|---|---|
-| **Quiet** | `streaming.enabled: false`, `scene.reaction_style: "seen"` | 👀 → ✅ | Single message after completion |
-| **Full streaming** | `streaming.enabled: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚙️ → 📦 → ✅ | Real-time, dynamically updated |
-| **Buffered** | `streaming.enabled: true`, `streaming.buffered: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚙️ → 📦 → ✅ | Single message after completion |
+| **Quiet** | `streaming.enabled: false`, `scene.reaction_style: "seen"` | 👀 → 👍 | Single message after completion |
+| **Full streaming** | `streaming.enabled: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚡ → 💯 → 👍 | Real-time, dynamically updated |
+| **Buffered** | `streaming.enabled: true`, `streaming.buffered: true`, `scene.reaction_style: "detailed"` | 👀 → 🤔 → ⚡ → 💯 → 👍 | Single message after completion |
 
 **Reaction emoji meaning:**
 - 👀 — message received, processing started
 - 🤔 — model is thinking
-- ⚙️ — executing a tool (bash, file read, etc.)
-- 📦 — context compacting (long conversation optimization)
-- ✅ — response complete
+- ⚡ — executing a tool (bash, file read, etc.)
+- 💯 — context compacting (long conversation optimization)
+- 👍 — response complete
 
 **Buffered mode** is the recommended choice when you want to see what the agent is doing (via reactions) but prefer clean, non-flickering text delivery. Internally, the agent streams events for reaction updates, but text is collected in a buffer and sent as a single message at the end.
 

@@ -6,8 +6,9 @@ New ideas will be added as they emerge.
 
 | Feature | Version | Details |
 |---------|---------|---------|
+| Unified /upgrade + Emoji Fix | 1.0.12 | `/upgrade` uses pip pipeline with changelog for all install modes. Fixed reactions: valid Telegram emojis (👀→🤔→⚡→💯→👍). Post-restart shows changelog |
 | Memory Observer | 1.0.10 | MemoryObserver — mechanical memory maintenance in core: dedup, line limits, orphan session cleanup, one-shot cron removal. Weekly-cleanup cron removed from defaults |
-| Buffered Streaming | 1.0.9 | `streaming.buffered` — reactions update in real-time (👀→🤔→⚙️→📦→✅) while text arrives as one complete message |
+| Buffered Streaming | 1.0.9 | `streaming.buffered` — reactions update in real-time (👀→🤔→⚡→💯→👍) while text arrives as one complete message |
 | Built-in File Cleanup | 1.0.8 | CleanupObserver — daily auto-cleanup of media files, output, tasks, cron results. Replaces per-agent cron jobs |
 | Agent Observability | 1.0.2 | SQLite-based execution traces for cron, tasks, webhooks. `/logs` command with filtering. Auto-rotation (30 days / 1000 entries) |
 | Silent Cron Output | 1.0.2 | `[SILENT]` marker — cron/webhook tasks can suppress delivery when nothing to report. Traces still recorded |
