@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import secrets
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sygen_bot.files.allowed_roots import resolve_allowed_roots
@@ -233,6 +234,33 @@ async def start_fileshare_server(
 
     os.environ["FILESHARE_URL"] = server.base_url
     os.environ["FILESHARE_DOWNLOADS"] = str(download_dir)
+
+    # Run cleanup on startup
+    cleanup_days = config.fileshare.auto_cleanup_days
+    if cleanup_days > 0:
+        removed = await asyncio.to_thread(
+            _cleanup_fileshare_dir, upload_dir, cleanup_days
+        )
+        removed += await asyncio.to_thread(
+            _cleanup_fileshare_dir, download_dir, cleanup_days
+        )
+        if removed:
+            logger.info("Fileshare startup cleanup: removed %d old files", removed)
+
+
+def _cleanup_fileshare_dir(directory: Path, max_age_days: int) -> int:
+    """Remove files older than *max_age_days* from *directory*. Return count."""
+    import time
+
+    if not directory.is_dir():
+        return 0
+    cutoff = time.time() - max_age_days * 86400
+    removed = 0
+    for f in directory.iterdir():
+        if f.is_file() and f.stat().st_mtime < cutoff:
+            f.unlink(missing_ok=True)
+            removed += 1
+    return removed
 
 
 async def ensure_docker(orch: Orchestrator) -> None:

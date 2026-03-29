@@ -130,7 +130,8 @@
     "fileshare": {
         "enabled": false,
         "host": "127.0.0.1",
-        "port": 8090
+        "port": 8090,
+        "auto_cleanup_days": 7
     },
 
     "api": {

@@ -22,9 +22,10 @@ Restart the bot after changing the config.
 
 | Field     | Default       | Description                    |
 |-----------|---------------|--------------------------------|
-| `enabled` | `false`       | Enable the fileshare server    |
-| `host`    | `"127.0.0.1"` | Bind address                   |
-| `port`    | `8090`        | Listen port                    |
+| `enabled`            | `false`       | Enable the fileshare server                        |
+| `host`               | `"127.0.0.1"` | Bind address                                       |
+| `port`               | `8090`        | Listen port                                        |
+| `auto_cleanup_days`  | `7`           | Delete files older than N days (0 = disable)       |
 
 For access over Tailscale or LAN, set `host` to your machine's network address (e.g. `100.x.x.x` for Tailscale).
 
@@ -60,6 +61,15 @@ Open `http://{host}:{port}/` in a browser to:
 
 - Drag and drop files to upload them
 - Browse and download files from both uploads and downloads directories
+
+## Auto-Cleanup
+
+Files in `uploads/` and `downloads/` are automatically cleaned up in two ways:
+
+1. **On bot startup** — files older than `auto_cleanup_days` are removed.
+2. **Weekly cleanup cron** — the built-in `weekly-cleanup` task also respects this setting.
+
+Set `auto_cleanup_days` to `0` to disable automatic cleanup entirely.
 
 ## Security Notes
 
