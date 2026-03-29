@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sygen_bot.i18n import t
@@ -30,6 +31,20 @@ async def _handle_restart_sentinel(bot: TelegramBot) -> dict[str, object] | None
     return sentinel
 
 
+def _write_last_update(
+    workspace: Path, old_v: str, new_v: str, changelog: str | None
+) -> None:
+    """Persist upgrade info so the agent can read what changed."""
+    path = workspace / "LAST_UPDATE.md"
+    lines = [f"# Updated: {old_v} → {new_v}\n"]
+    if changelog:
+        lines.append(f"\n{changelog}\n")
+    try:
+        path.write_text("".join(lines), encoding="utf-8")
+    except OSError:
+        logger.debug("Failed to write LAST_UPDATE.md", exc_info=True)
+
+
 async def _handle_recovery(bot: TelegramBot, sentinel: dict[str, object] | None) -> None:
     """Handle upgrade sentinel, startup lifecycle, and auto-recovery of interrupted work."""
     upgrade = await asyncio.to_thread(consume_upgrade_sentinel, bot._orch.paths.sygen_home)
@@ -44,6 +59,9 @@ async def _handle_recovery(bot: TelegramBot, sentinel: dict[str, object] | None)
             changelog = await fetch_changelog(new_v)
             text = f"{header}\n\n{changelog}" if changelog else header
             await bot.notification_service.notify(uid, text)
+
+            # Write changelog to workspace so the agent knows what changed
+            _write_last_update(bot._orch.paths.workspace, old_v, new_v, changelog)
 
     from sygen_bot.infra.startup_state import detect_startup_kind, save_startup_state
     from sygen_bot.text.response_format import startup_notification_text
