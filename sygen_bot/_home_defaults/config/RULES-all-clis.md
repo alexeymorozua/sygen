@@ -115,7 +115,7 @@ Parameters are inserted before the `--` separator in commands.
 
 ### Scene Indicators
 
-- `scene.reaction_style`: `"off"`/`"seen"`/`"detailed"` (default `"seen"`) — emoji reactions: off=none, seen=👀+👍, detailed=👀→🤔→⚡→💯→👍
+- `scene.reaction_style`: `"off"`/`"seen"`/`"detailed"` (default `"seen"`) — emoji reactions: off=none, seen=👀+👌, detailed=👀→🤔→✍️→💯→👌
 - `scene.technical_footer`: `true`/`false` (default `false`) — append model name, token count, cost, and duration to the final response
 - Hot-reloadable.
 
