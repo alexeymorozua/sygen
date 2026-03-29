@@ -8,6 +8,7 @@ the formatting logic that was previously spread across
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,6 +22,30 @@ if TYPE_CHECKING:
     from sygen_bot.messenger.telegram.app import TelegramBot
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _send_plain_to_topic(
+    bot: "Bot",
+    chat_id: int,
+    text: str,
+    topic_id: int | None,
+) -> None:
+    """Send plain text (no parse_mode) to a chat/topic."""
+    from aiogram import Bot
+    from sygen_bot.messenger.telegram.formatting import split_html_message
+
+    for chunk in split_html_message(text):
+        await bot.send_message(
+            chat_id=chat_id,
+            text=chunk,
+            parse_mode=None,
+            message_thread_id=topic_id,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -260,25 +285,37 @@ class TelegramTransport:
             await send_rich(self._bot.bot_instance, env.chat_id, text, opts)
         except TelegramAPIError:
             logger.warning(
-                "Cron '%s' delivery failed for chat %d, falling back to main agent",
+                "Cron '%s' delivery failed for chat %d, retrying as plain text",
                 title,
                 env.chat_id,
             )
-            target = f"Chat {env.chat_id}"
-            if env.topic_id:
-                target += f" / Topic {env.topic_id}"
-            fallback_text = (
-                f"**Cron delivery failed**\n\n"
-                f"Task **{title}** could not be delivered to {target}.\n\n"
-                f"---\n{clean_result or env.status}"
-            )
-            fallback_id = self._bot._config.allowed_user_ids[0]
-            await send_rich(
-                self._bot.bot_instance,
-                fallback_id,
-                fallback_text,
-                SendRichOpts(allowed_roots=self._roots()),
-            )
+            try:
+                plain = re.sub(r"<[^>]+>", "", text)
+                await _send_plain_to_topic(
+                    self._bot.bot_instance, env.chat_id, plain, env.topic_id,
+                )
+            except TelegramAPIError:
+                logger.warning(
+                    "Cron '%s' plain-text retry also failed for chat %d, "
+                    "falling back to main agent",
+                    title,
+                    env.chat_id,
+                )
+                target = f"Chat {env.chat_id}"
+                if env.topic_id:
+                    target += f" / Topic {env.topic_id}"
+                fallback_text = (
+                    f"**Cron delivery failed**\n\n"
+                    f"Task **{title}** could not be delivered to {target}.\n\n"
+                    f"---\n{clean_result or env.status}"
+                )
+                fallback_id = self._bot._config.allowed_user_ids[0]
+                await send_rich(
+                    self._bot.bot_instance,
+                    fallback_id,
+                    fallback_text,
+                    SendRichOpts(allowed_roots=self._roots()),
+                )
 
     # -- Origin handlers (broadcast) ----------------------------------------
 
