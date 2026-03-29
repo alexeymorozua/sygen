@@ -126,6 +126,10 @@ async def create_orchestrator(
             )
         logger.info("MCP manager started with %d tool(s)", len(mcp_mgr.get_all_tools()))
 
+    # Built-in fileshare server
+    if config.fileshare.enabled:
+        await start_fileshare_server(orch, config, paths)
+
     # Direct API server (WebSocket, designed for Tailscale)
     if config.api.enabled:
         await start_api_server(orch, config, paths)
@@ -194,6 +198,43 @@ async def start_api_server(
     orch._api_stop = server.stop
 
 
+async def start_fileshare_server(
+    orch: Orchestrator,
+    config: AgentConfig,
+    paths: SygenPaths,
+) -> None:
+    """Initialize and start the built-in fileshare HTTP server."""
+    from sygen_bot.fileshare.server import FileshareServer
+
+    upload_dir = paths.fileshare_uploads_dir
+    download_dir = paths.fileshare_downloads_dir
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    server = FileshareServer(
+        host=config.fileshare.host,
+        port=config.fileshare.port,
+        upload_dir=upload_dir,
+        download_dir=download_dir,
+    )
+
+    try:
+        await server.start()
+    except OSError:
+        logger.exception(
+            "Failed to start fileshare server on %s:%d",
+            config.fileshare.host,
+            config.fileshare.port,
+        )
+        return
+
+    orch._fileshare_stop = server.stop
+    orch._fileshare_url = server.base_url
+
+    os.environ["FILESHARE_URL"] = server.base_url
+    os.environ["FILESHARE_DOWNLOADS"] = str(download_dir)
+
+
 async def ensure_docker(orch: Orchestrator) -> None:
     """Health-check Docker before CLI calls; auto-recover or fall back."""
     if not orch._docker:
@@ -211,6 +252,8 @@ async def shutdown(orch: Orchestrator) -> None:
     killed = await orch._process_registry.kill_all_active()
     if killed:
         logger.info("Shutdown terminated %d active CLI process(es)", killed)
+    if orch._fileshare_stop is not None:
+        await orch._fileshare_stop()
     if orch._api_stop is not None:
         await orch._api_stop()
     if orch._mcp_manager is not None:

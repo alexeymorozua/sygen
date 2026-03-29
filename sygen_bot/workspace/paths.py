@@ -145,6 +145,14 @@ class SygenPaths:
         return self.sygen_home / "inflight_turns.json"
 
     @property
+    def fileshare_uploads_dir(self) -> Path:
+        return self.sygen_home / "fileshare" / "uploads"
+
+    @property
+    def fileshare_downloads_dir(self) -> Path:
+        return self.sygen_home / "fileshare" / "downloads"
+
+    @property
     def env_file(self) -> Path:
         """User-managed ``.env`` for external API secrets."""
         return self.sygen_home / ".env"
