@@ -71,20 +71,35 @@ async def cmd_skill(
 # ---------------------------------------------------------------------------
 
 
-async def _search(query: str) -> OrchestratorResult:
-    """Search ClawHub for skills."""
+_SEARCH_PAGE_SIZE = 5
+
+
+async def _search(query: str, *, page: int = 0) -> OrchestratorResult:
+    """Search ClawHub for skills with pagination."""
     if not query:
         return OrchestratorResult(text="Usage: `/skill search <query>`")
 
     from sygen_bot.skills.clawhub import search_skills
 
-    results = await search_skills(query)
+    # Fetch more results to enable paging.
+    results = await search_skills(query, limit=50)
     if not results:
         return OrchestratorResult(text=f"No skills found for \"{query}\".")
 
+    total = len(results)
+    start = page * _SEARCH_PAGE_SIZE
+    end = start + _SEARCH_PAGE_SIZE
+    page_results = results[start:end]
+
+    if not page_results and page > 0:
+        page = 0
+        start = 0
+        end = _SEARCH_PAGE_SIZE
+        page_results = results[start:end]
+
     lines: list[str] = []
     buttons: list[list[Button]] = []
-    for sk in results[:10]:
+    for sk in page_results:
         desc = sk.description[:80] if sk.description else "no description"
         author = f" by {sk.author}" if sk.author else ""
         lines.append(f"  **{sk.name}**{author}\n    {desc}")
@@ -92,8 +107,26 @@ async def _search(query: str) -> OrchestratorResult:
             Button(text=f"Install {sk.name}", callback_data=f"skill_install:{sk.name}"),
         ])
 
+    # Pagination buttons.
+    nav: list[Button] = []
+    if page > 0:
+        nav.append(Button(
+            text="\u2b05 Prev",
+            callback_data=f"skill_page:{page - 1}:{query[:40]}",
+        ))
+    if end < total:
+        nav.append(Button(
+            text="Next \u27a1",
+            callback_data=f"skill_page:{page + 1}:{query[:40]}",
+        ))
+    if nav:
+        buttons.append(nav)
+
+    page_label = f", page {page + 1}" if total > _SEARCH_PAGE_SIZE else ""
+    header = f"**ClawHub Results** ({total}{page_label})"
+
     return OrchestratorResult(
-        text=fmt(f"**ClawHub Results** ({len(results)})", SEP, "\n".join(lines)),
+        text=fmt(header, SEP, "\n".join(lines)),
         buttons=ButtonGrid(rows=buttons) if buttons else None,
     )
 
@@ -261,6 +294,16 @@ async def handle_skill_callback(
     if callback_data.startswith("skill_install:"):
         name = callback_data[len("skill_install:"):]
         return await _install(orch, key, name)
+
+    if callback_data.startswith("skill_page:"):
+        # skill_page:<page>:<query>
+        rest = callback_data[len("skill_page:"):]
+        page_str, _, query = rest.partition(":")
+        try:
+            page = int(page_str)
+        except ValueError:
+            page = 0
+        return await _search(query, page=page)
 
     return None
 
