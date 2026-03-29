@@ -197,6 +197,30 @@ MEMORY_REFLECTION = MessageHook(
     ),
 )
 
+def _make_update_changelog_hook(workspace_dir: Path) -> MessageHook:
+    """One-shot hook: if LAST_UPDATE.md exists, inject its content and delete the file."""
+    update_file = workspace_dir / "LAST_UPDATE.md"
+
+    def _condition(_ctx: HookContext) -> bool:
+        return update_file.is_file()
+
+    def _suffix(_ctx: HookContext) -> str:
+        try:
+            content = update_file.read_text(encoding="utf-8").strip()
+            update_file.unlink(missing_ok=True)
+        except OSError:
+            return ""
+        return (
+            "## SYGEN UPDATE\n"
+            "The bot was just upgraded. Here is what changed:\n\n"
+            f"{content}\n\n"
+            "Briefly acknowledge the update to the user if relevant, "
+            "then continue with their request."
+        )
+
+    return MessageHook(name="update_changelog", condition=_condition, suffix_fn=_suffix)
+
+
 DELEGATION_REMINDER = MessageHook(
     name="delegation_reminder",
     condition=_is_delegation_reminder_due,
