@@ -201,11 +201,34 @@ def _accumulate_parts(
     return chunks, oversized
 
 
+def _repair_html_chunk(chunk: str) -> str:
+    """Close unclosed HTML tags and remove orphaned closing tags in a chunk.
+
+    This prevents Telegram from rejecting chunks produced by hard splits
+    that land in the middle of an HTML tag pair.
+    """
+    _SELF_CLOSING = {"br", "hr", "img"}
+    open_stack: list[str] = []
+    for m in re.finditer(r"<(/?)(\w[\w-]*)(?:\s[^>]*)?>", chunk):
+        is_close, tag = m.group(1) == "/", m.group(2).lower()
+        if tag in _SELF_CLOSING:
+            continue
+        if is_close:
+            if open_stack and open_stack[-1] == tag:
+                open_stack.pop()
+        else:
+            open_stack.append(tag)
+    for tag in reversed(open_stack):
+        chunk += f"</{tag}>"
+    return chunk
+
+
 def split_html_message(text: str, max_len: int = TELEGRAM_MSG_LIMIT) -> list[str]:
     """Split an HTML message into chunks that fit Telegram's limit.
 
     Splits on paragraph boundaries (double newline) first, then single
     newlines, then hard character splits as a last resort.
+    Each chunk is repaired so that HTML tags are properly closed.
     """
     if len(text) <= max_len:
         return [text]
@@ -219,4 +242,4 @@ def split_html_message(text: str, max_len: int = TELEGRAM_MSG_LIMIT) -> list[str
             for offset in range(0, len(big), max_len):
                 chunks.append(big[offset : offset + max_len])
 
-    return chunks
+    return [_repair_html_chunk(c) for c in chunks]
