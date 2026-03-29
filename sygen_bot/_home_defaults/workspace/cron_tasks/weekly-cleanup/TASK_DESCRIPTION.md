@@ -26,14 +26,27 @@ Count removed tasks.
 
 Also check sub-agent task directories: `~/.sygen/agents/*/workspace/tasks/`
 
-### 3. Clean orphaned CLI session files
+### 3. Clean fileshare directories
+
+Read `~/.sygen/config/config.json` and check `fileshare.auto_cleanup_days`.
+- If the value is `0` or missing — skip this step entirely.
+- Otherwise, use that number as the max age in days.
+
+Clean files older than `auto_cleanup_days` in:
+- `~/.sygen/fileshare/uploads/`
+- `~/.sygen/fileshare/downloads/`
+
+Use `find <dir> -type f -mtime +<days> -delete` to remove old files.
+Count deleted files per directory. If the directories don't exist, skip silently.
+
+### 4. Clean orphaned CLI session files
 
 Look for `.jsonl` files in `~/.sygen/sessions/` (or wherever session logs are stored).
 Read `~/.sygen/sessions.json` to find referenced session files.
 Any `.jsonl` file NOT referenced in `sessions.json` and older than 7 days is orphaned — delete it.
 Count removed session files.
 
-### 4. Report
+### 5. Report
 
 Your final response MUST be a short cleanup summary with counts only. Example format:
 
@@ -41,6 +54,7 @@ Your final response MUST be a short cleanup summary with counts only. Example fo
 Weekly cleanup complete:
 - Output files removed: 12 (main: 5, agent-x: 7)
 - Stale tasks removed: 3
+- Fileshare files removed: 4 (uploads: 1, downloads: 3)
 - Orphaned sessions removed: 2
 ```
 

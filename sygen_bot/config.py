@@ -250,6 +250,7 @@ class FileshareConfig(BaseModel):
     enabled: bool = False
     host: str = "127.0.0.1"
     port: int = 8090
+    auto_cleanup_days: int = 7
 
 
 
