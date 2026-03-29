@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 _STATUS_EMOJI: dict[str, str] = {
     "thinking": "\U0001f914",       # 🤔
-    "tool": "\u26a1",               # ⚡
+    "tool": "\u270d\ufe0f",          # ✍️
     "compacting": "\U0001f4af",     # 💯
-    "done": "\U0001f44d",           # 👍
+    "done": "\U0001f44c",           # 👌
 }
 
 
