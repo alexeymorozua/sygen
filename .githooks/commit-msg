@@ -1,4 +1,9 @@
 #!/bin/sh
 # Strip Co-Authored-By trailers from commit messages.
 # Keeps contributor list clean on GitHub.
-sed -i '' '/^Co-Authored-By:/d' "$1"
+# Cross-platform: macOS sed requires -i '', GNU sed requires -i
+if sed --version >/dev/null 2>&1; then
+    sed -i '/^Co-Authored-By:/d' "$1"
+else
+    sed -i '' '/^Co-Authored-By:/d' "$1"
+fi
