@@ -93,6 +93,7 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `heartbeat` | `HeartbeatConfig` | see below | Background heartbeat config |
 | `cleanup` | `CleanupConfig` | see below | Daily file-retention cleanup |
 | `webhooks` | `WebhookConfig` | see below | Webhook HTTP server config |
+| `fileshare` | `FileshareConfig` | see below | Built-in fileshare HTTP server config |
 | `api` | `ApiConfig` | see below | Direct WebSocket API server config |
 | `cli_parameters` | `CLIParametersConfig` | see below | Provider-specific extra CLI flags |
 | `image` | `ImageConfig` | see below | Incoming image processing settings |
@@ -371,6 +372,16 @@ Cleanup implementation detail:
 | `token` | `str` | `""` | Global bearer fallback token (auto-generated when webhooks start) |
 | `max_body_bytes` | `int` | `262144` | Max request body size |
 | `rate_limit_per_minute` | `int` | `30` | Sliding-window rate limit |
+
+## `FileshareConfig`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | `bool` | `false` | Master toggle |
+| `host` | `str` | `"127.0.0.1"` | Bind address |
+| `port` | `int` | `8090` | HTTP server port |
+
+When enabled, sets `FILESHARE_URL` and `FILESHARE_DOWNLOADS` environment variables for agent tools (used by `send_large_file.py`). See [fileshare.md](fileshare.md) for full details.
 
 ## `ApiConfig`
 

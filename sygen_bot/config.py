@@ -244,6 +244,14 @@ class WebhookConfig(BaseModel):
     rate_limit_per_minute: int = 30
 
 
+class FileshareConfig(BaseModel):
+    """Settings for the built-in fileshare HTTP server."""
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = 8090
+
+
 
 class SceneConfig(BaseModel):
     """Settings for scene indicators and technical footer.
@@ -347,6 +355,7 @@ class AgentConfig(BaseModel):
     cleanup: CleanupConfig = Field(default_factory=CleanupConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     webhooks: WebhookConfig = Field(default_factory=WebhookConfig)
+    fileshare: FileshareConfig = Field(default_factory=FileshareConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     cli_parameters: CLIParametersConfig = Field(default_factory=CLIParametersConfig)
     image: ImageConfig = Field(default_factory=ImageConfig)
