@@ -22,6 +22,7 @@ dmypy.json
 
 # Testing
 .pytest_cache/
+<MagicMock *
 .coverage
 .coverage.*
 coverage.xml
