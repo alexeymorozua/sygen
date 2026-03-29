@@ -254,6 +254,23 @@ class FileshareConfig(BaseModel):
 
 
 
+class TranscriptionConfig(BaseModel):
+    """Settings for audio/video transcription.
+
+    language: Language code for transcription (e.g. "en", "ru", "de").
+              "auto" lets the model detect automatically.
+    model:    Whisper model size: "tiny", "base", "small", "medium", "large".
+    command:  Custom external command for transcription.  When set, this
+              command is tried first — it receives the audio file path as
+              its only argument and must print the transcript to stdout.
+              Set to null to use the built-in strategy chain.
+    """
+
+    language: str = "auto"
+    model: str = "small"
+    command: str | None = None
+
+
 class SceneConfig(BaseModel):
     """Settings for scene indicators and technical footer.
 
@@ -363,6 +380,7 @@ class AgentConfig(BaseModel):
     timeouts: TimeoutConfig = Field(default_factory=TimeoutConfig)
     tasks: TasksConfig = Field(default_factory=TasksConfig)
     scene: SceneConfig = Field(default_factory=SceneConfig)
+    transcription: TranscriptionConfig = Field(default_factory=TranscriptionConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     skill_marketplace: SkillMarketplaceConfig = Field(default_factory=SkillMarketplaceConfig)
     trace_retention_days: int = 30

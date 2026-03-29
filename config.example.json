@@ -178,6 +178,12 @@
         "quality": 85
     },
 
+    "transcription": {
+        "language": "auto",
+        "model": "small",
+        "command": null
+    },
+
     "scene": {
         "reaction_style": "seen",
         "technical_footer": false

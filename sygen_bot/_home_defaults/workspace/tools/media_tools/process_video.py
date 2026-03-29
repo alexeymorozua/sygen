@@ -19,9 +19,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-_TELEGRAM_FILES = Path(
+_SYGEN_HOME = Path(
     os.environ.get("SYGEN_HOME", str(Path.home() / ".sygen"))
-).expanduser() / "workspace" / "telegram_files"
+).expanduser()
+
+_TELEGRAM_FILES = _SYGEN_HOME / "workspace" / "telegram_files"
+_MATRIX_FILES = _SYGEN_HOME / "workspace" / "matrix_files"
+_API_FILES = _SYGEN_HOME / "workspace" / "api_files"
+
+_ALLOWED_ROOTS = (_TELEGRAM_FILES, _MATRIX_FILES, _API_FILES)
 
 _MAX_FRAMES_DEFAULT = 8
 _MAX_FRAMES_HARD = 16
@@ -153,18 +159,13 @@ def _extract_audio(path: Path, out_dir: Path) -> Path | None:
 
 
 def _transcribe(audio_path: Path) -> str | None:
-    """Transcribe audio using whisper CLI. Returns text or None."""
-    whisper_bin = shutil.which("whisper")
-    if not whisper_bin:
+    """Transcribe audio by delegating to transcribe_audio.py (full strategy chain)."""
+    script = Path(__file__).resolve().parent / "transcribe_audio.py"
+    if not script.exists():
         return None
     try:
         result = subprocess.run(
-            [
-                whisper_bin, str(audio_path),
-                "--model", "small",
-                "--output_format", "txt",
-                "--output_dir", str(audio_path.parent),
-            ],
+            [sys.executable, str(script), "--file", str(audio_path)],
             capture_output=True,
             text=True,
             timeout=300,
@@ -174,13 +175,11 @@ def _transcribe(audio_path: Path) -> str | None:
         return None
     if result.returncode != 0:
         return None
-
-    txt_file = audio_path.parent / f"{audio_path.stem}.txt"
-    if txt_file.exists():
-        text = txt_file.read_text(encoding="utf-8").strip()
-        txt_file.unlink(missing_ok=True)
-        return text if text else None
-    return None
+    try:
+        data = json.loads(result.stdout)
+        return data.get("transcript") or None
+    except (json.JSONDecodeError, KeyError):
+        return None
 
 
 def _cleanup(out_dir: Path, *, keep_frames: bool = False) -> None:
@@ -227,7 +226,8 @@ def process(path: Path, max_frames: int) -> dict:
             else:
                 result["transcript_note"] = (
                     "Audio extracted but transcription failed. "
-                    "Ensure openai-whisper is installed: pip install openai-whisper"
+                    "Set OPENAI_API_KEY, install openai-whisper, "
+                    "or configure transcription.command in config.json"
                 )
         else:
             result["transcript_note"] = "Audio extraction failed"
@@ -254,8 +254,9 @@ def main() -> None:
     args = parser.parse_args()
 
     path = Path(args.file).resolve()
-    if not path.is_relative_to(_TELEGRAM_FILES.resolve()):
-        print(json.dumps({"error": f"Path outside telegram_files: {path}"}))
+    allowed = any(path.is_relative_to(root.resolve()) for root in _ALLOWED_ROOTS)
+    if not allowed:
+        print(json.dumps({"error": f"Path outside allowed directories: {path}"}))
         sys.exit(1)
     if not path.exists():
         print(json.dumps({"error": f"File not found: {path}"}))
