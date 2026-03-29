@@ -293,6 +293,23 @@ def _ensure_required_dirs(paths: SygenPaths) -> None:
             logger.info("Created missing directory: %s", d)
 
 
+def _secure_env_file(paths: SygenPaths) -> None:
+    """Ensure ``.env`` has restrictive permissions (0600).
+
+    The ``.env`` file contains API keys and secrets.  Agents may create or
+    append to it via CLI commands that leave default umask permissions
+    (typically 0644).  This function tightens permissions on every startup
+    so secrets are never world-readable for long.
+    """
+    env_file = paths.sygen_home / ".env"
+    if not env_file.is_file():
+        return
+    current = env_file.stat().st_mode & 0o777
+    if current != 0o600:
+        env_file.chmod(0o600)
+        logger.info("Secured .env permissions: %o -> 600", current)
+
+
 def init_workspace(paths: SygenPaths) -> None:
     """Initialize the workspace: defaults sync, rule sync, config merge, cleanup."""
     logger.info("Workspace init started home=%s", paths.sygen_home)
@@ -300,6 +317,7 @@ def init_workspace(paths: SygenPaths) -> None:
     sync_bundled_skills(paths)
     _sync_home_defaults(paths)
     _ensure_required_dirs(paths)
+    _secure_env_file(paths)
 
     # Deploy provider-specific rule files based on CLI auth status
     try:
