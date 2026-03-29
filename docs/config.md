@@ -100,6 +100,7 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `timeouts` | `TimeoutConfig` | see below | Path-specific timeout policy (`normal`, `background`, `subagent`) |
 | `tasks` | `TasksConfig` | see below | Delegated background task system (`TaskHub`) |
 | `scene` | `SceneConfig` | see below | Scene indicators and technical footer |
+| `transcription` | `TranscriptionConfig` | see below | Audio/video transcription settings (language, model, custom command) |
 | `update_check` | `bool` | `true` | Enables periodic update observer (`UpdateObserver`) |
 | `interagent_port` | `int` | `8799` | Port for internal localhost API (`InternalAgentAPI`) |
 
@@ -339,6 +340,71 @@ Each entry in `group_targets` identifies a specific group chat (and optional top
 
 Applied to incoming images across all transports (Telegram, Matrix, API). See `files/image_processor.py` for implementation details.
 
+## `TranscriptionConfig`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `language` | `str` | `"auto"` | Language code (`"en"`, `"ru"`, `"de"`, etc.). `"auto"` = auto-detect |
+| `model` | `str` | `"small"` | Whisper model size: `"tiny"`, `"base"`, `"small"`, `"medium"`, `"large"` |
+| `command` | `str \| null` | `null` | Custom external command (see below) |
+
+Controls audio/video transcription behavior for voice messages and video notes.
+
+### Strategy chain
+
+Transcription tries backends in this order:
+
+1. **Custom command** (only when `command` is set) — receives audio file path as argument, prints transcript to stdout
+2. **OpenAI Whisper API** — requires `OPENAI_API_KEY` in environment or `.env`
+3. **Local `whisper` CLI** — Python `openai-whisper` package
+4. **`whisper-cli`** — whisper.cpp (C++ implementation, 5-10x faster than Python on CPU)
+
+First successful backend wins. If all fail, an error with installation hints is returned.
+
+### Custom command interface
+
+When `command` is set, it is called as:
+
+```
+/path/to/your/command /path/to/audio.ogg
+```
+
+Environment variables passed to the command:
+
+- `TRANSCRIPTION_LANGUAGE` — configured language (e.g. `"auto"`, `"en"`)
+- `TRANSCRIPTION_MODEL` — configured model size (e.g. `"small"`)
+
+The command must print the transcript text to stdout and exit with code 0. On non-zero exit or empty output, the next strategy in the chain is tried.
+
+### Model sizes
+
+| Model | Size | Quality | Speed (CPU) |
+|---|---|---|---|
+| `tiny` | ~75 MB | Basic | Very fast |
+| `base` | ~150 MB | Good | Fast |
+| `small` | ~500 MB | Great | Medium |
+| `medium` | ~1.5 GB | Excellent | Slow |
+| `large` | ~3 GB | Best | Very slow |
+
+### Quick setup
+
+Fastest path for new users — cloud API (no local install):
+
+```env
+# ~/.sygen/.env
+OPENAI_API_KEY=sk-xxx
+```
+
+Fastest local path — whisper.cpp:
+
+```bash
+# Install whisper.cpp, then download model:
+# https://github.com/ggerganov/whisper.cpp
+whisper-cli --help  # verify installation
+```
+
+Hot-reloadable: yes (changes apply without restart).
+
 ## `SceneConfig`
 
 | Field | Type | Default | Notes |
@@ -415,6 +481,7 @@ Hot-reloadable top-level fields:
 - `permission_mode`, `file_access`, `user_timezone`
 - `streaming`, `heartbeat`, `cleanup`, `cli_parameters`
 - `allowed_user_ids`, `allowed_group_ids`, `group_mention_only`
+- `transcription`
 - `timeouts` is currently restart-required (not in hot-reloadable set)
 
 Observer lifecycle caveat:
