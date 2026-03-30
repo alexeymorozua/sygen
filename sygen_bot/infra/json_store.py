@@ -16,10 +16,12 @@ from sygen_bot.infra.atomic_io import atomic_text_save
 logger = logging.getLogger(__name__)
 
 
-def atomic_json_save(path: Path, data: dict[str, Any] | list[Any]) -> None:
+def atomic_json_save(
+    path: Path, data: dict[str, Any] | list[Any], *, mode: int | None = None
+) -> None:
     """Write JSON atomically using temp file + rename."""
     content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-    atomic_text_save(path, content)
+    atomic_text_save(path, content, mode=mode)
 
 
 def load_json(path: Path) -> dict[str, Any] | None:

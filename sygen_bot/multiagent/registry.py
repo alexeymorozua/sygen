@@ -48,7 +48,7 @@ class AgentRegistry:
         from sygen_bot.infra.json_store import atomic_json_save
 
         data = [a.model_dump(exclude_none=True) for a in agents]
-        atomic_json_save(self._path, data)
+        atomic_json_save(self._path, data, mode=0o600)
         logger.info("Saved %d sub-agents to %s", len(agents), self._path)
 
     def add(self, agent: SubAgentConfig) -> None:

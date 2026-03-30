@@ -345,6 +345,7 @@ def main() -> None:
     # Write
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(agents, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.chmod(0o600)
 
     # Write JOIN_NOTIFICATION.md if description provided
     if args.description:

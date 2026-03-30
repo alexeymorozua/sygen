@@ -61,6 +61,7 @@ def main() -> None:
         sys.exit(1)
 
     path.write_text(json.dumps(remaining, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.chmod(0o600)
     print(f"Agent '{name}' removed from registry.")
     print("The agent will stop automatically within a few seconds.")
     print(f"Note: The workspace at agents/{name}/ is preserved.")
