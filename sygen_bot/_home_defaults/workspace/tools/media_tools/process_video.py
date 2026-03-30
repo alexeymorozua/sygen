@@ -236,9 +236,6 @@ def process(path: Path, max_frames: int) -> dict:
 
     _cleanup(out_dir, keep_frames=len(frames) > 0)
 
-    if not frames:
-        _cleanup(out_dir, keep_frames=False)
-
     return result
 
 
