@@ -232,9 +232,12 @@ def _smart_merge_config(paths: SygenPaths) -> None:
     except (json.JSONDecodeError, OSError):
         logger.warning("Failed to parse config: %s, skipping merge", paths.config_path)
         return
-    merged = {**defaults, **existing}
 
-    if merged != existing:
+    from sygen_bot.config import deep_merge_config
+
+    merged, changed = deep_merge_config(existing, defaults)
+
+    if changed:
         from sygen_bot.infra.json_store import atomic_json_save
 
         atomic_json_save(paths.config_path, merged)
