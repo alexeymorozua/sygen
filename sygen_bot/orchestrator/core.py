@@ -127,6 +127,7 @@ class Orchestrator:
         interagent_port: int = 8799,
     ) -> None:
         self._config = config
+        self._default_model = config.model
         self._paths: SygenPaths = paths
         self._docker: DockerManager | None = None
         self._providers = ProviderManager(config)
@@ -439,8 +440,9 @@ class Orchestrator:
 
     async def reset_active_provider_session(self, key: SessionKey) -> str:
         """Reset only the active provider session bucket for a given key."""
-        # Always use config model so /new picks up the current default
-        model, provider = self.resolve_runtime_target(self._config.model)
+        # Use the startup default so /new always resets to the configured
+        # default model, not the runtime override set via /model.
+        model, provider = self.resolve_runtime_target(self._default_model)
 
         await self._sessions.reset_provider_session(
             key,

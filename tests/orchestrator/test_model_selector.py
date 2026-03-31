@@ -296,14 +296,14 @@ async def test_switch_model_with_reasoning_effort(orch: Orchestrator) -> None:
     assert "high" in result.lower()
     assert orch._config.reasoning_effort == "high"
     saved = json.loads(orch.paths.config_path.read_text(encoding="utf-8"))
-    assert saved["reasoning_effort"] == "high"
+    assert "reasoning_effort" not in saved, "reasoning_effort must not persist to config"
 
 
-async def test_switch_model_persists_to_config(orch: Orchestrator) -> None:
+async def test_switch_model_does_not_persist_to_config(orch: Orchestrator) -> None:
     object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
     await switch_model(orch, SessionKey(chat_id=1), "sonnet")
     saved = json.loads(orch.paths.config_path.read_text(encoding="utf-8"))
-    assert saved["model"] == "sonnet"
+    assert saved["model"] == "opus", "config.json must keep startup default"
 
 
 async def test_switch_model_provider_change(orch: Orchestrator) -> None:

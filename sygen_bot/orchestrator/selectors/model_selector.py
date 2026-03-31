@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from sygen_bot.cli.auth import AuthStatus, check_all_auth
-from sygen_bot.config import CLAUDE_MODELS_ORDERED, get_gemini_models, update_config_file_async
+from sygen_bot.config import CLAUDE_MODELS_ORDERED, get_gemini_models
 from sygen_bot.i18n import t
-from sygen_bot.multiagent.registry import update_agent_fields
+
 from sygen_bot.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
 
 if TYPE_CHECKING:
@@ -249,33 +249,17 @@ async def switch_model(
             )
 
     if not is_topic:
-        # Global config: update only from main chat / DM (not from topics).
+        # Update in-memory config for the current runtime (new sessions,
+        # CLI service fallback).  Do NOT persist to config.json so that
+        # /new always resets to the startup default model.
         orch._config.model = model_id
         orch._cli_service.update_default_model(model_id)
         if provider_changed:
             orch._config.provider = new_provider
 
-        updates: dict[str, object] = {"model": model_id, "provider": orch._config.provider}
-
         if reasoning_effort is not None:
             orch._config.reasoning_effort = reasoning_effort
             orch._cli_service.update_reasoning_effort(reasoning_effort)
-            updates["reasoning_effort"] = reasoning_effort
-
-        await update_config_file_async(orch.paths.config_path, **updates)
-
-        # Sub-agent: also sync model/provider/effort to agents.json so the
-        # registry stays current and survives restarts without merge hacks.
-        if orch.paths.sygen_home.parent.name == "agents":
-            agents_path = orch.paths.sygen_home.parent.parent / "agents.json"
-            agent_name = orch._cli_service._config.agent_name
-            registry_updates = dict(updates)
-            # Only Codex uses reasoning_effort — remove it when switching away
-            if new_provider != "codex" and "reasoning_effort" not in registry_updates:
-                registry_updates["reasoning_effort"] = None
-            await asyncio.to_thread(
-                update_agent_fields, agents_path, agent_name, **registry_updates
-            )
 
     is_busy = orch.is_chat_busy(key.chat_id, key.topic_id)
     logger.info("Model switch model=%s provider=%s", model_id, orch._config.provider)

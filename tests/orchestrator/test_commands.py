@@ -54,20 +54,31 @@ async def test_model_provider_change(orch: Orchestrator) -> None:
     assert "Provider:" in result.text
 
 
-async def test_model_switch_persists_to_config(orch: Orchestrator) -> None:
+async def test_model_switch_does_not_persist_to_config(orch: Orchestrator) -> None:
     object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
     await cmd_model(orch, SessionKey(chat_id=1), "/model sonnet")
     saved = json.loads(orch.paths.config_path.read_text(encoding="utf-8"))
-    assert saved["model"] == "sonnet"
-    assert saved["provider"] == "claude"
+    assert saved["model"] == "opus", "config.json must keep the startup default"
+    assert orch._config.model == "sonnet", "in-memory config must reflect the switch"
 
 
-async def test_model_provider_change_persists_to_config(orch: Orchestrator) -> None:
+async def test_model_provider_change_does_not_persist_to_config(orch: Orchestrator) -> None:
     object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
     await cmd_model(orch, SessionKey(chat_id=1), "/model o3")
     saved = json.loads(orch.paths.config_path.read_text(encoding="utf-8"))
-    assert saved["model"] == "o3"
-    assert saved["provider"] == "codex"
+    assert saved["model"] == "opus", "config.json must keep the startup default"
+    assert orch._config.model == "o3", "in-memory config must reflect the switch"
+
+
+async def test_new_resets_to_startup_default_after_switch(orch: Orchestrator) -> None:
+    from sygen_bot.orchestrator.commands import cmd_reset
+
+    object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
+    await cmd_model(orch, SessionKey(chat_id=1), "/model sonnet")
+    assert orch._config.model == "sonnet"
+    provider = await orch.reset_active_provider_session(SessionKey(chat_id=1))
+    assert provider == "claude"
+    assert orch._default_model == "opus"
 
 
 async def test_model_same_provider_does_not_show_reset(orch: Orchestrator) -> None:
