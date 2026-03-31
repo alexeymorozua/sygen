@@ -158,9 +158,10 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
     set_gemini_models(
         frozenset(
             {
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-3-pro-preview",
+                "auto-gemini-3.1",
+                "gemini-3.1-pro-preview",
+                "gemini-3-flash-preview",
+                "gemini-3.1-flash-lite",
             }
         )
     )
@@ -171,9 +172,10 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
     assert "Select Gemini model" in resp.text
     assert resp.buttons is not None
     labels = [btn.text for row in resp.buttons.rows for btn in row]
-    assert "2.5-pro" in labels
-    assert "2.5-flash" in labels
-    assert "3-pro-preview" in labels
+    assert "Auto" in labels
+    assert "Pro" in labels
+    assert "Flash" in labels
+    assert "Lite" in labels
 
 
 # -- handle_model_callback: provider selection --
@@ -358,3 +360,23 @@ async def test_switch_reasoning_only(orch: Orchestrator) -> None:
     assert "Reasoning effort updated" in result
     mock_kill.assert_not_called()
     mock_reset.assert_not_called()
+
+
+async def test_switch_model_session_config_drift(orch: Orchestrator) -> None:
+    """When config says model X but session has model Y, switching to X must not short-circuit."""
+    # Create a session with model "sonnet" (simulates drift after /new or daily reset).
+    session, _ = await orch._sessions.resolve_session(
+        SessionKey(chat_id=1), provider="claude", model="sonnet"
+    )
+    await orch._sessions.update_session(session)
+
+    # Config still says "opus" (startup default), but set in-memory to "haiku"
+    # to simulate the drift scenario.
+    orch._config.model = "haiku"
+
+    object.__setattr__(orch._process_registry, "kill_all", AsyncMock(return_value=0))
+
+    # Switching to "haiku" — config says same, but session has "sonnet".
+    # Must NOT return "Already running".
+    result = await switch_model(orch, SessionKey(chat_id=1), "haiku")
+    assert "Already running" not in result
