@@ -102,7 +102,9 @@ def _gemini_models_for_selector() -> list[str]:
 
 def _button_label(model_id: str) -> str:
     """Compact button label while preserving identity in callback data."""
-    return model_id.removeprefix("gemini-").removeprefix("auto-")
+    if model_id.startswith("auto-gemini-"):
+        return "auto " + model_id.removeprefix("auto-gemini-")
+    return model_id.removeprefix("gemini-")
 
 
 def _chunk_buttons(
