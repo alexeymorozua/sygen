@@ -12,16 +12,14 @@ from sygen_bot.cli.model_cache import BaseModelCache
 # Auto-mode models: the Gemini CLI handles Pro/Flash routing internally.
 _AUTO_GEMINI_MODELS: frozenset[str] = frozenset({
     "auto-gemini-3.1",
-    "auto-gemini-3",
-    "auto-gemini-2.5",
 })
 
 # Hardcoded fallback when discovery and disk cache both fail.
 _FALLBACK_GEMINI_MODELS: tuple[str, ...] = (
-    *sorted(_AUTO_GEMINI_MODELS),
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
+    "auto-gemini-3.1",
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite",
 )
 
 

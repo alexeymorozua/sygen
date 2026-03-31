@@ -91,17 +91,42 @@ def _build_switch_summary(ctx: _SwitchSummaryContext) -> str:
     return "\n".join(parts)
 
 
+# Curated set of Gemini models shown in the /model selector.
+# Only actively supported models belong here; the full discovered set is
+# still accepted for direct /model <id> commands.
+_SELECTOR_GEMINI_MODELS: tuple[str, ...] = (
+    "auto-gemini-3.1",
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite",
+)
+
+
 def _gemini_models_for_selector() -> list[str]:
-    """Return Gemini models discovered from local Gemini CLI files."""
-    models = sorted(get_gemini_models())
-    # Prefer stable models before previews in the selector.
-    stable = [model for model in models if "preview" not in model]
-    preview = [model for model in models if "preview" in model]
-    return [*stable, *preview]
+    """Return curated Gemini models for the /model keyboard.
+
+    Shows only the curated list, filtering out entries that weren't
+    discovered (or cached) so stale models don't appear as buttons.
+    """
+    discovered = get_gemini_models()
+    if not discovered:
+        # No cache at all — return the curated list as-is (fallback).
+        return list(_SELECTOR_GEMINI_MODELS)
+    return [m for m in _SELECTOR_GEMINI_MODELS if m in discovered]
+
+
+_BUTTON_LABELS: dict[str, str] = {
+    "auto-gemini-3.1": "Auto",
+    "gemini-3.1-pro-preview": "Pro",
+    "gemini-3-flash-preview": "Flash",
+    "gemini-3.1-flash-lite": "Lite",
+}
 
 
 def _button_label(model_id: str) -> str:
     """Compact button label while preserving identity in callback data."""
+    if model_id in _BUTTON_LABELS:
+        return _BUTTON_LABELS[model_id]
     if model_id.startswith("auto-gemini-"):
         return "auto " + model_id.removeprefix("auto-gemini-")
     return model_id.removeprefix("gemini-")
