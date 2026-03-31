@@ -98,7 +98,7 @@ _SELECTOR_GEMINI_MODELS: tuple[str, ...] = (
     "auto-gemini-3.1",
     "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
-    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
 )
 
 
@@ -116,10 +116,10 @@ def _gemini_models_for_selector() -> list[str]:
 
 
 _BUTTON_LABELS: dict[str, str] = {
-    "auto-gemini-3.1": "Auto",
-    "gemini-3.1-pro-preview": "Pro",
-    "gemini-3-flash-preview": "Flash",
-    "gemini-3.1-flash-lite": "Lite",
+    "auto-gemini-3.1": "Auto 3.1",
+    "gemini-3.1-pro-preview": "Pro 3.1",
+    "gemini-3-flash-preview": "Flash 3",
+    "gemini-3.1-flash-lite-preview": "Lite 3.1",
 }
 
 

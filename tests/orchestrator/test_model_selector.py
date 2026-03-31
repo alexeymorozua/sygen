@@ -161,7 +161,7 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
                 "auto-gemini-3.1",
                 "gemini-3.1-pro-preview",
                 "gemini-3-flash-preview",
-                "gemini-3.1-flash-lite",
+                "gemini-3.1-flash-lite-preview",
             }
         )
     )
@@ -172,10 +172,10 @@ async def test_start_one_provider_gemini_uses_discovered_models(orch: Orchestrat
     assert "Select Gemini model" in resp.text
     assert resp.buttons is not None
     labels = [btn.text for row in resp.buttons.rows for btn in row]
-    assert "Auto" in labels
-    assert "Pro" in labels
-    assert "Flash" in labels
-    assert "Lite" in labels
+    assert "Auto 3.1" in labels
+    assert "Pro 3.1" in labels
+    assert "Flash 3" in labels
+    assert "Lite 3.1" in labels
 
 
 # -- handle_model_callback: provider selection --
