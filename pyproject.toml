@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sygen"
-version = "1.0.23"
+version = "1.0.24"
 description = "AI assistant framework with multi-agent orchestration, background tasks, and persistent memory."
 readme = "README.md"
 requires-python = ">=3.11"

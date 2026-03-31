@@ -9,8 +9,16 @@ from typing import Any, Self
 from sygen_bot.cli.gemini_utils import discover_gemini_models
 from sygen_bot.cli.model_cache import BaseModelCache
 
+# Auto-mode models: the Gemini CLI handles Pro/Flash routing internally.
+_AUTO_GEMINI_MODELS: frozenset[str] = frozenset({
+    "auto-gemini-3.1",
+    "auto-gemini-3",
+    "auto-gemini-2.5",
+})
+
 # Hardcoded fallback when discovery and disk cache both fail.
 _FALLBACK_GEMINI_MODELS: tuple[str, ...] = (
+    *sorted(_AUTO_GEMINI_MODELS),
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
@@ -30,7 +38,8 @@ class GeminiModelCache(BaseModelCache):
 
     @classmethod
     async def _discover(cls) -> tuple[str, ...]:
-        discovered = await asyncio.to_thread(discover_gemini_models)
+        discovered = set(await asyncio.to_thread(discover_gemini_models))
+        discovered.update(_AUTO_GEMINI_MODELS)
         return tuple(sorted(discovered))
 
     @classmethod

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sygen_bot.cli.gemini_cache import _FALLBACK_GEMINI_MODELS, GeminiModelCache
+from sygen_bot.cli.gemini_cache import _AUTO_GEMINI_MODELS, _FALLBACK_GEMINI_MODELS, GeminiModelCache
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ async def test_refresh_on_stale(tmp_path: Path, sample_models: tuple[str, ...]) 
         result = await GeminiModelCache.load_or_refresh(cache_path)
 
         mock_discover.assert_called_once()
-        assert len(result.models) == 2
+        assert len(result.models) == len(sample_models) + len(_AUTO_GEMINI_MODELS)
         assert cache_path.exists()
 
 
@@ -99,7 +99,7 @@ async def test_refresh_if_recent_but_empty(
         result = await GeminiModelCache.load_or_refresh(cache_path)
 
         mock_discover.assert_called_once()
-        assert len(result.models) == 2
+        assert len(result.models) == len(sample_models) + len(_AUTO_GEMINI_MODELS)
 
 
 async def test_force_refresh_ignores_fresh_cache(
@@ -118,8 +118,9 @@ async def test_force_refresh_ignores_fresh_cache(
         result = await GeminiModelCache.load_or_refresh(cache_path, force_refresh=True)
 
         mock_discover.assert_called_once()
-        assert len(result.models) == 2
+        assert len(result.models) == len(sample_models) + len(_AUTO_GEMINI_MODELS)
         assert "gemini-2.5-flash" in result.models
+        assert all(m in result.models for m in _AUTO_GEMINI_MODELS)
 
 
 def test_validate_model_exists(fresh_cache: GeminiModelCache) -> None:
@@ -211,14 +212,14 @@ async def test_fallback_replaced_by_successful_discovery(tmp_path: Path) -> None
         return_value=real_models,
     ):
         result2 = await GeminiModelCache.load_or_refresh(cache_path)
-    assert set(result2.models) == real_models
-    # Real models are persisted.
+    assert set(result2.models) == real_models | _AUTO_GEMINI_MODELS
+    # Real models (+ auto) are persisted.
     disk_data = json.loads(cache_path.read_text())
-    assert set(disk_data["models"]) == real_models
+    assert set(disk_data["models"]) == real_models | _AUTO_GEMINI_MODELS
 
 
-async def test_empty_discovery_result_preserves_existing_cache(tmp_path: Path) -> None:
-    """When discovery returns zero models (not an exception), keep existing cache."""
+async def test_empty_cli_discovery_still_includes_auto_models(tmp_path: Path) -> None:
+    """When CLI returns zero models, auto-mode models are still injected."""
     cache_path = tmp_path / "gemini_models.json"
     existing_models = ("gemini-2.5-flash",)
     cache_path.write_text(
@@ -236,11 +237,11 @@ async def test_empty_discovery_result_preserves_existing_cache(tmp_path: Path) -
     ):
         result = await GeminiModelCache.load_or_refresh(cache_path, force_refresh=True)
 
-    assert result.models == existing_models
+    assert set(result.models) == _AUTO_GEMINI_MODELS
 
 
-async def test_empty_cache_not_saved_to_disk(tmp_path: Path) -> None:
-    """An empty discovery result must not overwrite a non-empty disk cache."""
+async def test_empty_cli_discovery_saves_auto_models_to_disk(tmp_path: Path) -> None:
+    """Empty CLI discovery still saves auto-mode models to disk."""
     cache_path = tmp_path / "gemini_models.json"
     original = {"last_updated": datetime.now(UTC).isoformat(), "models": ["gemini-2.5-pro"]}
     cache_path.write_text(json.dumps(original))
@@ -252,7 +253,7 @@ async def test_empty_cache_not_saved_to_disk(tmp_path: Path) -> None:
         await GeminiModelCache.load_or_refresh(cache_path, force_refresh=True)
 
     disk_data = json.loads(cache_path.read_text())
-    assert disk_data["models"] == ["gemini-2.5-pro"]
+    assert set(disk_data["models"]) == _AUTO_GEMINI_MODELS
 
 
 async def test_successful_discovery_overwrites_disk_cache(tmp_path: Path) -> None:
@@ -269,15 +270,15 @@ async def test_successful_discovery_overwrites_disk_cache(tmp_path: Path) -> Non
     ):
         result = await GeminiModelCache.load_or_refresh(cache_path, force_refresh=True)
 
-    assert set(result.models) == new_models
+    assert set(result.models) == new_models | _AUTO_GEMINI_MODELS
     disk_data = json.loads(cache_path.read_text())
-    assert set(disk_data["models"]) == new_models
+    assert set(disk_data["models"]) == new_models | _AUTO_GEMINI_MODELS
 
 
 def test_fallback_models_are_non_empty() -> None:
     """Fallback constant must provide usable defaults."""
     assert len(_FALLBACK_GEMINI_MODELS) >= 3
-    assert all(m.startswith("gemini-") for m in _FALLBACK_GEMINI_MODELS)
+    assert all(m.startswith(("gemini-", "auto-gemini-")) for m in _FALLBACK_GEMINI_MODELS)
 
 
 def test_serialize_deserialize(fresh_cache: GeminiModelCache) -> None:
