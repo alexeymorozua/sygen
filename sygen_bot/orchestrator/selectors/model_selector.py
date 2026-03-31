@@ -228,6 +228,11 @@ async def switch_model(
 
     old = active_session.model if is_topic and active_session else orch._config.model
     same_model = old == model_id
+    # For non-topic chats the in-memory config may have drifted from the
+    # active session (e.g. after /new or daily reset).  Treat the switch as
+    # required when the session model disagrees with the requested one.
+    if not is_topic and active_session and active_session.model != model_id:
+        same_model = False
     effort_only = same_model and reasoning_effort is not None
 
     if same_model and reasoning_effort is None:
