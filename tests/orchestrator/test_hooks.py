@@ -146,6 +146,57 @@ class TestSuffixFn:
         assert "count=42" in result
 
 
+class TestMainmemoryReminderInjectsModules:
+    """MAINMEMORY_REMINDER should inject Always Load module content."""
+
+    def test_injects_module_content(self, tmp_path: Path) -> None:
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        (modules_dir / "user.md").write_text("Name: Alex\nRole: Developer")
+        (modules_dir / "decisions.md").write_text("Rule 1: tests required")
+        mainmemory = tmp_path / "MAINMEMORY.md"
+        mainmemory.write_text(
+            "### Always Load\n"
+            "| M | D | P |\n"
+            "| user | Profile | [modules/user.md](modules/user.md) |\n"
+            "| decisions | Rules | [modules/decisions.md](modules/decisions.md) |\n"
+            "### Load On Demand\n"
+        )
+        ctx = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=modules_dir,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
+        assert "Name: Alex" in resolved
+        assert "Rule 1: tests required" in resolved
+
+    def test_truncates_long_modules(self, tmp_path: Path) -> None:
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        long_content = "\n".join(f"Line {i}" for i in range(50))
+        (modules_dir / "user.md").write_text(long_content)
+        mainmemory = tmp_path / "MAINMEMORY.md"
+        mainmemory.write_text("")  # no Always Load section -> defaults
+        ctx = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=modules_dir,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
+        assert "Line 29" in resolved
+        assert "[...]" in resolved
+        assert "Line 30" not in resolved
+
+    def test_no_modules_dir_still_works(self) -> None:
+        ctx = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=None,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
+        assert "MEMORY CHECK" in resolved
+        # No crash, no module content
+        assert "# Memory:" not in resolved
+
+
 class TestCheckModuleSizes:
     def test_no_dir_returns_empty(self) -> None:
         assert _check_module_sizes(None) == ""

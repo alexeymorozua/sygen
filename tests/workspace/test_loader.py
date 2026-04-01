@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sygen_bot.workspace.loader import read_always_load_modules, read_file, read_mainmemory
+from sygen_bot.workspace.loader import (
+    read_always_load_modules,
+    read_always_load_modules_compact,
+    read_file,
+    read_mainmemory,
+)
 from sygen_bot.workspace.paths import SygenPaths
 
 
@@ -75,3 +80,55 @@ def test_always_load_modules_no_duplicates(tmp_path: Path) -> None:
     # Each module content should appear exactly once
     assert result.count("User info here") == 1
     assert result.count("Decision info here") == 1
+
+
+def _mainmemory_with_modules() -> str:
+    return (
+        "### Always Load\n"
+        "| Module | Description | Path |\n"
+        "|--------|-------------|------|\n"
+        "| user | Profile | [modules/user.md](modules/user.md) |\n"
+        "| decisions | Rules | [modules/decisions.md](modules/decisions.md) |\n"
+        "### Load On Demand\n"
+    )
+
+
+def test_compact_reader_truncates_long_modules(tmp_path: Path) -> None:
+    """Compact reader should truncate modules exceeding max_lines_per_module."""
+    modules_dir = tmp_path / "memory_system" / "modules"
+    modules_dir.mkdir(parents=True)
+    mainmemory_path = tmp_path / "memory_system" / "MAINMEMORY.md"
+    mainmemory_path.write_text(_mainmemory_with_modules())
+
+    # Create a module with 50 lines
+    long_content = "\n".join(f"Line {i}" for i in range(50))
+    (modules_dir / "user.md").write_text(long_content)
+    (modules_dir / "decisions.md").write_text("Short content")
+
+    result = read_always_load_modules_compact(
+        modules_dir, mainmemory_path, max_lines_per_module=10,
+    )
+    # user.md should be truncated
+    assert "[...]" in result
+    assert "Line 9" in result
+    assert "Line 10" not in result
+    # decisions.md should be intact
+    assert "Short content" in result
+
+
+def test_compact_reader_no_truncation_within_limit(tmp_path: Path) -> None:
+    """Modules within the line limit should not be truncated."""
+    modules_dir = tmp_path / "memory_system" / "modules"
+    modules_dir.mkdir(parents=True)
+    mainmemory_path = tmp_path / "memory_system" / "MAINMEMORY.md"
+    mainmemory_path.write_text(_mainmemory_with_modules())
+
+    (modules_dir / "user.md").write_text("Just a few lines\nof content")
+    (modules_dir / "decisions.md").write_text("Also short")
+
+    result = read_always_load_modules_compact(
+        modules_dir, mainmemory_path, max_lines_per_module=30,
+    )
+    assert "[...]" not in result
+    assert "Just a few lines" in result
+    assert "Also short" in result

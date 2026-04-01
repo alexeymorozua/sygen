@@ -7,6 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from sygen_bot.workspace.loader import read_always_load_modules_compact
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,7 +131,7 @@ def _mainmemory_condition(ctx: HookContext) -> bool:
 
 
 def _mainmemory_suffix(ctx: HookContext) -> str:
-    """Build MEMORY CHECK suffix with dynamic module size warnings."""
+    """Build MEMORY CHECK suffix with injected module content and size warnings."""
     base = (
         "## MEMORY CHECK\n"
         "Review: memory_system/MAINMEMORY.md, user_tools/, cron_tasks/.\n"
@@ -143,6 +145,16 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
         "Never reply with just a memory status like 'memory updated'. "
         "Do not mention memory operations to the user at all."
     )
+
+    # Inject Always Load module content so agent has key facts even after compaction.
+    if ctx.memory_modules_dir is not None:
+        mainmemory_path = ctx.memory_modules_dir.parent / "MAINMEMORY.md"
+        modules_content = read_always_load_modules_compact(
+            ctx.memory_modules_dir, mainmemory_path, max_lines_per_module=30,
+        )
+        if modules_content.strip():
+            base += "\n\n" + modules_content
+
     size_warnings = _check_module_sizes(ctx.memory_modules_dir)
     if size_warnings:
         base += (

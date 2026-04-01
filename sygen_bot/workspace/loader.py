@@ -54,21 +54,17 @@ def clear_cron_results(paths: SygenPaths) -> None:
 
 
 
-def read_always_load_modules(paths: SygenPaths) -> str:
-    """Read 'Always Load' memory modules (user.md, decisions.md).
+_DEFAULT_ALWAYS_LOAD = ["user.md", "decisions.md"]
 
-    Scans the MAINMEMORY.md index for the 'Always Load' table and reads
-    each referenced module file.  Returns concatenated content or empty string.
+
+def _parse_always_load_filenames(mainmemory_text: str) -> list[str]:
+    """Extract Always Load module filenames from MAINMEMORY.md text.
+
+    Returns deduplicated list preserving order, or defaults if none found.
     """
-    mainmemory = read_file(paths.mainmemory_path) or ""
-    modules_dir = paths.memory_system_dir / "modules"
-    if not modules_dir.is_dir():
-        return ""
-
-    # Parse Always Load table from MAINMEMORY.md
     in_always_load = False
     module_files: list[str] = []
-    for line in mainmemory.splitlines():
+    for line in mainmemory_text.splitlines():
         if "Always Load" in line:
             in_always_load = True
             continue
@@ -84,14 +80,55 @@ def read_always_load_modules(paths: SygenPaths) -> str:
     # Deduplicate: markdown links like [modules/x.md](modules/x.md)
     # produce each filename twice after split("modules/").
     module_files = list(dict.fromkeys(module_files))
+    return module_files or list(_DEFAULT_ALWAYS_LOAD)
 
-    if not module_files:
-        module_files = ["user.md", "decisions.md"]
 
+def _read_modules(
+    modules_dir: Path,
+    filenames: list[str],
+    *,
+    max_lines_per_module: int = 0,
+) -> str:
+    """Read and concatenate module files.
+
+    Args:
+        max_lines_per_module: If >0, truncate each module to this many lines.
+    """
     parts: list[str] = []
-    for fname in module_files:
+    for fname in filenames:
         content = read_file(modules_dir / fname)
-        if content and content.strip():
-            parts.append(f"# Memory: {fname}\n{content.strip()}")
-
+        if not content or not content.strip():
+            continue
+        text = content.strip()
+        if max_lines_per_module > 0:
+            lines = text.splitlines()
+            if len(lines) > max_lines_per_module:
+                text = "\n".join(lines[:max_lines_per_module]) + "\n[...]"
+        parts.append(f"# Memory: {fname}\n{text}")
     return "\n\n".join(parts)
+
+
+def read_always_load_modules(paths: SygenPaths) -> str:
+    """Read 'Always Load' memory modules (full content, for session start)."""
+    mainmemory = read_file(paths.mainmemory_path) or ""
+    modules_dir = paths.memory_system_dir / "modules"
+    if not modules_dir.is_dir():
+        return ""
+    filenames = _parse_always_load_filenames(mainmemory)
+    return _read_modules(modules_dir, filenames)
+
+
+def read_always_load_modules_compact(
+    modules_dir: Path,
+    mainmemory_path: Path,
+    *,
+    max_lines_per_module: int = 30,
+) -> str:
+    """Read 'Always Load' modules with per-module line limit (for hooks)."""
+    if not modules_dir.is_dir():
+        return ""
+    mainmemory = read_file(mainmemory_path) or ""
+    filenames = _parse_always_load_filenames(mainmemory)
+    return _read_modules(
+        modules_dir, filenames, max_lines_per_module=max_lines_per_module,
+    )
