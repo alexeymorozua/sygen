@@ -81,6 +81,10 @@ def read_always_load_modules(paths: SygenPaths) -> str:
                     if fname.endswith(".md"):
                         module_files.append(fname)
 
+    # Deduplicate: markdown links like [modules/x.md](modules/x.md)
+    # produce each filename twice after split("modules/").
+    module_files = list(dict.fromkeys(module_files))
+
     if not module_files:
         module_files = ["user.md", "decisions.md"]
 
