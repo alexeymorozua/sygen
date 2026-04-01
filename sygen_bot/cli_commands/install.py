@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from sygen_bot.i18n import t_rich
-from sygen_bot.infra.install import detect_install_mode
+from sygen_bot.infra.install import detect_install_mode, needs_break_system_packages
 
 # Available extras and their key package + description
 _EXTRAS: dict[str, tuple[str, str]] = {
@@ -51,6 +51,9 @@ def _install_extra(name: str) -> None:
         cmd = [sys.executable, "-m", "pip", "install", "-e", f".[{name}]"]
     else:
         cmd = [sys.executable, "-m", "pip", "install", f"sygen[{name}]"]
+
+    if needs_break_system_packages():
+        cmd.insert(-1, "--break-system-packages")
 
     console.print(t_rich("install.installing", description=description))
     console.print(t_rich("install.command", cmd=" ".join(cmd)))

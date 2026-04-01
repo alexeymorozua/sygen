@@ -213,9 +213,16 @@ class ConfigReloader:
             return None
 
     def _apply_hot(self, new_config: AgentConfig, hot: dict[str, Any]) -> None:
-        """Apply hot-reloadable fields to the current config."""
+        """Apply hot-reloadable fields to the current config.
+
+        Uses atomic swap: copy all fields into a fresh instance first,
+        then replace the reference in one step so concurrent readers
+        never see a partially-updated config.
+        """
+        merged = self._config.model_copy()
         for field in hot:
-            setattr(self._config, field, getattr(new_config, field))
+            setattr(merged, field, getattr(new_config, field))
+        self._config = merged
 
         logger.info("Config hot-reloaded: %s", ", ".join(sorted(hot)))
 

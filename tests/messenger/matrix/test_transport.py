@@ -31,6 +31,8 @@ def _make_transport() -> tuple[MatrixTransport, MagicMock]:
     bot.file_roots.return_value = [Path("/tmp/roots")]
     bot.orchestrator = MagicMock()
     bot.id_map.int_to_room.return_value = "!room1:test"
+    # extract_and_format should pass text through when no buttons present
+    bot._button_tracker.extract_and_format.side_effect = lambda _room, text: text
     transport = MatrixTransport(bot)
     return transport, bot
 

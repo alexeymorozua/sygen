@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -68,6 +70,9 @@ class SubAgentConfig(BaseModel):
     user_timezone: str | None = None
 
 
+_log = logging.getLogger(__name__)
+
+
 def merge_sub_agent_config(
     main: AgentConfig,
     sub: SubAgentConfig,
@@ -75,13 +80,29 @@ def merge_sub_agent_config(
 ) -> AgentConfig:
     """Create a full AgentConfig by merging main config with sub-agent overrides.
 
-    Merge: main agent defaults → ``agents.json`` explicit overrides (non-None).
+    Merge order (later wins):
+      1. main agent defaults
+      2. sub-agent's own ``config/config.json`` (if present)
+      3. ``agents.json`` explicit overrides (non-None fields)
 
     ``switch_model()`` keeps ``agents.json`` up-to-date when the user changes
     model/provider/reasoning_effort in a sub-agent chat, so no extra config
     layer is needed.
     """
     base = main.model_dump()
+
+    # Sub-agent's own config/config.json (layer 2)
+    local_config = agent_home / "config" / "config.json"
+    if local_config.is_file():
+        try:
+            local_data = json.loads(local_config.read_text(encoding="utf-8"))
+            if isinstance(local_data, dict):
+                from sygen_bot.config import deep_merge_config
+
+                base, _ = deep_merge_config(local_data, base)
+                _log.debug("Merged sub-agent local config from %s", local_config)
+        except (json.JSONDecodeError, OSError):
+            _log.warning("Failed to read sub-agent config: %s", local_config)
 
     # agents.json explicit overrides (non-None fields win)
     overrides = sub.model_dump(exclude_none=True, exclude={"name"})

@@ -298,7 +298,7 @@ async def test_get_queue_info_active_task() -> None:
 
     info = dq.get_queue_info("dep")
     assert info["locked"] is True
-    assert info["active_task"] == "Holder"
+    assert info["active_task"] == "h1"
 
     t.cancel()
     with contextlib.suppress(asyncio.CancelledError):

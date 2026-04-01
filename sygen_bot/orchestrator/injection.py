@@ -8,6 +8,7 @@ Note: task *results* are injected via the MessageBus (see ``bus.adapters``).
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from typing import TYPE_CHECKING
@@ -53,6 +54,8 @@ async def _inject_prompt(  # noqa: PLR0913
         process_label=process_label,
         resume_session=resume_id,
         timeout_seconds=orch._config.cli_timeout,
+        model_override=active.model if active else None,
+        provider_override=active.provider if active else None,
     )
 
     response = await orch._cli_service.execute(request)
@@ -69,11 +72,22 @@ async def _inject_prompt(  # noqa: PLR0913
 
 
 def _interagent_chat_id(orch: Orchestrator) -> int:
-    """Return the real Telegram chat_id for inter-agent sessions."""
-    if not orch._config.allowed_user_ids:
-        logger.warning("No allowed_user_ids configured — inter-agent sessions use chat_id=0")
-        return 0
-    return orch._config.allowed_user_ids[0]
+    """Return the chat_id for inter-agent sessions.
+
+    Prefers the first allowed user ID.  Falls back to a stable hash of
+    the agent name to avoid collisions between different agents that all
+    lack ``allowed_user_ids``.
+    """
+    if orch._config.allowed_user_ids:
+        return orch._config.allowed_user_ids[0]
+    agent_name = getattr(orch._cli_service, "_config", None)
+    name = getattr(agent_name, "agent_name", "") if agent_name else ""
+    if name:
+        # Stable across restarts (unlike hash() which is randomized per process)
+        stable = int.from_bytes(hashlib.md5(name.encode()).digest()[:4], "big")
+        return -(stable & 0x7FFFFFFF)  # negative to avoid clash with real chat IDs
+    logger.warning("No allowed_user_ids and no agent_name — inter-agent sessions use chat_id=-1")
+    return -1
 
 
 def _get_or_create_interagent_session(

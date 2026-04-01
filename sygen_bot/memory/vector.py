@@ -185,13 +185,14 @@ class VectorMemoryStore:
     def reindex_modules(self, modules_dir: Path) -> int:
         """Reindex all memory modules from disk.
 
-        Clears existing index and re-parses all .md files.
+        Uses an add-then-remove strategy: new facts are upserted first
+        so that concurrent ``search()`` calls always see data.  Stale
+        entries are removed only after the new data is in place.
+
         Returns the number of facts indexed.
         """
-        # Clear existing
         existing = self._collection.get()
-        if existing["ids"]:
-            self._collection.delete(ids=existing["ids"])
+        old_ids = set(existing["ids"]) if existing["ids"] else set()
 
         all_facts: list[dict[str, str]] = []
         for md_file in sorted(modules_dir.glob("*.md")):
@@ -204,17 +205,23 @@ class VectorMemoryStore:
             facts = parse_facts_from_module(content, md_file.name)
             all_facts.extend(facts)
 
-        if not all_facts:
-            return 0
+        new_ids: set[str] = set()
+        if all_facts:
+            new_ids = {f["id"] for f in all_facts}
+            self._collection.upsert(
+                ids=[f["id"] for f in all_facts],
+                documents=[f["text"] for f in all_facts],
+                metadatas=[
+                    {"module": f["module"], "section": f["section"], "raw": f["raw"]}
+                    for f in all_facts
+                ],
+            )
 
-        self._collection.add(
-            ids=[f["id"] for f in all_facts],
-            documents=[f["text"] for f in all_facts],
-            metadatas=[
-                {"module": f["module"], "section": f["section"], "raw": f["raw"]}
-                for f in all_facts
-            ],
-        )
+        # Remove stale entries that no longer exist in the modules.
+        stale_ids = list(old_ids - new_ids)
+        if stale_ids:
+            self._collection.delete(ids=stale_ids)
+
         self._last_index_mtime = self._modules_max_mtime(modules_dir)
         logger.info("Reindexed %d facts from %s", len(all_facts), modules_dir)
         return len(all_facts)

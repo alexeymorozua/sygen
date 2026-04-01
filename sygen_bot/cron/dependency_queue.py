@@ -114,11 +114,11 @@ class DependencyQueue:
                 self._queues[dependency] = new_queue
             else:
                 self._queues.pop(dependency, None)
-            self._active[dependency] = task_label
+            self._active[dependency] = task_id
 
-    async def _mark_released(self, dependency: str, _task_id: str, task_label: str) -> None:
+    async def _mark_released(self, dependency: str, task_id: str, task_label: str) -> None:
         async with self._state_lock:
-            if self._active.get(dependency) == task_label:
+            if self._active.get(dependency) == task_id:
                 self._active.pop(dependency, None)
 
             remaining = len(self._queues.get(dependency, []))

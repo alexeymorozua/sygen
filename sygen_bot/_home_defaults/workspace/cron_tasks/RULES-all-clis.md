@@ -153,3 +153,31 @@ Gemini task:
 - Provider-specific task: `"provider": "gemini"` while main agent uses Claude
 - Task-specific model: Different model per cron job
 - Advanced CLI flags: `"cli_parameters": [...]` (only if user explicitly requests)
+
+## Multi-Message Output (`---SPLIT---`)
+
+By default, the entire cron task output is sent as one Telegram message.
+To split output into **separate messages** (each with its own buttons),
+include the `---SPLIT---` marker between logical blocks.
+
+**Example task output:**
+```
+📧 Email from alice@example.com
+Subject: Bug report
+...
+
+[button:Reply][button:Delete]
+---SPLIT---
+📧 Email from bob@example.com
+Subject: Feature request
+...
+
+[button:Reply][button:Delete]
+```
+
+Each block becomes an independent message with its own inline keyboard.
+
+**When to use:**
+- Email digests — one message per email
+- Multi-item reports — separate actionable items
+- Notification batches — each notification independently dismissable

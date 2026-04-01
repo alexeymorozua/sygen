@@ -38,11 +38,13 @@ class TestInteragentChatId:
     def test_returns_first_allowed_user(self, orch_ia: Orchestrator) -> None:
         assert _interagent_chat_id(orch_ia) == 12345
 
-    def test_returns_zero_when_no_users(self, workspace: tuple[SygenPaths, AgentConfig]) -> None:
+    def test_returns_negative_when_no_users(self, workspace: tuple[SygenPaths, AgentConfig]) -> None:
         paths, config = workspace
         config.allowed_user_ids = []
         o = Orchestrator(config, paths)
-        assert _interagent_chat_id(o) == 0
+        result = _interagent_chat_id(o)
+        # Should return a negative int (hash-based) to avoid collision with real chat IDs
+        assert result < 0
 
 
 class TestGetOrCreateInteragentSession:

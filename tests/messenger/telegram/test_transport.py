@@ -89,7 +89,7 @@ class TestCronBroadcast:
 
         bot.broadcast.assert_awaited_once()
         text = bot.broadcast.call_args[0][0]
-        assert "**TASK: Backup**" in text
+        assert "**Backup**" in text
         assert "All good" in text
 
     async def test_broadcasts_status_only_when_no_text(self) -> None:
@@ -106,6 +106,25 @@ class TestCronBroadcast:
         text = bot.broadcast.call_args[0][0]
         assert "**TASK: Deploy**" in text
         assert "_failed_" in text
+
+    async def test_broadcast_splits_on_marker(self) -> None:
+        transport, bot, _ = _make_transport()
+        env = _env(
+            origin=Origin.CRON,
+            result_text="Part A\n---SPLIT---\nPart B\n---SPLIT---\nPart C",
+            status="success",
+            metadata={"title": "Mail"},
+        )
+
+        with patch("sygen_bot.messenger.telegram.transport.send_rich", new_callable=AsyncMock):
+            await transport.deliver_broadcast(env)
+
+        assert bot.broadcast.await_count == 3
+        texts = [call[0][0] for call in bot.broadcast.call_args_list]
+        assert "**Mail**" in texts[0]
+        assert "Part A" in texts[0]
+        assert texts[1] == "Part B"
+        assert texts[2] == "Part C"
 
     async def test_skips_ack_only_success(self) -> None:
         transport, bot, _ = _make_transport()

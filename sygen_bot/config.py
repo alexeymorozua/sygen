@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -523,6 +524,7 @@ CLAUDE_MODELS: frozenset[str] = frozenset(CLAUDE_MODELS_ORDERED)
 _GEMINI_ALIASES: frozenset[str] = frozenset({"auto", "pro", "flash", "flash-lite"})
 
 _runtime_gemini: list[frozenset[str]] = [frozenset()]
+_gemini_lock = threading.Lock()
 
 
 class ModelRegistry:
@@ -538,9 +540,11 @@ class ModelRegistry:
         """Return the provider for a model ID."""
         if model_id in CLAUDE_MODELS:
             return "claude"
+        with _gemini_lock:
+            gemini_snapshot = _runtime_gemini[0]
         if (
             model_id in _GEMINI_ALIASES
-            or model_id in _runtime_gemini[0]
+            or model_id in gemini_snapshot
             or model_id.startswith(("gemini-", "auto-gemini-"))
         ):
             return "gemini"
@@ -549,7 +553,8 @@ class ModelRegistry:
 
 def get_gemini_models() -> frozenset[str]:
     """Return dynamically discovered Gemini models (may be empty)."""
-    return _runtime_gemini[0]
+    with _gemini_lock:
+        return _runtime_gemini[0]
 
 
 def set_gemini_models(models: frozenset[str]) -> None:
@@ -559,9 +564,11 @@ def set_gemini_models(models: frozenset[str]) -> None:
     """
     if not models:
         return
-    _runtime_gemini[0] = models
+    with _gemini_lock:
+        _runtime_gemini[0] = models
 
 
 def reset_gemini_models() -> None:
     """Clear runtime Gemini models. For test teardown only."""
-    _runtime_gemini[0] = frozenset()
+    with _gemini_lock:
+        _runtime_gemini[0] = frozenset()

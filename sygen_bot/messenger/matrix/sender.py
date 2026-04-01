@@ -93,7 +93,7 @@ async def send_rich(
     # 4. Upload and send files
     for file_path_str in files:
         file_path = path_from_file_tag(file_path_str)
-        if not _file_accessible(file_path, opts.allowed_roots):
+        if not await _file_accessible(file_path, opts.allowed_roots):
             continue
 
         event_id = await _upload_and_send_file(client, room_id, file_path)
@@ -103,19 +103,19 @@ async def send_rich(
     return last_event_id
 
 
-def _file_accessible(
+async def _file_accessible(
     file_path: Path,
     allowed_roots: Sequence[Path] | None,
 ) -> bool:
-    """Check if *file_path* exists and is within *allowed_roots* (sync)."""
-    if not file_path.exists():
+    """Check if *file_path* exists and is within *allowed_roots*."""
+    if not await asyncio.to_thread(file_path.exists):
         logger.warning("File not found: %s", file_path)
         return False
-    if allowed_roots is not None and not any(
-        file_path.resolve().is_relative_to(root.resolve()) for root in allowed_roots
-    ):
-        logger.warning("File outside allowed roots: %s", file_path)
-        return False
+    if allowed_roots is not None:
+        resolved = await asyncio.to_thread(file_path.resolve)
+        if not any(resolved.is_relative_to(root.resolve()) for root in allowed_roots):
+            logger.warning("File outside allowed roots: %s", file_path)
+            return False
     return True
 
 

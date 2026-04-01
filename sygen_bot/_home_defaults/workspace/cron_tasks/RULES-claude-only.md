@@ -86,3 +86,31 @@ Each cron task can override global config settings in `cron_jobs.json`:
 - High-capability tasks: `"model": "opus"`
 - Cost-effective tasks: `"model": "haiku"`
 - Advanced CLI flags: `"cli_parameters": [...]` (only if user explicitly requests)
+
+## Multi-Message Output (`---SPLIT---`)
+
+By default, the entire cron task output is sent as one Telegram message.
+To split output into **separate messages** (each with its own buttons),
+include the `---SPLIT---` marker between logical blocks.
+
+**Example task output:**
+```
+📧 Email from alice@example.com
+Subject: Bug report
+...
+
+[button:Reply][button:Delete]
+---SPLIT---
+📧 Email from bob@example.com
+Subject: Feature request
+...
+
+[button:Reply][button:Delete]
+```
+
+Each block becomes an independent message with its own inline keyboard.
+
+**When to use:**
+- Email digests — one message per email
+- Multi-item reports — separate actionable items
+- Notification batches — each notification independently dismissable

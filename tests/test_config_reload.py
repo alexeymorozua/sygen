@@ -199,14 +199,16 @@ class TestConfigReloader:
 
         await reloader.stop()
 
-    async def test_apply_hot_mutates_config(self, tmp_path: Path) -> None:
+    async def test_apply_hot_updates_config(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.json"
         cfg = self._write_config(config_path, model="sonnet")
 
         applied: dict[str, Any] = {}
+        received_config: list[AgentConfig] = []
 
-        def capture(_config: AgentConfig, hot: dict[str, Any]) -> None:
+        def capture(config: AgentConfig, hot: dict[str, Any]) -> None:
             applied.update(hot)
+            received_config.append(config)
 
         reloader = ConfigReloader(config_path, cfg, on_hot_reload=capture)
 
@@ -214,8 +216,11 @@ class TestConfigReloader:
         _bump_mtime(config_path)
         await reloader._check()
 
-        assert cfg.model == "opus"
+        # Atomic swap: reloader's internal config is updated (new object)
+        assert reloader._config.model == "opus"
         assert applied.get("model") == "opus"
+        # Callback receives the updated config
+        assert received_config[0].model == "opus"
 
     async def test_same_content_rewrite_no_callback(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.json"

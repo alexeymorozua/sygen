@@ -74,6 +74,12 @@ class MatrixTransport:
             return
         elapsed = f"{env.elapsed_seconds:.0f}s"
         if env.session_name:
+            # Update named session registry (parity with Telegram transport)
+            orch = self._bot.orchestrator
+            if orch:
+                orch.named_sessions.update_after_response(
+                    env.chat_id, env.session_name, env.session_id
+                )
             if env.status == "aborted":
                 text = fmt(f"**[{env.session_name}] Cancelled**", SEP, f"_{env.prompt_preview}_")
             elif env.is_error:
@@ -85,6 +91,8 @@ class MatrixTransport:
                     SEP,
                     env.result_text or "_No output._",
                 )
+            # Extract [button:...] markers (parity with Telegram transport)
+            text = self._bot._button_tracker.extract_and_format(room_id, text)
         else:
             task_id = env.metadata.get("task_id", "?")
             if env.status == "aborted":

@@ -42,3 +42,22 @@ def detect_install_mode() -> InstallMode:
 def is_upgradeable() -> bool:
     """Return True if the bot can self-upgrade (pipx or pip, not dev)."""
     return detect_install_mode() != "dev"
+
+
+def needs_break_system_packages() -> bool:
+    """Return True when pip requires ``--break-system-packages``.
+
+    PEP 668 (Debian 12+, Ubuntu 23.04+, Fedora 38+) marks the system
+    Python as *externally managed*, causing bare ``pip install`` to fail.
+    """
+    from pathlib import Path
+
+    for base in (Path(sys.prefix), Path(sys.base_prefix)):
+        marker = (
+            base / "lib"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "EXTERNALLY-MANAGED"
+        )
+        if marker.exists():
+            return True
+    return False

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import logging
 import os
 import time
@@ -19,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 _KILL_WAIT_SECONDS = 5.0
 _KILL_POLL_INTERVAL = 0.2
+
+# Held for the lifetime of the process to guarantee mutual exclusion.
+_lock_fd: int | None = None
 
 
 def _is_process_alive(pid: int) -> bool:
@@ -97,49 +101,63 @@ def _alive_pids(pids: list[int]) -> list[int]:
 def acquire_lock(*, pid_file: Path, kill_existing: bool = False) -> None:
     """Write PID file after ensuring no other instance is running.
 
+    Uses ``fcntl.flock`` for race-free mutual exclusion: the kernel
+    guarantees that only one process can hold an exclusive lock on the
+    file at a time, eliminating the TOCTOU window that existed with the
+    old check-then-write approach.
+
     Args:
         pid_file: Path to the PID lockfile.
         kill_existing: If True, kill any running instance before acquiring.
                        If False, raise ``SystemExit`` when another instance is found.
     """
+    global _lock_fd  # noqa: PLW0603
+
     pid_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if pid_file.exists():
+    fd = os.open(str(pid_file), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        # Another process holds the lock — read its PID.
         try:
-            existing_pid = int(pid_file.read_text(encoding="utf-8").strip())
+            existing_pid = int(os.pread(fd, 64, 0).decode().strip())
         except (ValueError, OSError):
             existing_pid = None
 
-        if existing_pid is not None and _is_process_alive(existing_pid):
-            if kill_existing:
-                _kill_and_wait(existing_pid)
-            else:
-                logger.error(
-                    "Another bot instance is already running (pid=%d). "
-                    "Kill it first or delete %s if stale.",
-                    existing_pid,
-                    pid_file,
-                )
-                raise SystemExit(1)
+        if kill_existing and existing_pid is not None:
+            os.close(fd)
+            _kill_and_wait(existing_pid)
+            # Re-open and re-acquire after kill
+            fd = os.open(str(pid_file), os.O_RDWR | os.O_CREAT, 0o644)
+            fcntl.flock(fd, fcntl.LOCK_EX)  # blocking — waits for dying process
         else:
-            logger.warning("Stale PID file found (pid=%s), overwriting", existing_pid)
+            os.close(fd)
+            logger.error(
+                "Another bot instance is already running (pid=%s). "
+                "Kill it first or delete %s if stale.",
+                existing_pid,
+                pid_file,
+            )
+            raise SystemExit(1)
 
-    atomic_bytes_save(pid_file, str(os.getpid()).encode())
+    # Lock acquired — write our PID.
+    os.ftruncate(fd, 0)
+    os.pwrite(fd, str(os.getpid()).encode(), 0)
+    _lock_fd = fd  # keep fd open so the lock is held for process lifetime
     logger.info("PID lock acquired (pid=%d)", os.getpid())
 
 
 def release_lock(*, pid_file: Path) -> None:
-    """Remove PID file if it belongs to the current process."""
-    if not pid_file.exists():
-        return
-    try:
-        stored_pid = int(pid_file.read_text(encoding="utf-8").strip())
-    except (ValueError, OSError):
-        pid_file.unlink(missing_ok=True)
-        return
+    """Release the flock and remove the PID file."""
+    global _lock_fd  # noqa: PLW0603
 
-    if stored_pid == os.getpid():
-        pid_file.unlink(missing_ok=True)
-        logger.info("PID lock released")
-    else:
-        logger.debug("PID file belongs to pid=%d, not removing", stored_pid)
+    if _lock_fd is not None:
+        with contextlib.suppress(OSError):
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+        with contextlib.suppress(OSError):
+            os.close(_lock_fd)
+        _lock_fd = None
+
+    pid_file.unlink(missing_ok=True)
+    logger.info("PID lock released")

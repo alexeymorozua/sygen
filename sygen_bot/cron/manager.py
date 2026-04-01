@@ -7,6 +7,7 @@ for changes and schedules jobs in-process.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -118,73 +119,82 @@ class CronManager:
 
     def __init__(self, *, jobs_path: Path) -> None:
         self._jobs_path = jobs_path
+        self._lock = threading.Lock()
         self._jobs: list[CronJob] = self._load()
 
     # -- CRUD --
 
     def add_job(self, job: CronJob) -> None:
         """Add a new job. Raises ValueError if ID already exists."""
-        if any(j.id == job.id for j in self._jobs):
-            msg = f"Job '{job.id}' already exists"
-            raise ValueError(msg)
-        self._jobs.append(job)
-        self._save()
+        with self._lock:
+            if any(j.id == job.id for j in self._jobs):
+                msg = f"Job '{job.id}' already exists"
+                raise ValueError(msg)
+            self._jobs.append(job)
+            self._save()
         logger.info("Cron job added: %s (%s)", job.id, job.schedule)
 
     def remove_job(self, job_id: str) -> bool:
         """Remove a job by ID. Returns False if not found."""
-        before = len(self._jobs)
-        self._jobs = [j for j in self._jobs if j.id != job_id]
-        if len(self._jobs) == before:
-            return False
-        self._save()
+        with self._lock:
+            before = len(self._jobs)
+            self._jobs = [j for j in self._jobs if j.id != job_id]
+            if len(self._jobs) == before:
+                return False
+            self._save()
         logger.info("Cron job removed: %s", job_id)
         return True
 
     def list_jobs(self) -> list[CronJob]:
-        """Return all jobs."""
-        return list(self._jobs)
+        """Return a snapshot of all jobs."""
+        with self._lock:
+            return list(self._jobs)
 
     def get_job(self, job_id: str) -> CronJob | None:
         """Return a job by ID, or None."""
-        return next((j for j in self._jobs if j.id == job_id), None)
+        with self._lock:
+            return next((j for j in self._jobs if j.id == job_id), None)
 
     def set_enabled(self, job_id: str, *, enabled: bool) -> bool:
         """Set ``enabled`` for one job. Returns True if state changed."""
-        job = self.get_job(job_id)
-        if job is None:
-            return False
-        if job.enabled == enabled:
-            return False
-        job.enabled = enabled
-        self._save()
+        with self._lock:
+            job = next((j for j in self._jobs if j.id == job_id), None)
+            if job is None:
+                return False
+            if job.enabled == enabled:
+                return False
+            job.enabled = enabled
+            self._save()
         logger.info("Cron job %s: enabled=%s", job_id, enabled)
         return True
 
     def set_all_enabled(self, *, enabled: bool) -> int:
         """Set ``enabled`` for all jobs. Returns number of changed jobs."""
-        changed = 0
-        for job in self._jobs:
-            if job.enabled != enabled:
-                job.enabled = enabled
-                changed += 1
-        if changed:
-            self._save()
-            logger.info("Cron jobs bulk update: enabled=%s changed=%d", enabled, changed)
+        with self._lock:
+            changed = 0
+            for job in self._jobs:
+                if job.enabled != enabled:
+                    job.enabled = enabled
+                    changed += 1
+            if changed:
+                self._save()
+                logger.info("Cron jobs bulk update: enabled=%s changed=%d", enabled, changed)
         return changed
 
     def update_run_status(self, job_id: str, *, status: str) -> None:
         """Update last_run_at and last_run_status for a job."""
-        job = self.get_job(job_id)
-        if job is None:
-            return
-        job.last_run_at = datetime.now(UTC).isoformat()
-        job.last_run_status = status
-        self._save()
+        with self._lock:
+            job = next((j for j in self._jobs if j.id == job_id), None)
+            if job is None:
+                return
+            job.last_run_at = datetime.now(UTC).isoformat()
+            job.last_run_status = status
+            self._save()
 
     def reload(self) -> None:
         """Re-read jobs from disk (called by CronObserver on file change)."""
-        self._jobs = self._load()
+        with self._lock:
+            self._jobs = self._load()
 
     # -- Persistence --
 
