@@ -474,8 +474,7 @@ Optional feature for semantic search over memory facts. Instead of injecting ent
 **Installation:**
 
 ```bash
-pip install sygen[vector]         # ChromaDB + built-in ONNX (English-focused, ~80MB)
-pip install sygen[vector-ml]      # + sentence-transformers (multilingual, ~500MB+)
+pip install sygen[vector]    # ChromaDB + sentence-transformers (multilingual, ~500MB)
 ```
 
 **Enable:**
