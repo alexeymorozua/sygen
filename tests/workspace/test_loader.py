@@ -132,3 +132,53 @@ def test_compact_reader_no_truncation_within_limit(tmp_path: Path) -> None:
     assert "[...]" not in result
     assert "Just a few lines" in result
     assert "Also short" in result
+
+
+def test_inject_all_modules_reads_everything(tmp_path: Path) -> None:
+    """inject_all=True should read ALL modules, not just Always Load."""
+    paths = _make_paths(tmp_path)
+    modules_dir = paths.memory_system_dir / "modules"
+    modules_dir.mkdir(parents=True)
+    (modules_dir / "user.md").write_text("User data")
+    (modules_dir / "decisions.md").write_text("Decision data")
+    (modules_dir / "infrastructure.md").write_text("Server info")
+    (modules_dir / "tools.md").write_text("Tool list")
+
+    # MAINMEMORY.md only lists user.md in Always Load
+    paths.mainmemory_path.write_text(
+        "### Always Load\n"
+        "| M | D | P |\n"
+        "| user | Profile | [modules/user.md](modules/user.md) |\n"
+        "### Load On Demand\n"
+    )
+
+    # Without inject_all: only user.md (Always Load)
+    result_selective = read_always_load_modules(paths, inject_all=False)
+    assert "User data" in result_selective
+    assert "Server info" not in result_selective
+
+    # With inject_all: all 4 modules
+    result_all = read_always_load_modules(paths, inject_all=True)
+    assert "User data" in result_all
+    assert "Decision data" in result_all
+    assert "Server info" in result_all
+    assert "Tool list" in result_all
+
+
+def test_compact_inject_all(tmp_path: Path) -> None:
+    """Compact reader with inject_all should read all modules with truncation."""
+    modules_dir = tmp_path / "memory_system" / "modules"
+    modules_dir.mkdir(parents=True)
+    mainmemory_path = tmp_path / "memory_system" / "MAINMEMORY.md"
+    mainmemory_path.write_text("")  # empty MAINMEMORY
+
+    (modules_dir / "crons.md").write_text("Cron info")
+    (modules_dir / "infra.md").write_text("\n".join(f"Line {i}" for i in range(50)))
+
+    result = read_always_load_modules_compact(
+        modules_dir, mainmemory_path,
+        max_lines_per_module=10, inject_all=True,
+    )
+    assert "Cron info" in result
+    assert "Line 9" in result
+    assert "[...]" in result  # infra.md truncated

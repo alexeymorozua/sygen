@@ -92,6 +92,7 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `docker` | `DockerConfig` | see below | Docker sidecar config |
 | `heartbeat` | `HeartbeatConfig` | see below | Background heartbeat config |
 | `cleanup` | `CleanupConfig` | see below | Daily file-retention cleanup |
+| `memory` | `MemoryConfig` | see below | Memory system settings (injection, maintenance) |
 | `webhooks` | `WebhookConfig` | see below | Webhook HTTP server config |
 | `fileshare` | `FileshareConfig` | see below | Built-in fileshare HTTP server config |
 | `api` | `ApiConfig` | see below | Direct WebSocket API server config |
@@ -427,6 +428,41 @@ Cleanup implementation detail:
 - cleanup is recursive (`_delete_old_files` walks nested files via `rglob("*")`),
 - after file deletion, empty subdirectories are pruned,
 - dated upload folders (`.../YYYY-MM-DD/...`) are cleaned when contained files exceed retention and directories become empty.
+
+## `MemoryConfig`
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | `bool` | `true` | Master toggle for mechanical memory maintenance |
+| `module_line_limit` | `int` | `80` | Max lines per memory module (agent gets size warnings above this) |
+| `session_max_age_days` | `int` | `30` | Session cleanup threshold |
+| `check_hour` | `int` | `4` | Hour for memory maintenance (4 AM) |
+| `hook_compact_lines` | `int` | `20` | Max lines per module injected in periodic memory hook |
+| `inject_all_modules` | `bool` | `false` | Inject ALL modules (not just Always Load) into agent context |
+
+### Memory injection behavior
+
+Memory modules are injected into the agent's context at two points:
+
+1. **Session start** — full content of selected modules is injected via `--append-system-prompt`
+2. **Every 6 messages** — `MAINMEMORY_REMINDER` hook re-injects module content (truncated to `hook_compact_lines` per module) to prevent knowledge loss after context compaction
+
+Which modules are injected depends on `inject_all_modules`:
+
+- `false` (default) — only modules listed in the "Always Load" table in `MAINMEMORY.md` (typically `user.md` and `decisions.md`)
+- `true` — all `.md` files in `memory_system/modules/` are injected
+
+### Token cost estimates
+
+With 2 Always Load modules (~25 lines each):
+- Session start: ~1.5K tokens (one-time)
+- Hook (every 6 msgs): ~600 tokens with `hook_compact_lines=20`
+
+With 5 modules and `inject_all_modules=true`:
+- Session start: ~3K tokens (one-time)
+- Hook (every 6 msgs): ~1.2K tokens with `hook_compact_lines=20`
+
+For users with high-tier API plans who prioritize agent knowledge over token cost, set `inject_all_modules=true` and increase `hook_compact_lines` (e.g. `50` or `100`).
 
 ## `WebhookConfig`
 

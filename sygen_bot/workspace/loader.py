@@ -108,14 +108,28 @@ def _read_modules(
     return "\n\n".join(parts)
 
 
-def read_always_load_modules(paths: SygenPaths) -> str:
-    """Read 'Always Load' memory modules (full content, for session start)."""
-    mainmemory = read_file(paths.mainmemory_path) or ""
+def read_always_load_modules(paths: SygenPaths, *, inject_all: bool = False) -> str:
+    """Read memory modules (full content, for session start).
+
+    Args:
+        inject_all: If True, read ALL modules instead of just Always Load.
+    """
     modules_dir = paths.memory_system_dir / "modules"
     if not modules_dir.is_dir():
         return ""
-    filenames = _parse_always_load_filenames(mainmemory)
+    if inject_all:
+        filenames = _discover_all_modules(modules_dir)
+    else:
+        mainmemory = read_file(paths.mainmemory_path) or ""
+        filenames = _parse_always_load_filenames(mainmemory)
     return _read_modules(modules_dir, filenames)
+
+
+def _discover_all_modules(modules_dir: Path) -> list[str]:
+    """Return sorted list of all .md filenames in modules directory."""
+    if not modules_dir.is_dir():
+        return []
+    return sorted(f.name for f in modules_dir.glob("*.md"))
 
 
 def read_always_load_modules_compact(
@@ -123,12 +137,20 @@ def read_always_load_modules_compact(
     mainmemory_path: Path,
     *,
     max_lines_per_module: int = 30,
+    inject_all: bool = False,
 ) -> str:
-    """Read 'Always Load' modules with per-module line limit (for hooks)."""
+    """Read memory modules with per-module line limit (for hooks).
+
+    Args:
+        inject_all: If True, read ALL modules instead of just Always Load.
+    """
     if not modules_dir.is_dir():
         return ""
-    mainmemory = read_file(mainmemory_path) or ""
-    filenames = _parse_always_load_filenames(mainmemory)
+    if inject_all:
+        filenames = _discover_all_modules(modules_dir)
+    else:
+        mainmemory = read_file(mainmemory_path) or ""
+        filenames = _parse_always_load_filenames(mainmemory)
     return _read_modules(
         modules_dir, filenames, max_lines_per_module=max_lines_per_module,
     )

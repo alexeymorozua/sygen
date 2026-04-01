@@ -23,6 +23,7 @@ class HookContext:
     model: str
     memory_modules_dir: Path | None = None
     hook_compact_lines: int = 20
+    inject_all_modules: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,7 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
         modules_content = read_always_load_modules_compact(
             ctx.memory_modules_dir, mainmemory_path,
             max_lines_per_module=ctx.hook_compact_lines,
+            inject_all=ctx.inject_all_modules,
         )
         if modules_content.strip():
             base += "\n\n" + modules_content

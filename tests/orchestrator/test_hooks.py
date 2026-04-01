@@ -214,6 +214,39 @@ class TestMainmemoryReminderInjectsModules:
         # No crash, no module content
         assert "# Memory:" not in resolved
 
+    def test_inject_all_modules(self, tmp_path: Path) -> None:
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        (modules_dir / "user.md").write_text("User data")
+        (modules_dir / "infra.md").write_text("Server info")
+        mainmemory = tmp_path / "MAINMEMORY.md"
+        # Only user.md in Always Load
+        mainmemory.write_text(
+            "### Always Load\n"
+            "| M | D | P |\n"
+            "| user | Profile | [modules/user.md](modules/user.md) |\n"
+            "### Load On Demand\n"
+        )
+        # With inject_all_modules=False: only user.md
+        ctx_selective = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=modules_dir,
+            inject_all_modules=False,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx_selective)
+        assert "User data" in resolved
+        assert "Server info" not in resolved
+
+        # With inject_all_modules=True: both modules
+        ctx_all = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=modules_dir,
+            inject_all_modules=True,
+        )
+        resolved_all = MAINMEMORY_REMINDER.resolve_suffix(ctx_all)
+        assert "User data" in resolved_all
+        assert "Server info" in resolved_all
+
 
 class TestCheckModuleSizes:
     def test_no_dir_returns_empty(self) -> None:

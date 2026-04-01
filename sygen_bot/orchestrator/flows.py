@@ -96,8 +96,11 @@ async def _prepare_normal(
         if mainmemory.strip():
             append_prompt = mainmemory
 
-        # --- Inject Always Load memory modules at session start ---
-        always_load = await asyncio.to_thread(read_always_load_modules, orch.paths)
+        # --- Inject memory modules at session start ---
+        inject_all = orch._config.memory.inject_all_modules
+        always_load = await asyncio.to_thread(
+            read_always_load_modules, orch.paths, inject_all=inject_all,
+        )
         if always_load.strip():
             append_prompt = f"{append_prompt}\n\n{always_load}" if append_prompt else always_load
         # --- End ---
@@ -114,6 +117,7 @@ async def _prepare_normal(
         model=req_model,
         memory_modules_dir=orch.paths.memory_system_dir / "modules",
         hook_compact_lines=orch._config.memory.hook_compact_lines,
+        inject_all_modules=orch._config.memory.inject_all_modules,
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
 
