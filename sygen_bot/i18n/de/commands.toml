@@ -23,6 +23,8 @@ where = "Verfolgte Chats"
 leave = "Gruppe verlassen"
 mcp = "MCP-Server verwalten"
 skill = "Skill-Marktplatz"
+sessions = "Benannte Sitzungen"
+workflow = "Multi-Agent Workflows"
 
 [multiagent]
 agents = "Alle Agents auflisten"

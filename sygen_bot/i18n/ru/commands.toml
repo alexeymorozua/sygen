@@ -23,6 +23,8 @@ where = "Отслеживаемые чаты"
 leave = "Покинуть группу"
 mcp = "Управление MCP"
 skill = "Маркетплейс скиллов"
+sessions = "Именованные сессии"
+workflow = "Multi-agent пайплайны"
 
 [multiagent]
 agents = "Список агентов"

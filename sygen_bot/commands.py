@@ -24,8 +24,12 @@ def get_bot_commands() -> list[tuple[str, str]]:
         ("memory", t_cmd("bot.memory")),
         # Automation & multi-agent
         ("session", t_cmd("bot.session")),
+        ("sessions", t_cmd("bot.sessions")),
         ("tasks", t_cmd("bot.tasks")),
         ("cron", t_cmd("bot.cron")),
+        ("workflow", t_cmd("bot.workflow")),
+        ("mcp", t_cmd("bot.mcp")),
+        ("skill", t_cmd("bot.skill")),
         ("agent_commands", t_cmd("bot.agent_commands")),
         # Browse & info
         ("logs", t_cmd("bot.logs")),

@@ -153,6 +153,14 @@ class SygenPaths:
         return self.sygen_home / "fileshare" / "downloads"
 
     @property
+    def workflows_dir(self) -> Path:
+        return self.sygen_home / "workflows"
+
+    @property
+    def workflow_runs_path(self) -> Path:
+        return self.sygen_home / "workflow_runs.json"
+
+    @property
     def env_file(self) -> Path:
         """User-managed ``.env`` for external API secrets."""
         return self.sygen_home / ".env"

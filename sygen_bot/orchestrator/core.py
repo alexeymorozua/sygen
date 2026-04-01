@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     from sygen_bot.multiagent.supervisor import AgentSupervisor
     from sygen_bot.session.named import NamedSession
     from sygen_bot.tasks.hub import TaskHub
+    from sygen_bot.workflow.engine import WorkflowEngine
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,7 @@ class Orchestrator:
         self._hook_registry.register(DELEGATION_BRIEF)
         self._hook_registry.register(DELEGATION_REMINDER)
         self._hook_registry.register(_make_update_changelog_hook(paths.workspace))
+        self._workflow_engine: WorkflowEngine | None = None
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
         self._task_hub: TaskHub | None = None  # Set by supervisor or __main__.py
         self._mcp_manager: MCPManager | None = None
@@ -334,6 +336,16 @@ class Orchestrator:
             return OrchestratorResult(text="An internal error occurred. Please try again.")
 
     async def _route_message(self, dispatch: _MessageDispatch) -> OrchestratorResult:
+        # Check if a workflow is waiting for a user reply in this chat/topic.
+        # Let slash commands through so the user can /workflow cancel, /stop, etc.
+        if self._workflow_engine is not None and not dispatch.cmd.startswith("/"):
+            waiting = self._workflow_engine.get_waiting_run(
+                dispatch.key.chat_id, dispatch.key.topic_id,
+            )
+            if waiting is not None:
+                await self._workflow_engine.resume_workflow(waiting.run_id, dispatch.text)
+                return OrchestratorResult(text="Reply received, workflow resuming...")
+
         result = await self._command_registry.dispatch(
             dispatch.cmd,
             self,
@@ -410,6 +422,11 @@ class Orchestrator:
         reg.register_async("/mcp ", cmd_mcp)
         reg.register_async("/skill", cmd_skill)
         reg.register_async("/skill ", cmd_skill)
+
+        from sygen_bot.workflow.commands import cmd_workflow
+
+        reg.register_async("/workflow", cmd_workflow)
+        reg.register_async("/workflow ", cmd_workflow)
 
     def register_multiagent_commands(self) -> None:
         """Register /agents, /agent_start, /agent_stop, /agent_restart commands.

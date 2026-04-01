@@ -1,0 +1,62 @@
+# Example workflow: Research and Summarize
+#
+# Asks the user for a topic, researches it via an agent,
+# then asks for approval before delivering the summary.
+#
+# Usage: /workflow run research_topic
+
+id: research_topic
+name: Research & Summarize
+description: Ask user for a topic, research it, confirm, deliver.
+trigger:
+  manual: true
+variables:
+  depth: "medium"
+
+steps:
+  - id: ask_topic
+    type: wait_for_reply
+    message: "What topic would you like me to research?"
+
+  - id: research
+    type: ask_agent
+    agent: main
+    prompt: |
+      Research the following topic at $depth depth level:
+      $steps.ask_topic.output
+
+      Provide a structured summary with key findings.
+    timeout: 300
+    on_error: retry
+    retry:
+      max_attempts: 2
+      delay_seconds: 10
+
+  - id: review
+    type: wait_for_reply
+    message: |
+      Here's what I found:
+
+      $steps.research.output
+
+      Should I refine this? Reply "done" to finish, or give feedback.
+
+  - id: check
+    type: condition
+    if: "'done' in '$steps.review.output'.lower()"
+    then: deliver
+    else: refine
+
+  - id: refine
+    type: ask_agent
+    agent: main
+    prompt: |
+      Refine the research based on user feedback:
+      Feedback: $steps.review.output
+      Original: $steps.research.output
+    timeout: 300
+    goto: review
+
+  - id: deliver
+    type: notify
+    message: "Research complete! Final summary saved."

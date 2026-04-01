@@ -134,7 +134,9 @@ def _build_help_text() -> str:
         SEP,
         f"{t('help.cat_daily')}\n{_help_line('new')}\n{_help_line('stop')}\n{_help_line('interrupt')}\n{_help_line('stop_all')}\n"
         f"{_help_line('model')}\n{_help_line('status')}\n{_help_line('memory')}",
-        f"{t('help.cat_automation')}\n{_help_line('session')}\n{_help_line('tasks')}\n{_help_line('cron')}",
+        f"{t('help.cat_automation')}\n{_help_line('session')}\n{_help_line('sessions')}\n"
+        f"{_help_line('tasks')}\n{_help_line('cron')}\n{_help_line('workflow')}\n"
+        f"{_help_line('mcp')}\n{_help_line('skill')}",
         f"{t('help.cat_multiagent')}\n{_help_line('agent_commands')}",
         f"{t('help.cat_browse')}\n{_help_line('where')}\n{_help_line('leave')}\n"
         f"{_help_line('logs')}\n{_help_line('showfiles')}\n{_help_line('info')}\n{_help_line('help')}",

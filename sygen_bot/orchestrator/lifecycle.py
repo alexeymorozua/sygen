@@ -127,6 +127,41 @@ async def create_orchestrator(
             )
         logger.info("MCP manager started with %d tool(s)", len(mcp_mgr.get_all_tools()))
 
+    # Workflow Engine
+    if config.workflow.enabled:
+        from sygen_bot.workflow.engine import WorkflowEngine
+        from sygen_bot.workflow.observer import WorkflowObserver
+        from sygen_bot.workflow.registry import WorkflowRegistry
+
+        wf_registry = WorkflowRegistry(
+            definitions_dir=paths.workflows_dir,
+            runs_path=paths.workflow_runs_path,
+        )
+
+        # Notify callback is a no-op stub initially. The real implementation
+        # is wired in ``ObserverManager.wire_to_bus()`` once the MessageBus
+        # is available (same pattern as cron/background observers).
+        async def _noop_notify(
+            chat_id: int,
+            topic_id: int | None,
+            transport: str,
+            message: str,
+            *,
+            run_id: str = "",
+            workflow_name: str = "",
+        ) -> None:
+            logger.warning("Workflow notify called before bus is wired")
+
+        wf_engine = WorkflowEngine(
+            wf_registry,
+            notify_callback=_noop_notify,
+            max_parallel_runs=config.workflow.max_parallel_runs,
+            default_step_timeout=config.workflow.default_step_timeout,
+        )
+        orch._workflow_engine = wf_engine
+        orch._observers.workflow = WorkflowObserver(wf_engine, paths)
+        logger.info("Workflow engine enabled (%s)", paths.workflows_dir)
+
     # Built-in fileshare server
     if config.fileshare.enabled:
         await start_fileshare_server(orch, config, paths)
@@ -280,6 +315,8 @@ async def shutdown(orch: Orchestrator) -> None:
     killed = await orch._process_registry.kill_all_active()
     if killed:
         logger.info("Shutdown terminated %d active CLI process(es)", killed)
+    if orch._workflow_engine is not None:
+        await orch._workflow_engine.shutdown()
     if orch._fileshare_stop is not None:
         await orch._fileshare_stop()
     if orch._api_stop is not None:

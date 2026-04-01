@@ -23,6 +23,8 @@ where = "Show tracked chats"
 leave = "Leave a group"
 mcp = "MCP server management"
 skill = "Skill marketplace"
+sessions = "Named sessions"
+workflow = "Multi-agent workflows"
 
 [multiagent]
 agents = "List all agents"
