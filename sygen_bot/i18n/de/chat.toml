@@ -440,6 +440,7 @@ verification_failed = "Upgrade konnte keine neue Version verifizieren (immer noc
 restarting = "Bot startet neu..."
 no_changelog = "Kein Changelog für v{version} gefunden."
 changelog_header = "**Changelog v{version}**"
+system_updates_header = "Systemaktualisierungen"
 
 # -- Multi-Agent-Benachrichtigungen -------------------------------------------
 

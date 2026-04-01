@@ -440,6 +440,7 @@ verification_failed = "O upgrade não conseguiu verificar uma nova versão insta
 restarting = "Bot está reiniciando..."
 no_changelog = "Nenhum changelog encontrado para v{version}."
 changelog_header = "**Changelog v{version}**"
+system_updates_header = "Atualizações do sistema"
 
 # -- Notificações multi-agent --------------------------------------------------
 

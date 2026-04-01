@@ -140,7 +140,10 @@ async def _run_primary_startup(bot: TelegramBot) -> None:
     from sygen_bot.infra.install import is_upgradeable
 
     if is_upgradeable() and bot.config.update_check and bot._agent_name == "main":
-        bot._update_observer = UpdateObserver(notify=bot._on_update_available)
+        bot._update_observer = UpdateObserver(
+            notify=bot._on_update_available,
+            notify_system=bot._on_system_updates_available,
+        )
         bot._update_observer.start()
 
 

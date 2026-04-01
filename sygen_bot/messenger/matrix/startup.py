@@ -47,7 +47,7 @@ async def run_matrix_startup(bot: MatrixBot) -> None:
         try:
             from sygen_bot.infra.install import is_upgradeable
             from sygen_bot.infra.updater import UpdateObserver
-            from sygen_bot.infra.version import VersionInfo
+            from sygen_bot.infra.version import SystemUpdatesInfo, VersionInfo
 
             if is_upgradeable() and bot._config.update_check and bot._agent_name == "main":
 
@@ -56,7 +56,15 @@ async def run_matrix_startup(bot: MatrixBot) -> None:
                         t("startup.matrix_update", version=info.latest)
                     )
 
-                bot._update_observer = UpdateObserver(notify=_on_update)
+                async def _on_system_update(info: SystemUpdatesInfo) -> None:
+                    lines = [f"🔄 {t('upgrade_handler.system_updates_header')}"]
+                    for upd in info.updates:
+                        lines.append(f"• {upd.name}: {upd.current} → {upd.latest}")
+                    await bot.notification_service.notify_all("\n".join(lines))
+
+                bot._update_observer = UpdateObserver(
+                    notify=_on_update, notify_system=_on_system_update,
+                )
                 bot._update_observer.start()
         except ImportError:
             pass

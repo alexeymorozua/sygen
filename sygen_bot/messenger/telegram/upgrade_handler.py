@@ -12,7 +12,7 @@ from aiogram.exceptions import TelegramBadRequest
 from sygen_bot.i18n import t
 from sygen_bot.infra.restart import EXIT_RESTART
 from sygen_bot.infra.updater import perform_upgrade_pipeline, write_upgrade_sentinel
-from sygen_bot.infra.version import VersionInfo, get_current_version
+from sygen_bot.infra.version import SystemUpdatesInfo, VersionInfo, get_current_version
 from sygen_bot.messenger.telegram.sender import SendRichOpts, send_rich
 from sygen_bot.text.response_format import SEP, fmt
 
@@ -209,3 +209,21 @@ async def handle_changelog_callback(
             thread_id=thread_id,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# System component update notifications
+# ---------------------------------------------------------------------------
+
+
+async def on_system_updates_available(bot: TelegramBot, info: SystemUpdatesInfo) -> None:
+    """Notify all users about available system component updates."""
+    if not info.has_updates:
+        return
+
+    lines = [f"🔄 **{t('upgrade_handler.system_updates_header')}**", SEP]
+    for upd in info.updates:
+        lines.append(f"• {upd.name}: `{upd.current}` → `{upd.latest}`")
+
+    text = "\n".join(lines)
+    await bot.broadcast(text)

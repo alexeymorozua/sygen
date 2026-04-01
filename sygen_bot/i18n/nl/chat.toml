@@ -440,6 +440,7 @@ verification_failed = "Upgrade kon geen nieuwe versie verifiëren (nog steeds {v
 restarting = "Bot herstart..."
 no_changelog = "Geen changelog gevonden voor v{version}."
 changelog_header = "**Changelog v{version}**"
+system_updates_header = "Systeemupdates"
 
 # -- Multi-agent-meldingen --------------------------------------------------------
 

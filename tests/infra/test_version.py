@@ -1,4 +1,4 @@
-"""Tests for PyPI version checking."""
+"""Tests for PyPI version checking and system update checks."""
 
 from __future__ import annotations
 
@@ -8,9 +8,15 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from sygen_bot.infra.version import (
+    ComponentUpdate,
+    SystemUpdatesInfo,
     VersionInfo,
+    _check_cli_tool,
+    _check_pip_dep,
+    _get_cli_version,
     _parse_version,
     check_pypi,
+    check_system_updates,
     fetch_changelog,
     get_current_version,
 )
@@ -229,3 +235,162 @@ class TestFetchChangelog:
         with patch("sygen_bot.infra.version.aiohttp.ClientSession", mock):
             result = await fetch_changelog("1.0.0")
         assert result == "changelog text"
+
+
+# ---------------------------------------------------------------------------
+# System update checks
+# ---------------------------------------------------------------------------
+
+
+class TestComponentUpdate:
+    """Test ComponentUpdate and SystemUpdatesInfo dataclasses."""
+
+    def test_system_updates_empty(self) -> None:
+        info = SystemUpdatesInfo()
+        assert not info.has_updates
+        assert info.updates == []
+
+    def test_system_updates_with_entries(self) -> None:
+        info = SystemUpdatesInfo(
+            updates=[ComponentUpdate(name="claude CLI", current="2.1.0", latest="2.2.0")]
+        )
+        assert info.has_updates
+        assert len(info.updates) == 1
+
+    def test_component_update_fields(self) -> None:
+        upd = ComponentUpdate(name="chromadb", current="1.0.0", latest="1.1.0")
+        assert upd.name == "chromadb"
+        assert upd.current == "1.0.0"
+        assert upd.latest == "1.1.0"
+
+
+class TestGetCliVersion:
+    """Test CLI version detection."""
+
+    async def test_returns_none_when_not_installed(self) -> None:
+        with patch("sygen_bot.infra.version.shutil.which", return_value=None):
+            result = await _get_cli_version("nonexistent")
+        assert result is None
+
+    async def test_parses_claude_version(self) -> None:
+        with (
+            patch("sygen_bot.infra.version.shutil.which", return_value="/usr/bin/claude"),
+            patch("sygen_bot.infra.version._run_cmd", return_value="2.1.89 (Claude Code)"),
+        ):
+            result = await _get_cli_version("claude")
+        assert result == "2.1.89"
+
+    async def test_parses_simple_version(self) -> None:
+        with (
+            patch("sygen_bot.infra.version.shutil.which", return_value="/usr/bin/gemini"),
+            patch("sygen_bot.infra.version._run_cmd", return_value="0.35.3"),
+        ):
+            result = await _get_cli_version("gemini")
+        assert result == "0.35.3"
+
+    async def test_returns_none_on_empty_output(self) -> None:
+        with (
+            patch("sygen_bot.infra.version.shutil.which", return_value="/usr/bin/tool"),
+            patch("sygen_bot.infra.version._run_cmd", return_value=None),
+        ):
+            result = await _get_cli_version("tool")
+        assert result is None
+
+
+class TestCheckCliTool:
+    """Test CLI tool update detection."""
+
+    async def test_detects_npm_update(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._get_cli_version", return_value="2.1.0"),
+            patch("sygen_bot.infra.version._get_npm_latest", return_value="2.2.0"),
+        ):
+            result = await _check_cli_tool("claude", "@anthropic-ai/claude-code", None)
+        assert result is not None
+        assert result.current == "2.1.0"
+        assert result.latest == "2.2.0"
+
+    async def test_no_update_when_current(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._get_cli_version", return_value="2.2.0"),
+            patch("sygen_bot.infra.version._get_npm_latest", return_value="2.2.0"),
+        ):
+            result = await _check_cli_tool("claude", "@anthropic-ai/claude-code", None)
+        assert result is None
+
+    async def test_returns_none_when_not_installed(self) -> None:
+        with patch("sygen_bot.infra.version._get_cli_version", return_value=None):
+            result = await _check_cli_tool("codex", "@openai/codex", None)
+        assert result is None
+
+    async def test_falls_back_to_pypi(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._get_cli_version", return_value="1.0.0"),
+            patch("sygen_bot.infra.version._get_npm_latest", return_value=None),
+            patch("sygen_bot.infra.version._get_pypi_latest", return_value="2.0.0"),
+        ):
+            result = await _check_cli_tool("gemini", None, "google-genai")
+        assert result is not None
+        assert result.latest == "2.0.0"
+
+
+class TestCheckPipDep:
+    """Test pip dependency update detection."""
+
+    async def test_detects_pip_update(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._get_pip_installed", return_value="1.0.0"),
+            patch("sygen_bot.infra.version._get_pypi_latest", return_value="1.5.0"),
+        ):
+            result = await _check_pip_dep("chromadb", "chromadb")
+        assert result is not None
+        assert result.name == "chromadb"
+        assert result.latest == "1.5.0"
+
+    async def test_no_update_when_current(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._get_pip_installed", return_value="1.5.0"),
+            patch("sygen_bot.infra.version._get_pypi_latest", return_value="1.5.0"),
+        ):
+            result = await _check_pip_dep("chromadb", "chromadb")
+        assert result is None
+
+    async def test_returns_none_when_not_installed(self) -> None:
+        with patch("sygen_bot.infra.version._get_pip_installed", return_value=None):
+            result = await _check_pip_dep("chromadb", "chromadb")
+        assert result is None
+
+
+class TestCheckSystemUpdates:
+    """Test the orchestrating check_system_updates function."""
+
+    async def test_aggregates_all_updates(self) -> None:
+        cli_update = ComponentUpdate(name="claude CLI", current="2.0.0", latest="2.1.0")
+        pip_update = ComponentUpdate(name="chromadb", current="1.0.0", latest="1.1.0")
+
+        with (
+            patch("sygen_bot.infra.version._check_cli_tool", side_effect=[cli_update, None, None]),
+            patch("sygen_bot.infra.version._check_pip_dep", side_effect=[pip_update, None]),
+        ):
+            result = await check_system_updates()
+
+        assert result.has_updates
+        assert len(result.updates) == 2
+
+    async def test_returns_empty_when_no_updates(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._check_cli_tool", return_value=None),
+            patch("sygen_bot.infra.version._check_pip_dep", return_value=None),
+        ):
+            result = await check_system_updates()
+
+        assert not result.has_updates
+
+    async def test_handles_exceptions_gracefully(self) -> None:
+        with (
+            patch("sygen_bot.infra.version._check_cli_tool", side_effect=RuntimeError("boom")),
+            patch("sygen_bot.infra.version._check_pip_dep", return_value=None),
+        ):
+            result = await check_system_updates()
+
+        assert not result.has_updates

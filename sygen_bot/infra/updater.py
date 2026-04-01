@@ -11,7 +11,13 @@ import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from sygen_bot.infra.version import VersionInfo, _parse_version, check_pypi
+from sygen_bot.infra.version import (
+    SystemUpdatesInfo,
+    VersionInfo,
+    _parse_version,
+    check_pypi,
+    check_system_updates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +26,25 @@ _INITIAL_DELAY_S = 60  # 1 minute after startup
 _VERIFY_DELAYS_S: tuple[float, ...] = (0.15, 0.35, 0.75, 1.5)
 
 VersionCallback = Callable[[VersionInfo], Awaitable[None]]
+SystemCallback = Callable[[SystemUpdatesInfo], Awaitable[None]]
 
 _UPGRADE_SENTINEL_NAME = "upgrade-sentinel.json"
 
 
 class UpdateObserver:
-    """Background task that checks PyPI for new versions periodically."""
+    """Background task that checks PyPI + system components for updates."""
 
-    def __init__(self, *, notify: VersionCallback) -> None:
+    def __init__(
+        self,
+        *,
+        notify: VersionCallback,
+        notify_system: SystemCallback | None = None,
+    ) -> None:
         self._notify = notify
+        self._notify_system = notify_system
         self._task: asyncio.Task[None] | None = None
         self._last_notified: str = ""
+        self._last_system_key: str = ""  # dedup key for system updates
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
@@ -44,6 +58,7 @@ class UpdateObserver:
     async def _loop(self) -> None:
         await asyncio.sleep(_INITIAL_DELAY_S)
         while True:
+            # Sygen PyPI check
             try:
                 info = await check_pypi()
                 if info and info.update_available and info.latest != self._last_notified:
@@ -51,6 +66,21 @@ class UpdateObserver:
                     await self._notify(info)
             except Exception:
                 logger.debug("Update check failed", exc_info=True)
+
+            # System components check (CLI tools + pip deps)
+            if self._notify_system:
+                try:
+                    sys_info = await check_system_updates()
+                    if sys_info.has_updates:
+                        key = "|".join(
+                            f"{u.name}:{u.latest}" for u in sys_info.updates
+                        )
+                        if key != self._last_system_key:
+                            self._last_system_key = key
+                            await self._notify_system(sys_info)
+                except Exception:
+                    logger.debug("System update check failed", exc_info=True)
+
             await asyncio.sleep(_CHECK_INTERVAL_S)
 
 

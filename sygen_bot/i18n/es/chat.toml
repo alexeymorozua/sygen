@@ -440,6 +440,7 @@ verification_failed = "La actualización no pudo verificar una nueva versión in
 restarting = "El bot se está reiniciando..."
 no_changelog = "No se encontró changelog para v{version}."
 changelog_header = "**Changelog v{version}**"
+system_updates_header = "Actualizaciones del sistema"
 
 # -- Notificaciones multi-agente -----------------------------------------------
 

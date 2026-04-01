@@ -439,6 +439,7 @@ verification_failed = "Upgrade could not verify a new installed version (still {
 restarting = "Bot is restarting..."
 no_changelog = "No changelog found for v{version}."
 changelog_header = "**Changelog v{version}**"
+system_updates_header = "System Updates"
 
 # -- Multi-agent notifications -------------------------------------------------
 
