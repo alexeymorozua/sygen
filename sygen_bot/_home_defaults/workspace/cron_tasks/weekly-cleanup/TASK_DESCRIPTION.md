@@ -58,6 +58,6 @@ Weekly cleanup complete:
 - Orphaned sessions removed: 2
 ```
 
-If nothing was cleaned, respond: "Weekly cleanup: nothing to clean, all tidy."
+If nothing was cleaned, reply with exactly `[SILENT]` and nothing else. This suppresses delivery to the user.
 
 Do NOT list individual file names. Only counts.

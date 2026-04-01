@@ -40,4 +40,4 @@ Memory cleanup complete:
 - agent-y: no changes needed
 ```
 
-If nothing was cleaned: "Memory cleanup: all memories are tidy."
+If nothing was cleaned: reply with exactly `[SILENT]` and nothing else. This suppresses delivery to the user.
