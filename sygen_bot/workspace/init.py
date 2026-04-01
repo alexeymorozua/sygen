@@ -33,6 +33,19 @@ _ZONE2_PY_DIRS = frozenset(
     }
 )
 
+# System cron task directories where TASK_DESCRIPTION.md is Zone 2
+# (always overwritten so framework fixes reach users on upgrade).
+# User-created cron tasks are NOT in this set and remain Zone 3.
+# Paths are relative to home_defaults root.
+_ZONE2_CRON_TASK_DIRS = frozenset(
+    {
+        "workspace/cron_tasks/security-audit",
+        "workspace/cron_tasks/monthly-memory-cleanup",
+        "workspace/cron_tasks/monthly-memory-review",
+        "workspace/cron_tasks/weekly-cleanup",
+    }
+)
+
 # Rule templates are deployed separately by RulesSelector
 _SKIP_FILES = frozenset(
     {
@@ -120,12 +133,27 @@ def _handle_zone2_file(entry: Path, target: Path, dst: Path) -> None:
             logger.debug("Zone 2 copy: %s", mirror_target)
 
 
+def _is_zone2_cron_task_file(entry: Path, src: Path, root_src: Path) -> bool:
+    """Check if a file is in a system cron task directory (Zone 2)."""
+    if entry.name != "TASK_DESCRIPTION.md":
+        return False
+    try:
+        rel_dir = src.relative_to(root_src)
+        return str(rel_dir) in _ZONE2_CRON_TASK_DIRS
+    except ValueError:
+        return False
+
+
 def _handle_regular_file(entry: Path, target: Path, src: Path, root_src: Path) -> None:
     """Handle regular file with Zone 2 .py or Zone 3 logic."""
     if _is_zone2_py_file(entry, src, root_src):
         # Zone 2 .py file: always overwrite (framework-controlled)
         _copy_with_symlink_check(entry, target)
         logger.debug("Zone 2 copy (framework tool): %s", target)
+    elif _is_zone2_cron_task_file(entry, src, root_src):
+        # Zone 2: system cron task description — always overwrite
+        _copy_with_symlink_check(entry, target)
+        logger.debug("Zone 2 copy (system cron task): %s", target)
     elif not target.exists():
         # Zone 3: seed only (user-owned, never overwritten)
         shutil.copy2(entry, target)

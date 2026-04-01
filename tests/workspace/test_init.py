@@ -248,6 +248,51 @@ def test_does_not_overwrite_user_tool_scripts(tmp_path: Path) -> None:
     assert (user_dir / "my_tool.py").read_text() == "# my custom version"
 
 
+def test_system_cron_task_description_overwritten(tmp_path: Path) -> None:
+    """System cron task TASK_DESCRIPTION.md is Zone 2 (always overwritten on upgrade)."""
+    paths = _make_paths(tmp_path)
+
+    # Add a system cron task to home_defaults
+    task_dir = paths.home_defaults / "workspace" / "cron_tasks" / "security-audit"
+    task_dir.mkdir(parents=True)
+    (task_dir / "TASK_DESCRIPTION.md").write_text("# Updated from core v2")
+
+    init_workspace(paths)
+
+    installed = paths.cron_tasks_dir / "security-audit" / "TASK_DESCRIPTION.md"
+    assert installed.exists()
+    assert installed.read_text() == "# Updated from core v2"
+
+    # Simulate user editing it locally
+    installed.write_text("# User customized version")
+
+    # Reinit should overwrite with the framework version
+    init_workspace(paths)
+    assert installed.read_text() == "# Updated from core v2"
+
+
+def test_user_cron_task_description_not_overwritten(tmp_path: Path) -> None:
+    """User-created cron task TASK_DESCRIPTION.md is Zone 3 (never overwritten)."""
+    paths = _make_paths(tmp_path)
+
+    # Add a user cron task to home_defaults (not in _ZONE2_CRON_TASK_DIRS)
+    task_dir = paths.home_defaults / "workspace" / "cron_tasks" / "my-custom-task"
+    task_dir.mkdir(parents=True)
+    (task_dir / "TASK_DESCRIPTION.md").write_text("# Default version")
+
+    init_workspace(paths)
+
+    installed = paths.cron_tasks_dir / "my-custom-task" / "TASK_DESCRIPTION.md"
+    assert installed.exists()
+
+    # Simulate user editing
+    installed.write_text("# My custom version")
+
+    # Reinit should NOT overwrite user's version
+    init_workspace(paths)
+    assert installed.read_text() == "# My custom version"
+
+
 def test_sygen_home_claude_md_overwritten(tmp_path: Path) -> None:
     """The sygen_home/CLAUDE.md is Zone 2 (always overwritten)."""
     paths = _make_paths(tmp_path)
