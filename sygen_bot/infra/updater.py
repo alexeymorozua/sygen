@@ -11,6 +11,7 @@ import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+from sygen_bot.infra.install import needs_break_system_packages as _needs_break_system_packages
 from sygen_bot.infra.version import (
     SystemUpdatesInfo,
     VersionInfo,
@@ -129,6 +130,8 @@ def _build_upgrade_command(
     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir"]
     if force_reinstall:
         cmd.append("--force-reinstall")
+    if _needs_break_system_packages():
+        cmd.append("--break-system-packages")
     cmd.append(spec)
     return cmd
 
