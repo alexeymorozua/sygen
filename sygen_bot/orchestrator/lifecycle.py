@@ -162,6 +162,21 @@ async def create_orchestrator(
         orch._observers.workflow = WorkflowObserver(wf_engine, paths)
         logger.info("Workflow engine enabled (%s)", paths.workflows_dir)
 
+    # Advanced RAG pipeline (lazy init — model loading happens on first query)
+    if config.rag.enabled:
+        from sygen_bot.rag.pipeline import RAGPipeline
+
+        mem_dir = paths.memory_system_dir / "modules"
+        vec_dir = paths.memory_system_dir / "vector_db" if config.memory.vector_search else None
+        orch._rag_pipeline = RAGPipeline(
+            config=config.rag,
+            workspace_dir=paths.workspace,
+            memory_modules_dir=mem_dir,
+            vector_persist_dir=vec_dir,
+            embedding_model=config.memory.vector_model,
+        )
+        logger.info("Advanced RAG pipeline registered (lazy init)")
+
     # Built-in fileshare server
     if config.fileshare.enabled:
         await start_fileshare_server(orch, config, paths)

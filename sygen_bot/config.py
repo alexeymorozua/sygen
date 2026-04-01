@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from sygen_bot.rag.config import RAGConfig
+
 logger = logging.getLogger(__name__)
 NULLISH_TEXT_VALUES: frozenset[str] = frozenset({"null", "none"})
 DEFAULT_EMPTY_GEMINI_API_KEY: str = "null"
@@ -412,6 +414,7 @@ class AgentConfig(BaseModel):
     allowed_group_ids: list[int] = Field(default_factory=list)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
+    rag: RAGConfig = Field(default_factory=RAGConfig)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)

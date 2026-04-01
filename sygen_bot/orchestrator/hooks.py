@@ -29,6 +29,7 @@ class HookContext:
     vector_model: str = ""
     vector_results: int = 5
     last_user_message: str = ""
+    rag_context: str = ""  # Pre-computed RAG retrieval result
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,9 +154,16 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
         "Do not mention memory operations to the user at all."
     )
 
-    # Inject memory content: vector search (semantic) or module dump (fallback).
+    # Inject memory content: pre-computed RAG > vector search > module dump (fallback).
     memory_injected = False
-    if ctx.vector_search and ctx.vector_persist_dir and ctx.last_user_message:
+
+    # Priority 1: Pre-computed RAG context (computed async in flows.py)
+    if ctx.rag_context and ctx.rag_context.strip():
+        base += "\n\n" + ctx.rag_context
+        memory_injected = True
+
+    # Priority 2: Basic vector search
+    if not memory_injected and ctx.vector_search and ctx.vector_persist_dir and ctx.last_user_message:
         from sygen_bot.workspace.loader import search_memory_vector
 
         modules_dir = ctx.memory_modules_dir or Path()
@@ -170,6 +178,7 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
             base += "\n\n" + vector_content
             memory_injected = True
 
+    # Priority 3: Module dump fallback
     if not memory_injected and ctx.memory_modules_dir is not None:
         mainmemory_path = ctx.memory_modules_dir.parent / "MAINMEMORY.md"
         modules_content = read_always_load_modules_compact(
