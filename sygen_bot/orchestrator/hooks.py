@@ -22,6 +22,7 @@ class HookContext:
     provider: str
     model: str
     memory_modules_dir: Path | None = None
+    hook_compact_lines: int = 20
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +151,8 @@ def _mainmemory_suffix(ctx: HookContext) -> str:
     if ctx.memory_modules_dir is not None:
         mainmemory_path = ctx.memory_modules_dir.parent / "MAINMEMORY.md"
         modules_content = read_always_load_modules_compact(
-            ctx.memory_modules_dir, mainmemory_path, max_lines_per_module=30,
+            ctx.memory_modules_dir, mainmemory_path,
+            max_lines_per_module=ctx.hook_compact_lines,
         )
         if modules_content.strip():
             base += "\n\n" + modules_content

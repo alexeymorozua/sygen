@@ -170,7 +170,7 @@ class TestMainmemoryReminderInjectsModules:
         assert "Name: Alex" in resolved
         assert "Rule 1: tests required" in resolved
 
-    def test_truncates_long_modules(self, tmp_path: Path) -> None:
+    def test_truncates_long_modules_default(self, tmp_path: Path) -> None:
         modules_dir = tmp_path / "modules"
         modules_dir.mkdir()
         long_content = "\n".join(f"Line {i}" for i in range(50))
@@ -182,9 +182,27 @@ class TestMainmemoryReminderInjectsModules:
             provider="claude", model="opus", memory_modules_dir=modules_dir,
         )
         resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
-        assert "Line 29" in resolved
+        # Default hook_compact_lines=20
+        assert "Line 19" in resolved
         assert "[...]" in resolved
-        assert "Line 30" not in resolved
+        assert "Line 20" not in resolved
+
+    def test_truncates_with_custom_limit(self, tmp_path: Path) -> None:
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        long_content = "\n".join(f"Line {i}" for i in range(50))
+        (modules_dir / "user.md").write_text(long_content)
+        mainmemory = tmp_path / "MAINMEMORY.md"
+        mainmemory.write_text("")
+        ctx = HookContext(
+            chat_id=1, message_count=5, is_new_session=False,
+            provider="claude", model="opus", memory_modules_dir=modules_dir,
+            hook_compact_lines=10,
+        )
+        resolved = MAINMEMORY_REMINDER.resolve_suffix(ctx)
+        assert "Line 9" in resolved
+        assert "[...]" in resolved
+        assert "Line 10" not in resolved
 
     def test_no_modules_dir_still_works(self) -> None:
         ctx = HookContext(

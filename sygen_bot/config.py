@@ -153,6 +153,7 @@ class MemoryConfig(BaseModel):
     module_line_limit: int = 80
     session_max_age_days: int = 30
     check_hour: int = 4  # 4 AM — runs after file cleanup (3 AM)
+    hook_compact_lines: int = 20  # max lines per module in MAINMEMORY_REMINDER hook
 
 
 class ImageConfig(BaseModel):

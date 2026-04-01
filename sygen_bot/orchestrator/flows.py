@@ -113,6 +113,7 @@ async def _prepare_normal(
         provider=req_provider,
         model=req_model,
         memory_modules_dir=orch.paths.memory_system_dir / "modules",
+        hook_compact_lines=orch._config.memory.hook_compact_lines,
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
 
