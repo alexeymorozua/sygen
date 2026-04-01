@@ -43,7 +43,8 @@ def enrich_instruction(instruction: str, task_folder: str) -> str:
         f"- Read the {memory_file} file (it contains important information!)\n"
         f"- When finished, update {memory_file} with DATE + TIME and what you have done.\n"
         "- The final answer is delivered to Telegram automatically by sygen.\n"
-        "- Return only the user-facing result text.\n"
+        "- If TASK_DESCRIPTION.md tells you to return script output verbatim, "
+        "do exactly that — paste the full output, no summaries.\n"
         "- Do not include transport/debug/tool confirmations "
         '(for example: "Message sent successfully").'
     )
