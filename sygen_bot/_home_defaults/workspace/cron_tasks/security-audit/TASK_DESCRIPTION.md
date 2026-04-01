@@ -54,7 +54,7 @@ Warn if it exceeds 500MB.
 ### 5. Report
 
 If ALL checks pass with no issues:
-Reply with exactly: "Security audit passed, no issues."
+Reply with exactly `[SILENT]` and nothing else. This suppresses delivery to the user.
 
 If issues were found, report them clearly:
 
