@@ -259,7 +259,7 @@ async def perform_upgrade_pipeline(
     """
     outputs: list[str] = []
 
-    _ok, output = await _perform_upgrade_impl(target_version=None, force_reinstall=False)
+    _ok, output = await _perform_upgrade_impl(target_version=target_version, force_reinstall=False)
     outputs.append(output)
 
     # Always verify version regardless of the command exit code.  On
