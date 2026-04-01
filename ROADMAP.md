@@ -6,8 +6,8 @@ New ideas will be added as they emerge.
 
 | Feature | Version | Details |
 |---------|---------|---------|
-| Workflow Engine | 1.2.0 | YAML-defined multi-agent pipelines with conditions, retries, fallbacks, parallel execution, wait_for_reply. `/workflow` command, HTTP API, filesystem observer. [Docs](docs/WORKFLOW.md) |
-| MCP JSON Array Fix | 1.1.7 | Fixed `_parse_response()` crash when Claude CLI with MCP returns a JSON array instead of a single object |
+| Workflow Engine | 1.1.8 | YAML-defined multi-agent pipelines with conditions, retries, fallbacks, parallel execution, wait_for_reply. `/workflow` command, HTTP API, filesystem observer. [Docs](docs/WORKFLOW.md) |
+| MCP JSON Array Fix | 1.1.8 | Fixed `_parse_response()` crash when Claude CLI with MCP returns a JSON array instead of a single object |
 | Codebase Review Fixes | 1.1.7 | Atomic config swap, `fcntl.flock` PID lock, `threading.Lock` for CronManager/Gemini, stable `hashlib.md5` chat IDs, Matrix parity fixes, ChromaDB upsert reindex |
 | Unified /upgrade + Emoji Fix | 1.0.12 | `/upgrade` uses pip pipeline with changelog for all install modes. Fixed reactions: valid Telegram emojis. Post-restart shows changelog |
 | Memory Observer | 1.0.10 | MemoryObserver — mechanical memory maintenance in core: dedup, line limits, orphan session cleanup, one-shot cron removal |
