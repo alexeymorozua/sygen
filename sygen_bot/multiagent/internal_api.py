@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from sygen_bot.multiagent.bus import InterAgentBus
     from sygen_bot.multiagent.health import AgentHealth
     from sygen_bot.tasks.hub import TaskHub
+    from sygen_bot.workflow.engine import WorkflowEngine
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class InternalAgentAPI:
         self._bind_host = _BIND_ALL_HOST if docker_mode else "127.0.0.1"
         self._health_ref: dict[str, AgentHealth] | None = None
         self._task_hub: TaskHub | None = None
+        self._workflow_engine: WorkflowEngine | None = None
         self._app = web.Application()
 
         # Inter-agent routes (only when bus is available)
@@ -60,6 +62,12 @@ class InternalAgentAPI:
             self._app.router.add_post("/interagent/send_async", self._handle_send_async)
             self._app.router.add_get("/interagent/agents", self._handle_list)
         self._app.router.add_get("/interagent/health", self._handle_health)
+
+        # Workflow routes (always registered)
+        self._app.router.add_get("/workflows/list", self._handle_workflow_list)
+        self._app.router.add_post("/workflows/run", self._handle_workflow_run)
+        self._app.router.add_get("/workflows/status", self._handle_workflow_status)
+        self._app.router.add_post("/workflows/cancel", self._handle_workflow_cancel)
 
         # Task routes (always registered)
         self._app.router.add_post("/tasks/create", self._handle_task_create)
@@ -78,6 +86,10 @@ class InternalAgentAPI:
     def set_task_hub(self, hub: TaskHub) -> None:
         """Set the TaskHub for handling /tasks/* endpoints."""
         self._task_hub = hub
+
+    def set_workflow_engine(self, engine: WorkflowEngine) -> None:
+        """Set the WorkflowEngine for handling /workflows/* endpoints."""
+        self._workflow_engine = engine
 
     @property
     def port(self) -> int:
@@ -455,3 +467,116 @@ class InternalAgentAPI:
                 status=409,
             )
         return web.json_response({"success": True})
+
+    # -- Workflow endpoints -------------------------------------------------------
+
+    async def _handle_workflow_list(self, request: web.Request) -> web.Response:
+        """GET /workflows/list — list workflow definitions and active runs."""
+        if self._workflow_engine is None:
+            return web.json_response(
+                {"success": False, "error": "Workflow engine not available"},
+                status=503,
+            )
+        definitions = self._workflow_engine._registry.list_definitions()
+        runs = self._workflow_engine._registry.list_runs()
+        return web.json_response({
+            "success": True,
+            "definitions": [d.model_dump(mode="json") for d in definitions],
+            "runs": [r.model_dump(mode="json") for r in runs],
+        })
+
+    async def _handle_workflow_run(self, request: web.Request) -> web.Response:
+        """POST /workflows/run — start a workflow.
+
+        Expects JSON: ``{"workflow_id": "...", "chat_id": 0, "transport": "tg",
+        "variables": {}, "parent_agent": "main"}``
+        """
+        if self._workflow_engine is None:
+            return web.json_response(
+                {"success": False, "error": "Workflow engine not available"},
+                status=503,
+            )
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response(
+                {"success": False, "error": "Invalid JSON body"},
+                status=400,
+            )
+
+        workflow_id = data.get("workflow_id", "")
+        if not workflow_id:
+            return web.json_response(
+                {"success": False, "error": "Missing 'workflow_id' field"},
+                status=400,
+            )
+
+        try:
+            run_id = await self._workflow_engine.start_workflow(
+                workflow_id,
+                chat_id=data.get("chat_id", 0),
+                topic_id=data.get("topic_id"),
+                transport=data.get("transport", "tg"),
+                parent_agent=data.get("parent_agent", "main"),
+                variable_overrides=data.get("variables"),
+            )
+        except ValueError as exc:
+            return web.json_response({"success": False, "error": str(exc)})
+
+        return web.json_response({"success": True, "run_id": run_id})
+
+    async def _handle_workflow_status(self, request: web.Request) -> web.Response:
+        """GET /workflows/status?run_id=... — get detailed status of a run."""
+        if self._workflow_engine is None:
+            return web.json_response(
+                {"success": False, "error": "Workflow engine not available"},
+                status=503,
+            )
+
+        run_id = request.query.get("run_id", "")
+        if not run_id:
+            return web.json_response(
+                {"success": False, "error": "Missing 'run_id' query param"},
+                status=400,
+            )
+
+        run = self._workflow_engine._registry.get_run(run_id)
+        if not run:
+            return web.json_response(
+                {"success": False, "error": f"Run '{run_id}' not found"},
+                status=404,
+            )
+
+        return web.json_response({
+            "success": True,
+            "run": run.model_dump(mode="json"),
+        })
+
+    async def _handle_workflow_cancel(self, request: web.Request) -> web.Response:
+        """POST /workflows/cancel — cancel a running workflow.
+
+        Expects JSON: ``{"run_id": "..."}``
+        """
+        if self._workflow_engine is None:
+            return web.json_response(
+                {"success": False, "error": "Workflow engine not available"},
+                status=503,
+            )
+
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response(
+                {"success": False, "error": "Invalid JSON body"},
+                status=400,
+            )
+
+        run_id = data.get("run_id", "")
+        if not run_id:
+            return web.json_response(
+                {"success": False, "error": "Missing 'run_id' field"},
+                status=400,
+            )
+
+        cancelled = await self._workflow_engine.cancel_workflow(run_id)
+        return web.json_response({"success": cancelled})

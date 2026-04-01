@@ -33,6 +33,7 @@ from sygen_bot.webhook.models import WebhookResult
 from sygen_bot.webhook.observer import WebhookObserver
 from sygen_bot.workspace.init import watch_rule_files
 from sygen_bot.workspace.paths import SygenPaths
+from sygen_bot.workflow.observer import WorkflowObserver
 from sygen_bot.workspace.skill_sync import watch_skill_sync
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ class ObserverManager:
         self.codex_cache_obs: CodexCacheObserver | None = None
         self.gemini_cache_obs: GeminiCacheObserver | None = None
 
+        self.workflow: WorkflowObserver | None = None
         self._config_reloader: ConfigReloader | None = None
         self._rule_sync_task: asyncio.Task[None] | None = None
         self._skill_sync_task: asyncio.Task[None] | None = None
@@ -143,6 +145,9 @@ class ObserverManager:
         await self.cleanup.start()
         await self.memory.start()
 
+        if self.workflow:
+            await self.workflow.start()
+
         self._rule_sync_task = asyncio.create_task(watch_rule_files(self._paths.workspace))
         logger.info("Rule file watcher started (CLAUDE.md <-> AGENTS.md <-> GEMINI.md)")
 
@@ -179,6 +184,8 @@ class ObserverManager:
             await self.cron.stop()
         await self.cleanup.stop()
         await self.memory.stop()
+        if self.workflow:
+            await self.workflow.stop()
         if self.codex_cache_obs:
             await self.codex_cache_obs.stop()
             self.codex_cache_obs = None
@@ -256,3 +263,28 @@ class ObserverManager:
             self.webhook.set_result_handler(_on_webhook)
             if wake_handler:
                 self.webhook.set_wake_handler(wake_handler)
+
+        if self.workflow:
+            from sygen_bot.bus.adapters import from_workflow_result
+
+            async def _on_workflow_notify(
+                chat_id: int,
+                topic_id: int | None,
+                transport: str,
+                message: str,
+                *,
+                run_id: str = "",
+                workflow_name: str = "",
+            ) -> None:
+                env = from_workflow_result(
+                    run_id=run_id,
+                    workflow_name=workflow_name,
+                    result_text=message,
+                    status="completed",
+                    chat_id=chat_id,
+                    topic_id=topic_id,
+                    transport=transport,
+                )
+                await bus.submit(env)
+
+            self.workflow.set_notify_callback(_on_workflow_notify)

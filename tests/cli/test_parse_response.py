@@ -77,6 +77,68 @@ def test_parse_returncode_captured() -> None:
     assert resp.returncode == 42
 
 
+def test_parse_json_array_from_mcp() -> None:
+    """Claude CLI with MCP returns a JSON array; last dict entry should be used."""
+    mcp_meta = {"type": "mcp_tool_call", "tool": "jira_search"}
+    result_obj = {
+        "session_id": "sess-mcp",
+        "result": "Found 3 issues",
+        "is_error": False,
+        "num_turns": 2,
+    }
+    raw = json.dumps([mcp_meta, result_obj]).encode()
+    resp = _parse_response(raw, b"", 0)
+    assert resp.is_error is False
+    assert resp.result == "Found 3 issues"
+    assert resp.session_id == "sess-mcp"
+    assert resp.num_turns == 2
+
+
+def test_parse_json_array_empty_list() -> None:
+    """Empty JSON array should produce a safe error-free empty response."""
+    raw = json.dumps([]).encode()
+    resp = _parse_response(raw, b"", 0)
+    assert resp.result == ""
+
+
+def test_parse_json_array_prefers_type_result() -> None:
+    """When array has multiple dicts, prefer the one with type=='result'."""
+    init_event = {"type": "system", "subtype": "init", "session_id": "wrong"}
+    result_event = {
+        "type": "result",
+        "session_id": "abc123",
+        "result": "Hello",
+        "is_error": False,
+        "num_turns": 1,
+    }
+    trailing_event = {"type": "tool_use", "name": "Read"}
+    raw = json.dumps([init_event, result_event, trailing_event]).encode()
+    resp = _parse_response(raw, b"", 0)
+    assert resp.session_id == "abc123"
+    assert resp.result == "Hello"
+    assert resp.is_error is False
+
+
+def test_parse_json_array_single_result() -> None:
+    """Claude CLI 2.1.89+ with --output-format json --resume returns [result]."""
+    raw = json.dumps([{
+        "type": "result",
+        "session_id": "abc123",
+        "result": "Hello",
+        "is_error": False,
+    }]).encode()
+    resp = _parse_response(raw, b"", 0)
+    assert resp.session_id == "abc123"
+    assert resp.result == "Hello"
+
+
+def test_parse_json_array_no_dicts() -> None:
+    """JSON array with no dict entries falls back to empty dict."""
+    raw = json.dumps(["string", 42, True]).encode()
+    resp = _parse_response(raw, b"", 0)
+    assert resp.result == ""
+
+
 # -- Codex parse_codex_jsonl --
 
 

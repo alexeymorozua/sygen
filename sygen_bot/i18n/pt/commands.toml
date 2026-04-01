@@ -23,6 +23,8 @@ where = "Chats rastreados"
 leave = "Sair de um grupo"
 mcp = "Gerenciar MCP"
 skill = "Mercado de skills"
+sessions = "Sessões nomeadas"
+workflow = "Pipelines multi-agente"
 
 [multiagent]
 agents = "Listar todos os agentes"

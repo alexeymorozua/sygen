@@ -368,6 +368,10 @@ class AgentSupervisor:
             if supervisor._task_hub is not None:
                 supervisor._wire_task_hub(stack)
 
+            # Wire workflow engine to internal API (main agent only)
+            if stack.is_main and orch._workflow_engine is not None:
+                supervisor._internal_api.set_workflow_engine(orch._workflow_engine)
+
             logger.debug("Supervisor reference injected into agent '%s'", stack.name)
 
         # Startup handlers run in registration order;

@@ -354,6 +354,14 @@ async def update_config_file_async(config_path: Path, **updates: object) -> None
     await asyncio.to_thread(update_config_file, config_path, **updates)
 
 
+class WorkflowConfig(BaseModel):
+    """Settings for the workflow engine."""
+
+    enabled: bool = False
+    max_parallel_runs: int = 5
+    default_step_timeout: float = 3600.0
+
+
 class AgentConfig(BaseModel):
     """Top-level configuration loaded from config.json."""
 
@@ -403,6 +411,7 @@ class AgentConfig(BaseModel):
     allowed_user_ids: list[int] = Field(default_factory=list)
     allowed_group_ids: list[int] = Field(default_factory=list)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
+    workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)

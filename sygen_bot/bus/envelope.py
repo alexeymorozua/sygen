@@ -19,6 +19,8 @@ class Origin(enum.Enum):
     INTERAGENT = "interagent"
     TASK_RESULT = "task_result"
     TASK_QUESTION = "task_question"
+    WORKFLOW_RESULT = "workflow_result"
+    WORKFLOW_WAIT = "workflow_wait"
     USER = "user"
     API = "api"
 

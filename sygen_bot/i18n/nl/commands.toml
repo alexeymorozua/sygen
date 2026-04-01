@@ -23,6 +23,8 @@ where = "Gevolgde chats"
 leave = "Groep verlaten"
 mcp = "MCP-server beheren"
 skill = "Skill-marktplaats"
+sessions = "Benoemde sessies"
+workflow = "Multi-agent workflows"
 
 [multiagent]
 agents = "Alle agents tonen"

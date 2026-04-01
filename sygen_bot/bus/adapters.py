@@ -281,6 +281,55 @@ def from_task_question(
     )
 
 
+# -- Workflow results & wait prompts ------------------------------------------
+
+
+def from_workflow_result(  # noqa: PLR0913
+    run_id: str,
+    workflow_name: str,
+    result_text: str,
+    status: str,
+    chat_id: int,
+    topic_id: int | None,
+    transport: str,
+) -> Envelope:
+    """Convert a workflow run completion into an Envelope."""
+    return Envelope(
+        origin=Origin.WORKFLOW_RESULT,
+        chat_id=chat_id,
+        topic_id=topic_id,
+        transport=transport,
+        result_text=result_text,
+        status=status,
+        is_error=status == "failed",
+        delivery=DeliveryMode.UNICAST,
+        lock_mode=LockMode.NONE,
+        metadata={"run_id": run_id, "workflow_name": workflow_name},
+    )
+
+
+def from_workflow_wait(  # noqa: PLR0913
+    run_id: str,
+    step_id: str,
+    prompt: str,
+    chat_id: int,
+    topic_id: int | None,
+    transport: str,
+) -> Envelope:
+    """Convert a workflow wait_for_reply step into an Envelope."""
+    return Envelope(
+        origin=Origin.WORKFLOW_WAIT,
+        chat_id=chat_id,
+        topic_id=topic_id,
+        transport=transport,
+        result_text=prompt,
+        status="waiting",
+        delivery=DeliveryMode.UNICAST,
+        lock_mode=LockMode.NONE,
+        metadata={"run_id": run_id, "step_id": step_id},
+    )
+
+
 # -- User / API messages (audit only) -----------------------------------------
 
 

@@ -186,6 +186,17 @@ def _parse_response(stdout: bytes, stderr: bytes, returncode: int | None) -> CLI
         logger.exception("Failed to parse CLI JSON: %s", raw[:500])
         return CLIResponse(result=raw, is_error=True, returncode=returncode, stderr=stderr_text)
 
+    if isinstance(data, list):
+        # Claude CLI ≥2.1.89 with --resume or MCP may return a JSON array.
+        # Prefer the last entry with type=="result"; fall back to last dict.
+        result_entry = next(
+            (d for d in reversed(data) if isinstance(d, dict) and d.get("type") == "result"),
+            None,
+        )
+        data = result_entry or next(
+            (d for d in reversed(data) if isinstance(d, dict)), {}
+        )
+
     response = CLIResponse(
         session_id=data.get("session_id"),
         result=data.get("result", ""),
