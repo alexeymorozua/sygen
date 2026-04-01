@@ -235,3 +235,42 @@ class TestConfigReloader:
 
         await reloader._check()
         on_hot.assert_not_called()
+
+    async def test_hot_reload_does_not_mutate_old_reference(self, tmp_path: Path) -> None:
+        """After hot-reload the old config reference must not change (snapshot semantics)."""
+        config_path = tmp_path / "config.json"
+        cfg = self._write_config(config_path, model="sonnet")
+
+        reloader = ConfigReloader(config_path, cfg, on_hot_reload=lambda _c, _h: None)
+        old_ref = reloader._config
+        assert old_ref.model == "sonnet"
+
+        self._write_config(config_path, model="opus")
+        _bump_mtime(config_path)
+        await reloader._check()
+
+        # Old reference is unchanged
+        assert old_ref.model == "sonnet"
+        # Internal config is updated
+        assert reloader._config.model == "opus"
+        assert reloader._config is not old_ref
+
+    async def test_callback_receives_new_config_object(self, tmp_path: Path) -> None:
+        """on_hot_reload callback must receive the new config, not the old one."""
+        config_path = tmp_path / "config.json"
+        cfg = self._write_config(config_path, model="sonnet")
+
+        received: list[AgentConfig] = []
+
+        def capture(config: AgentConfig, hot: dict[str, Any]) -> None:
+            received.append(config)
+
+        reloader = ConfigReloader(config_path, cfg, on_hot_reload=capture)
+
+        self._write_config(config_path, model="opus")
+        _bump_mtime(config_path)
+        await reloader._check()
+
+        assert len(received) == 1
+        assert received[0].model == "opus"
+        assert received[0] is reloader._config

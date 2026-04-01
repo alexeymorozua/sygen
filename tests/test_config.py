@@ -178,3 +178,61 @@ def test_transports_default_is_telegram() -> None:
     cfg = AgentConfig()
     assert cfg.transports == ["telegram"]
     assert cfg.is_multi_transport is False
+
+
+# -- Gemini models thread safety --
+
+
+def test_set_and_get_gemini_models_threaded() -> None:
+    """Concurrent set/get of gemini models must not crash."""
+    import threading
+
+    from sygen_bot.config import get_gemini_models, reset_gemini_models, set_gemini_models
+
+    reset_gemini_models()
+    errors: list[Exception] = []
+    barrier = threading.Barrier(3)
+
+    def setter_a() -> None:
+        try:
+            barrier.wait(timeout=5)
+            for _ in range(200):
+                set_gemini_models(frozenset({"gemini-2.0-flash", "gemini-2.5-pro"}))
+        except Exception as exc:
+            errors.append(exc)
+
+    def setter_b() -> None:
+        try:
+            barrier.wait(timeout=5)
+            for _ in range(200):
+                set_gemini_models(frozenset({"gemini-1.5-pro"}))
+        except Exception as exc:
+            errors.append(exc)
+
+    def getter() -> None:
+        try:
+            barrier.wait(timeout=5)
+            for _ in range(200):
+                models = get_gemini_models()
+                assert isinstance(models, frozenset)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=setter_a),
+        threading.Thread(target=setter_b),
+        threading.Thread(target=getter),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    assert errors == [], f"Thread safety errors: {errors}"
+    # Final state should be one of the sets (not corrupted)
+    final = get_gemini_models()
+    assert final in (
+        frozenset({"gemini-2.0-flash", "gemini-2.5-pro"}),
+        frozenset({"gemini-1.5-pro"}),
+    )
+    reset_gemini_models()

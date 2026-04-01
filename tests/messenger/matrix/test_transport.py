@@ -506,3 +506,57 @@ class TestBroadcastRooms:
 
         mock_send.assert_not_awaited()
         assert "no rooms available" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Background named session integration
+# ---------------------------------------------------------------------------
+
+
+class TestBackgroundNamedSessionIntegration:
+    async def test_background_named_session_calls_update_after_response(self) -> None:
+        """orchestrator.named_sessions.update_after_response must be called for named sessions."""
+        transport, bot = _make_transport()
+        orch = bot.orchestrator
+        orch.named_sessions = MagicMock()
+        env = _env(
+            origin=Origin.BACKGROUND,
+            session_name="research",
+            session_id="sess-42",
+            result_text="Done",
+            status="success",
+            elapsed_seconds=5.0,
+        )
+
+        with patch(
+            "sygen_bot.messenger.matrix.transport.matrix_send_rich", new_callable=AsyncMock
+        ):
+            await transport.deliver(env)
+
+        orch.named_sessions.update_after_response.assert_called_once_with(
+            42, "research", "sess-42"
+        )
+
+    async def test_background_named_session_extracts_buttons(self) -> None:
+        """_button_tracker.extract_and_format must be called for named sessions."""
+        transport, bot = _make_transport()
+        bot.orchestrator.named_sessions = MagicMock()
+        # Make extract_and_format return modified text
+        bot._button_tracker.extract_and_format.side_effect = lambda _room, text: text + " [buttons]"
+        env = _env(
+            origin=Origin.BACKGROUND,
+            session_name="task1",
+            result_text="Result here",
+            status="success",
+            elapsed_seconds=3.0,
+        )
+
+        with patch(
+            "sygen_bot.messenger.matrix.transport.matrix_send_rich", new_callable=AsyncMock
+        ) as mock_send:
+            await transport.deliver(env)
+
+        bot._button_tracker.extract_and_format.assert_called_once()
+        # The final text sent should include the button tracker's modification
+        sent_text = mock_send.call_args[0][2]
+        assert "[buttons]" in sent_text

@@ -239,3 +239,88 @@ class TestPersistence:
 
         mgr = CronManager(jobs_path=jobs_path)
         assert mgr.list_jobs() == []
+
+
+# -- Concurrency --
+
+
+class TestConcurrency:
+    def test_concurrent_reload_and_update_run_status(self, tmp_path: Path) -> None:
+        """reload() and update_run_status() running concurrently must not lose data."""
+        import threading
+
+        mgr = _make_manager(tmp_path)
+        mgr.add_job(_make_job("j1"))
+        mgr.add_job(_make_job("j2"))
+
+        errors: list[Exception] = []
+        barrier = threading.Barrier(2)
+
+        def do_reload() -> None:
+            try:
+                barrier.wait(timeout=5)
+                for _ in range(50):
+                    mgr.reload()
+            except Exception as exc:
+                errors.append(exc)
+
+        def do_update() -> None:
+            try:
+                barrier.wait(timeout=5)
+                for _ in range(50):
+                    mgr.update_run_status("j1", status="success")
+            except Exception as exc:
+                errors.append(exc)
+
+        t1 = threading.Thread(target=do_reload)
+        t2 = threading.Thread(target=do_update)
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        assert errors == [], f"Concurrent errors: {errors}"
+        # Both jobs must still exist
+        assert len(mgr.list_jobs()) == 2
+        assert mgr.get_job("j1") is not None
+        assert mgr.get_job("j2") is not None
+
+    def test_concurrent_add_and_list(self, tmp_path: Path) -> None:
+        """add_job() and list_jobs() concurrently must not crash."""
+        import threading
+
+        mgr = _make_manager(tmp_path)
+        errors: list[Exception] = []
+        barrier = threading.Barrier(2)
+
+        def do_add() -> None:
+            try:
+                barrier.wait(timeout=5)
+                for i in range(50):
+                    try:
+                        mgr.add_job(_make_job(f"concurrent-{i}"))
+                    except ValueError:
+                        pass  # duplicate is fine
+            except Exception as exc:
+                errors.append(exc)
+
+        def do_list() -> None:
+            try:
+                barrier.wait(timeout=5)
+                for _ in range(50):
+                    jobs = mgr.list_jobs()
+                    assert isinstance(jobs, list)
+            except Exception as exc:
+                errors.append(exc)
+
+        t1 = threading.Thread(target=do_add)
+        t2 = threading.Thread(target=do_list)
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        assert errors == [], f"Concurrent errors: {errors}"
+        # All added jobs must be retrievable
+        jobs = mgr.list_jobs()
+        assert len(jobs) == 50

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from sygen_bot.config import AgentConfig, ApiConfig
@@ -189,3 +190,69 @@ class TestMergeSubAgentConfig:
 
         assert result.api.enabled is True
         assert result.api.port == 8742
+
+
+class TestMergeWithLocalConfig:
+    """Test merge_sub_agent_config with local config/config.json."""
+
+    def _main_config(self) -> AgentConfig:
+        return AgentConfig(
+            provider="claude",
+            model="opus",
+            allowed_user_ids=[1, 2, 3],
+            sygen_home="/main/home",
+            cli_timeout=600,
+            telegram_token="main-token",
+        )
+
+    def test_merge_with_local_config_json(self, tmp_path: Path) -> None:
+        """Local config.json with cli_timeout should be picked up."""
+        agent_home = tmp_path / "agent"
+        config_dir = agent_home / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.json").write_text(
+            json.dumps({"cli_timeout": 999, "reasoning_effort": "high"})
+        )
+
+        main = self._main_config()
+        sub = SubAgentConfig(name="sub1", telegram_token="sub-token")
+        result = merge_sub_agent_config(main, sub, agent_home)
+
+        # cli_timeout from local config should override main's 600
+        assert result.cli_timeout == 999
+        assert result.reasoning_effort == "high"
+
+    def test_merge_without_local_config(self, tmp_path: Path) -> None:
+        """Without config.json, merge works as before (main → agents.json)."""
+        agent_home = tmp_path / "agent"
+        agent_home.mkdir(parents=True)
+
+        main = self._main_config()
+        sub = SubAgentConfig(name="sub1", telegram_token="sub-token", model="sonnet")
+        result = merge_sub_agent_config(main, sub, agent_home)
+
+        assert result.model == "sonnet"
+        assert result.provider == "claude"
+        assert result.telegram_token == "sub-token"
+
+    def test_merge_layer_priority(self, tmp_path: Path) -> None:
+        """agents.json overrides must beat local config.json."""
+        agent_home = tmp_path / "agent"
+        config_dir = agent_home / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.json").write_text(
+            json.dumps({"model": "haiku", "cli_timeout": 100})
+        )
+
+        main = self._main_config()
+        sub = SubAgentConfig(
+            name="sub1",
+            telegram_token="sub-token",
+            model="sonnet",  # agents.json override
+        )
+        result = merge_sub_agent_config(main, sub, agent_home)
+
+        # agents.json override wins over local config
+        assert result.model == "sonnet"
+        # local config wins over main for non-overridden fields
+        assert result.cli_timeout == 100

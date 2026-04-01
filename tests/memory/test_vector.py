@@ -136,6 +136,50 @@ class TestVectorMemoryStore:
 # ---------------------------------------------------------------------------
 
 
+@skip_no_chromadb
+class TestVectorReindexSafety:
+    def test_reindex_removes_stale_entries(self, tmp_path: Path) -> None:
+        """After removing a fact from .md, reindex must remove it from the index."""
+        from sygen_bot.memory.vector import VectorMemoryStore
+
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        (modules_dir / "data.md").write_text("- Fact Alpha\n- Fact Beta\n- Fact Gamma")
+
+        store = VectorMemoryStore(tmp_path / "vector_db", model_name="default")
+        store.reindex_modules(modules_dir)
+        assert store.count == 3
+
+        # Remove Fact Beta
+        (modules_dir / "data.md").write_text("- Fact Alpha\n- Fact Gamma")
+        store.reindex_modules(modules_dir)
+        assert store.count == 2
+
+        # Search should not find Beta
+        results = store.search("Beta", n_results=5)
+        for r in results:
+            assert "Beta" not in r["raw"]
+
+    def test_reindex_preserves_search_during_update(self, tmp_path: Path) -> None:
+        """search() must return results even during reindex (add-then-remove strategy)."""
+        from sygen_bot.memory.vector import VectorMemoryStore
+
+        modules_dir = tmp_path / "modules"
+        modules_dir.mkdir()
+        (modules_dir / "info.md").write_text("- Python developer\n- Loves testing")
+
+        store = VectorMemoryStore(tmp_path / "vector_db", model_name="default")
+        store.reindex_modules(modules_dir)
+        assert store.count == 2
+
+        # Modify and reindex — search in between should not return empty
+        (modules_dir / "info.md").write_text("- Python developer\n- Loves CI/CD")
+        store.reindex_modules(modules_dir)
+
+        results = store.search("developer", n_results=5)
+        assert len(results) > 0
+
+
 def test_search_memory_vector_no_chromadb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """search_memory_vector returns empty string when chromadb unavailable."""
     from sygen_bot.memory import vector as vec_mod

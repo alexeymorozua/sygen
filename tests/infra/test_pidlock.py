@@ -121,6 +121,84 @@ class TestAcquireLock:
             release_lock(pid_file=pid_file)
 
 
+class TestCrossProcessLocking:
+    """Test flock-based mutual exclusion across processes."""
+
+    def test_two_processes_cannot_acquire_same_lock(self, tmp_path: Path) -> None:
+        """A subprocess holding flock must cause the main process to get SystemExit."""
+        import subprocess
+        import sys
+        import time
+
+        pid_file = tmp_path / "bot.pid"
+
+        # Subprocess that acquires flock and holds it
+        holder_script = f"""
+import fcntl, os, sys, time
+fd = os.open("{pid_file}", os.O_RDWR | os.O_CREAT, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+os.write(fd, str(os.getpid()).encode())
+os.fsync(fd)
+print("LOCKED", flush=True)
+time.sleep(30)
+"""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", holder_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            # Wait for subprocess to acquire lock
+            line = proc.stdout.readline()
+            assert b"LOCKED" in line
+
+            from sygen_bot.infra.pidlock import acquire_lock
+
+            with pytest.raises(SystemExit):
+                acquire_lock(pid_file=pid_file)
+        finally:
+            proc.kill()
+            proc.wait()
+
+    def test_lock_released_on_process_death(self, tmp_path: Path) -> None:
+        """After holder process dies, flock is auto-released by kernel."""
+        import subprocess
+        import sys
+        import time
+
+        pid_file = tmp_path / "bot.pid"
+
+        holder_script = f"""
+import fcntl, os, sys, time
+fd = os.open("{pid_file}", os.O_RDWR | os.O_CREAT, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+os.write(fd, str(os.getpid()).encode())
+os.fsync(fd)
+print("LOCKED", flush=True)
+time.sleep(30)
+"""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", holder_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        line = proc.stdout.readline()
+        assert b"LOCKED" in line
+
+        # Kill the holder — kernel releases flock
+        proc.kill()
+        proc.wait()
+
+        from sygen_bot.infra.pidlock import acquire_lock, release_lock
+
+        # Should succeed now that holder is dead
+        acquire_lock(pid_file=pid_file)
+        try:
+            assert pid_file.read_text(encoding="utf-8").strip() == str(os.getpid())
+        finally:
+            release_lock(pid_file=pid_file)
+
+
 class TestReleaseLock:
     """Test PID lock release."""
 

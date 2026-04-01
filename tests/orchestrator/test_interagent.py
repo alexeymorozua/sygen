@@ -47,6 +47,42 @@ class TestInteragentChatId:
         assert result < 0
 
 
+class TestInteragentChatIdStability:
+    """Test _interagent_chat_id determinism."""
+
+    def test_chat_id_stable_across_calls(self, orch_ia: Orchestrator) -> None:
+        """Two calls with the same config must return the same chat_id."""
+        id1 = _interagent_chat_id(orch_ia)
+        id2 = _interagent_chat_id(orch_ia)
+        assert id1 == id2
+
+    def test_different_agents_different_chat_ids(
+        self, workspace: tuple[SygenPaths, AgentConfig]
+    ) -> None:
+        """Different agent names must produce different chat_ids."""
+        paths, config = workspace
+        config.allowed_user_ids = []
+
+        o1 = Orchestrator(config, paths, agent_name="alice")
+        mock_cli1 = MagicMock()
+        mock_cli1._config = MagicMock()
+        mock_cli1._config.agent_name = "alice"
+        object.__setattr__(o1, "_cli_service", mock_cli1)
+
+        o2 = Orchestrator(config, paths, agent_name="bob")
+        mock_cli2 = MagicMock()
+        mock_cli2._config = MagicMock()
+        mock_cli2._config.agent_name = "bob"
+        object.__setattr__(o2, "_cli_service", mock_cli2)
+
+        id1 = _interagent_chat_id(o1)
+        id2 = _interagent_chat_id(o2)
+        assert id1 != id2
+        # Both should be negative (hash-based, no allowed_user_ids)
+        assert id1 < 0
+        assert id2 < 0
+
+
 class TestGetOrCreateInteragentSession:
     """Test _get_or_create_interagent_session."""
 

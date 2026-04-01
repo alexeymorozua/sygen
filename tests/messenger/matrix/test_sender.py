@@ -170,6 +170,47 @@ class TestUploadAndSendFile:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# _file_accessible (async)
+# ---------------------------------------------------------------------------
+
+
+class TestFileAccessible:
+    async def test_file_accessible_async(self, tmp_path: Path) -> None:
+        """_file_accessible is async and uses asyncio.to_thread internally."""
+        from sygen_bot.messenger.matrix.sender import _file_accessible
+
+        import asyncio
+        import inspect
+
+        assert inspect.iscoroutinefunction(_file_accessible)
+
+        test_file = tmp_path / "hello.txt"
+        test_file.write_text("hi")
+
+        result = await _file_accessible(test_file, [tmp_path])
+        assert result is True
+
+    async def test_file_accessible_nonexistent(self, tmp_path: Path) -> None:
+        """Non-existent file returns False."""
+        from sygen_bot.messenger.matrix.sender import _file_accessible
+
+        result = await _file_accessible(tmp_path / "nope.txt", [tmp_path])
+        assert result is False
+
+    async def test_file_accessible_outside_roots(self, tmp_path: Path) -> None:
+        """File outside allowed_roots returns False."""
+        from sygen_bot.messenger.matrix.sender import _file_accessible
+
+        test_file = tmp_path / "secret.txt"
+        test_file.write_text("secret")
+        safe_dir = tmp_path / "safe"
+        safe_dir.mkdir()
+
+        result = await _file_accessible(test_file, [safe_dir])
+        assert result is False
+
+
 class TestSplitText:
     def test_short_text_no_split(self) -> None:
         result = _split_text("hello", "<p>hello</p>")
