@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
+
+_INIT_RETRY_SECONDS = 300  # retry failed init after 5 minutes
 
 # ---------------------------------------------------------------------------
 # Availability check
@@ -136,6 +139,8 @@ class VectorMemoryStore:
         import chromadb
 
         self._persist_dir = persist_dir
+        self._model_name = model_name
+        self._last_index_mtime: float = 0.0  # max mtime of modules at last reindex
         persist_dir.mkdir(parents=True, exist_ok=True)
 
         embedding_fn = _resolve_embedding_fn(model_name)
@@ -155,6 +160,27 @@ class VectorMemoryStore:
     def count(self) -> int:
         """Number of indexed facts."""
         return self._collection.count()
+
+    def _modules_max_mtime(self, modules_dir: Path) -> float:
+        """Return the latest mtime across all .md files in modules_dir."""
+        max_mt = 0.0
+        if not modules_dir.is_dir():
+            return max_mt
+        for md_file in modules_dir.glob("*.md"):
+            try:
+                mt = md_file.stat().st_mtime
+                if mt > max_mt:
+                    max_mt = mt
+            except OSError:
+                continue
+        return max_mt
+
+    def needs_reindex(self, modules_dir: Path) -> bool:
+        """Check if modules have changed since last reindex."""
+        if self._collection.count() == 0:
+            return True
+        current_mtime = self._modules_max_mtime(modules_dir)
+        return current_mtime > self._last_index_mtime
 
     def reindex_modules(self, modules_dir: Path) -> int:
         """Reindex all memory modules from disk.
@@ -189,6 +215,7 @@ class VectorMemoryStore:
                 for f in all_facts
             ],
         )
+        self._last_index_mtime = self._modules_max_mtime(modules_dir)
         logger.info("Reindexed %d facts from %s", len(all_facts), modules_dir)
         return len(all_facts)
 
@@ -248,19 +275,32 @@ class VectorMemoryStore:
 # ---------------------------------------------------------------------------
 
 _store: VectorMemoryStore | None = None
-_store_init_failed: bool = False
+_store_init_failed_at: float = 0.0  # timestamp of last init failure (0 = never)
 
 
 def get_store(persist_dir: Path, model_name: str | None = None) -> VectorMemoryStore | None:
     """Get or create the singleton VectorMemoryStore.
 
     Returns None if chromadb is not installed or init fails.
+    Retries after ``_INIT_RETRY_SECONDS`` on transient failures.
+    Validates that existing store matches requested parameters.
     """
-    global _store, _store_init_failed
+    global _store, _store_init_failed_at
     if _store is not None:
-        return _store
-    if _store_init_failed:
-        return None
+        # Validate params match existing store
+        if _store._persist_dir != persist_dir or _store._model_name != model_name:
+            logger.warning(
+                "VectorMemoryStore params changed (persist=%s→%s, model=%s→%s), recreating",
+                _store._persist_dir, persist_dir, _store._model_name, model_name,
+            )
+            _store = None  # force recreation below
+        else:
+            return _store
+    if _store_init_failed_at > 0:
+        if (time.monotonic() - _store_init_failed_at) < _INIT_RETRY_SECONDS:
+            return None
+        logger.info("Retrying VectorMemoryStore init after cooldown")
+        _store_init_failed_at = 0.0
     if not is_available():
         return None
     try:
@@ -268,5 +308,5 @@ def get_store(persist_dir: Path, model_name: str | None = None) -> VectorMemoryS
         return _store
     except Exception:
         logger.warning("Failed to initialize VectorMemoryStore", exc_info=True)
-        _store_init_failed = True
+        _store_init_failed_at = time.monotonic()
         return None

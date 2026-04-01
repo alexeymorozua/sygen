@@ -144,7 +144,7 @@ def test_search_memory_vector_no_chromadb(tmp_path: Path, monkeypatch: pytest.Mo
     # Force chromadb unavailable
     monkeypatch.setattr(vec_mod, "_chromadb_available", False)
     monkeypatch.setattr(vec_mod, "_store", None)
-    monkeypatch.setattr(vec_mod, "_store_init_failed", False)
+    monkeypatch.setattr(vec_mod, "_store_init_failed_at", 0.0)
 
     result = search_memory_vector(
         "test query",

@@ -175,8 +175,8 @@ def search_memory_vector(
     if store is None:
         return ""
 
-    # Auto-reindex if store is empty but modules exist
-    if store.count == 0 and modules_dir.is_dir():
+    # Auto-reindex if modules changed since last index
+    if store.needs_reindex(modules_dir):
         store.reindex_modules(modules_dir)
 
     return store.search_formatted(query, n_results=n_results)

@@ -109,20 +109,10 @@ async def _prepare_normal(
         if always_load.strip():
             append_prompt = f"{append_prompt}\n\n{always_load}" if append_prompt else always_load
 
-        # Vector search: inject relevant facts based on user's first message
-        if orch._config.memory.vector_search:
-            vector_content = await asyncio.to_thread(
-                search_memory_vector,
-                text,
-                orch.paths.memory_system_dir / "vector_db",
-                orch.paths.memory_system_dir / "modules",
-                model_name=orch._config.memory.vector_model,
-                n_results=orch._config.memory.vector_results,
-            )
-            if vector_content.strip():
-                append_prompt = (
-                    f"{append_prompt}\n\n{vector_content}" if append_prompt else vector_content
-                )
+        # Note: vector search is NOT used at session start — full modules are
+        # already injected above. Vector search activates in the periodic
+        # MAINMEMORY_REMINDER hook where it provides targeted facts after
+        # context compaction.
         # --- End ---
 
         roster = _build_agent_roster(orch)
