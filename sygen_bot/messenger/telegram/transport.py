@@ -260,6 +260,9 @@ class TelegramTransport:
     async def _deliver_cron(self, env: Envelope) -> None:
         """Deliver cron result to a specific chat/topic (unicast).
 
+        Supports ``---SPLIT---`` markers: each segment is sent as a separate
+        Telegram message with its own inline-keyboard buttons.
+
         Falls back to the main agent when delivery fails.
         """
         from aiogram.exceptions import TelegramAPIError
@@ -272,35 +275,46 @@ class TelegramTransport:
                 title,
             )
             return
-        text = (
-            f"**TASK: {title}**\n\n{clean_result}"
-            if clean_result
-            else f"**TASK: {title}**\n\n_{env.status}_"
-        )
+
         opts = SendRichOpts(
             allowed_roots=self._roots(),
             thread_id=env.topic_id,
         )
-        try:
-            await send_rich(self._bot.bot_instance, env.chat_id, text, opts)
-        except TelegramAPIError:
-            logger.warning(
-                "Cron '%s' delivery failed for chat %d, retrying as plain text",
-                title,
-                env.chat_id,
-            )
+
+        if not clean_result:
+            text = f"**TASK: {title}**\n\n_{env.status}_"
             try:
-                plain = re.sub(r"<[^>]+>", "", text)
-                await _send_plain_to_topic(
-                    self._bot.bot_instance, env.chat_id, plain, env.topic_id,
-                )
+                await send_rich(self._bot.bot_instance, env.chat_id, text, opts)
+            except TelegramAPIError:
+                logger.warning("Cron '%s' delivery failed for chat %d", title, env.chat_id)
+            return
+
+        parts = [p.strip() for p in clean_result.split("---SPLIT---") if p.strip()]
+
+        for i, part in enumerate(parts):
+            text = f"**{title}**\n\n{part}" if i == 0 else part
+            try:
+                await send_rich(self._bot.bot_instance, env.chat_id, text, opts)
             except TelegramAPIError:
                 logger.warning(
-                    "Cron '%s' plain-text retry also failed for chat %d, "
-                    "falling back to main agent",
+                    "Cron '%s' delivery failed for chat %d (part %d/%d), retrying as plain text",
                     title,
                     env.chat_id,
+                    i + 1,
+                    len(parts),
                 )
+                try:
+                    plain = re.sub(r"<[^>]+>", "", text)
+                    await _send_plain_to_topic(
+                        self._bot.bot_instance, env.chat_id, plain, env.topic_id,
+                    )
+                except TelegramAPIError:
+                    logger.warning(
+                        "Cron '%s' plain-text retry also failed for chat %d, "
+                        "falling back to main agent",
+                        title,
+                        env.chat_id,
+                    )
                 target = f"Chat {env.chat_id}"
                 if env.topic_id:
                     target += f" / Topic {env.topic_id}"
@@ -327,12 +341,17 @@ class TelegramTransport:
                 "Cron result only had transport confirmations; skipping broadcast task=%s", title
             )
             return
-        text = (
-            f"**TASK: {title}**\n\n{clean_result}"
-            if clean_result
-            else f"**TASK: {title}**\n\n_{env.status}_"
-        )
-        await self._bot.broadcast(text, SendRichOpts(allowed_roots=self._roots()))
+
+        opts = SendRichOpts(allowed_roots=self._roots())
+
+        if not clean_result:
+            await self._bot.broadcast(f"**TASK: {title}**\n\n_{env.status}_", opts)
+            return
+
+        parts = [p.strip() for p in clean_result.split("---SPLIT---") if p.strip()]
+        for i, part in enumerate(parts):
+            text = f"**{title}**\n\n{part}" if i == 0 else part
+            await self._bot.broadcast(text, opts)
 
     async def _broadcast_webhook_cron(self, env: Envelope) -> None:
         title = env.metadata.get("hook_title", "?")
