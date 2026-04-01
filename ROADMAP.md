@@ -6,6 +6,7 @@ New ideas will be added as they emerge.
 
 | Feature | Version | Details |
 |---------|---------|---------|
+| Advanced RAG Pipeline | 1.1.9 | Hybrid BM25 + vector search with RRF fusion, ColBERT v2 multilingual reranking, smart chunking, query expansion, multi-source indexing, LRU cache. Fully local, no API keys. [Docs](docs/RAG.md) |
 | Workflow Engine | 1.1.8 | YAML-defined multi-agent pipelines with conditions, retries, fallbacks, parallel execution, wait_for_reply. `/workflow` command, HTTP API, filesystem observer. [Docs](docs/WORKFLOW.md) |
 | MCP JSON Array Fix | 1.1.8 | Fixed `_parse_response()` crash when Claude CLI with MCP returns a JSON array instead of a single object |
 | Codebase Review Fixes | 1.1.7 | Atomic config swap, `fcntl.flock` PID lock, `threading.Lock` for CronManager/Gemini, stable `hashlib.md5` chat IDs, Matrix parity fixes, ChromaDB upsert reindex |
@@ -31,7 +32,7 @@ New ideas will be added as they emerge.
 
 | Feature | Priority | Details |
 |---------|----------|---------|
-| Advanced RAG Pipelines | High | Multi-source retrieval with reranking, chunking strategies, hybrid search (vector + keyword). Context-aware memory queries |
+| ~~Advanced RAG Pipelines~~ | ~~High~~ | ✅ Implemented in 1.1.9 |
 | Workflow Triggers | Medium | Cron-based and webhook-triggered workflow execution (currently manual only) |
 | Workflow `script` Step Type | Medium | Execute shell commands or Python scripts as workflow steps |
 | A2A Protocol | Medium | Google Agent-to-Agent protocol support for cross-framework agent communication |

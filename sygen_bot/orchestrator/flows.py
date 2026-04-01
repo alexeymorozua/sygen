@@ -119,6 +119,14 @@ async def _prepare_normal(
         if roster:
             append_prompt = f"{append_prompt}\n\n{roster}" if append_prompt else roster
 
+    # Pre-compute RAG context (async) before sync hook application
+    rag_context = ""
+    if orch._rag_pipeline is not None and text:
+        try:
+            rag_context = await orch._rag_pipeline.retrieve(text)  # type: ignore[union-attr]
+        except Exception:
+            logger.debug("RAG retrieval failed", exc_info=True)
+
     mem_cfg = orch._config.memory
     vector_persist = orch.paths.memory_system_dir / "vector_db" if mem_cfg.vector_search else None
     hook_ctx = HookContext(
@@ -135,6 +143,7 @@ async def _prepare_normal(
         vector_model=mem_cfg.vector_model,
         vector_results=mem_cfg.vector_results,
         last_user_message=text,
+        rag_context=rag_context,
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
 

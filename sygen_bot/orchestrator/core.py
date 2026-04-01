@@ -191,6 +191,7 @@ class Orchestrator:
         self._hook_registry.register(DELEGATION_REMINDER)
         self._hook_registry.register(_make_update_changelog_hook(paths.workspace))
         self._workflow_engine: WorkflowEngine | None = None
+        self._rag_pipeline: object | None = None  # RAGPipeline, set by lifecycle
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
         self._task_hub: TaskHub | None = None  # Set by supervisor or __main__.py
         self._mcp_manager: MCPManager | None = None

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sygen"
-version = "1.1.8"
+version = "1.1.9"
 description = "AI assistant framework with multi-agent orchestration, background tasks, and persistent memory."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -69,6 +69,13 @@ mcp = [
 vector = [
     "chromadb>=1.0.0",
     "sentence-transformers>=3.0.0",
+]
+rag = [
+    "chromadb>=1.0.0",
+    "sentence-transformers>=3.0.0",
+    "rank-bm25>=0.2.2",
+    "transformers>=4.40.0",
+    "torch>=2.0.0",
 ]
 dev = ["sygen[test,lint,api,matrix,mcp]"]
 
