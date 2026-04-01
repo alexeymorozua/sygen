@@ -121,7 +121,7 @@ async def fetch_changelog(version: str) -> str | None:
 # CLI tools: (binary_name, npm_package | None, pip_package | None)
 _CLI_TOOLS: list[tuple[str, str | None, str | None]] = [
     ("claude", "@anthropic-ai/claude-code", None),
-    ("gemini", None, "google-genai"),
+    ("gemini", "@google/gemini-cli", None),
     ("codex", "@openai/codex", None),
 ]
 
