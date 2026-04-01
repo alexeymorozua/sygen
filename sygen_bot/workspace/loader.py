@@ -154,3 +154,29 @@ def read_always_load_modules_compact(
     return _read_modules(
         modules_dir, filenames, max_lines_per_module=max_lines_per_module,
     )
+
+
+def search_memory_vector(
+    query: str,
+    persist_dir: Path,
+    modules_dir: Path,
+    *,
+    model_name: str = "",
+    n_results: int = 5,
+) -> str:
+    """Search memory via vector similarity. Returns formatted string or empty.
+
+    Gracefully returns empty string if chromadb is not installed.
+    Auto-reindexes on first call.
+    """
+    from sygen_bot.memory.vector import get_store
+
+    store = get_store(persist_dir, model_name=model_name or None)
+    if store is None:
+        return ""
+
+    # Auto-reindex if store is empty but modules exist
+    if store.count == 0 and modules_dir.is_dir():
+        store.reindex_modules(modules_dir)
+
+    return store.search_formatted(query, n_results=n_results)

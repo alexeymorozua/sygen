@@ -155,6 +155,9 @@ class MemoryConfig(BaseModel):
     check_hour: int = 4  # 4 AM — runs after file cleanup (3 AM)
     hook_compact_lines: int = 20  # max lines per module in MAINMEMORY_REMINDER hook
     inject_all_modules: bool = False  # True = inject ALL modules, not just Always Load
+    vector_search: bool = False  # auto-enabled when chromadb is available
+    vector_model: str = ""  # embedding model; empty = auto (multilingual if available)
+    vector_results: int = 5  # max facts returned per vector search
 
 
 class ImageConfig(BaseModel):

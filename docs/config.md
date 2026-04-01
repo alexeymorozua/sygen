@@ -439,6 +439,9 @@ Cleanup implementation detail:
 | `check_hour` | `int` | `4` | Hour for memory maintenance (4 AM) |
 | `hook_compact_lines` | `int` | `20` | Max lines per module injected in periodic memory hook |
 | `inject_all_modules` | `bool` | `false` | Inject ALL modules (not just Always Load) into agent context |
+| `vector_search` | `bool` | `false` | Enable semantic vector search over memory facts |
+| `vector_model` | `str` | `""` | Embedding model name; empty = auto-detect best available |
+| `vector_results` | `int` | `5` | Max facts returned per vector search query |
 
 ### Memory injection behavior
 
@@ -463,6 +466,40 @@ With 5 modules and `inject_all_modules=true`:
 - Hook (every 6 msgs): ~1.2K tokens with `hook_compact_lines=20`
 
 For users with high-tier API plans who prioritize agent knowledge over token cost, set `inject_all_modules=true` and increase `hook_compact_lines` (e.g. `50` or `100`).
+
+### Vector search (semantic memory)
+
+Optional feature for semantic search over memory facts. Instead of injecting entire modules, the hook searches for facts relevant to the current conversation.
+
+**Installation:**
+
+```bash
+pip install sygen[vector]         # ChromaDB + built-in ONNX (English-focused, ~80MB)
+pip install sygen[vector-ml]      # + sentence-transformers (multilingual, ~500MB+)
+```
+
+**Enable:**
+
+```json
+"memory": {
+  "vector_search": true
+}
+```
+
+**How it works:**
+
+1. Memory module facts (list items) are automatically indexed as embeddings
+2. On each hook trigger, the user's message is used as a search query
+3. Top-N semantically relevant facts are injected instead of full modules
+4. Falls back to module-based injection if vector search returns no results
+
+**Model priority:**
+
+1. `sentence-transformers` multilingual model (if installed) — best for non-English
+2. ChromaDB built-in ONNX model — English-focused, no extra dependencies
+3. Custom model via `vector_model` config option
+
+Vector search complements (not replaces) the module-based system. Both can be active simultaneously — vector search provides targeted facts while Always Load ensures core context.
 
 ## `WebhookConfig`
 

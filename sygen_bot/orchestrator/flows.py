@@ -21,7 +21,12 @@ from sygen_bot.orchestrator.hooks import HookContext
 from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session import SessionData, SessionKey
 from sygen_bot.text.response_format import session_error_text, timeout_error_text
-from sygen_bot.workspace.loader import read_always_load_modules, read_cron_results, read_mainmemory
+from sygen_bot.workspace.loader import (
+    read_always_load_modules,
+    read_cron_results,
+    read_mainmemory,
+    search_memory_vector,
+)
 
 if TYPE_CHECKING:
     from sygen_bot.orchestrator.core import Orchestrator
@@ -103,12 +108,29 @@ async def _prepare_normal(
         )
         if always_load.strip():
             append_prompt = f"{append_prompt}\n\n{always_load}" if append_prompt else always_load
+
+        # Vector search: inject relevant facts based on user's first message
+        if orch._config.memory.vector_search:
+            vector_content = await asyncio.to_thread(
+                search_memory_vector,
+                text,
+                orch.paths.memory_system_dir / "vector_db",
+                orch.paths.memory_system_dir / "modules",
+                model_name=orch._config.memory.vector_model,
+                n_results=orch._config.memory.vector_results,
+            )
+            if vector_content.strip():
+                append_prompt = (
+                    f"{append_prompt}\n\n{vector_content}" if append_prompt else vector_content
+                )
         # --- End ---
 
         roster = _build_agent_roster(orch)
         if roster:
             append_prompt = f"{append_prompt}\n\n{roster}" if append_prompt else roster
 
+    mem_cfg = orch._config.memory
+    vector_persist = orch.paths.memory_system_dir / "vector_db" if mem_cfg.vector_search else None
     hook_ctx = HookContext(
         chat_id=key.chat_id,
         message_count=session.message_count,
@@ -116,8 +138,13 @@ async def _prepare_normal(
         provider=req_provider,
         model=req_model,
         memory_modules_dir=orch.paths.memory_system_dir / "modules",
-        hook_compact_lines=orch._config.memory.hook_compact_lines,
-        inject_all_modules=orch._config.memory.inject_all_modules,
+        hook_compact_lines=mem_cfg.hook_compact_lines,
+        inject_all_modules=mem_cfg.inject_all_modules,
+        vector_search=mem_cfg.vector_search,
+        vector_persist_dir=vector_persist,
+        vector_model=mem_cfg.vector_model,
+        vector_results=mem_cfg.vector_results,
+        last_user_message=text,
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
 

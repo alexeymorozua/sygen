@@ -66,6 +66,13 @@ matrix = [
 mcp = [
     "mcp>=1.20.0",
 ]
+vector = [
+    "chromadb>=1.0.0",
+]
+vector-ml = [
+    "chromadb>=1.0.0",
+    "sentence-transformers>=3.0.0",
+]
 dev = ["sygen[test,lint,api,matrix,mcp]"]
 
 [project.urls]
