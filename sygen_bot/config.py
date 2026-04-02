@@ -541,13 +541,11 @@ _CONTEXT_WINDOWS: dict[str, int] = {
     "claude:haiku": 1_000_000,
     "claude:sonnet": 1_000_000,
     "claude:opus": 1_000_000,
-    # Gemini
-    "gemini:gemini-2.5-pro": 1_000_000,
-    "gemini:gemini-2.5-flash": 1_000_000,
-    "gemini:gemini-2.5-flash-lite": 1_000_000,
-    "gemini:gemini-3-pro-preview": 2_000_000,
-    "gemini:gemini-3-flash-preview": 1_000_000,
+    # Gemini (current models — 3.x generation)
+    "gemini:auto-gemini-3.1": 1_000_000,
     "gemini:gemini-3.1-pro-preview": 2_000_000,
+    "gemini:gemini-3-flash-preview": 1_000_000,
+    "gemini:gemini-3.1-flash-lite-preview": 1_000_000,
     # Codex / OpenAI
     "codex:gpt-5.2-codex": 200_000,
     "codex:gpt-5.3-codex": 200_000,

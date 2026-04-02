@@ -8,13 +8,13 @@ def test_claude_models_have_1m_context() -> None:
         assert get_context_window("claude", model) == 1_000_000
 
 
-def test_gemini_2_5_models_have_1m_context() -> None:
-    for model in ("gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"):
-        assert get_context_window("gemini", model) == 1_000_000
+def test_gemini_3_models_context() -> None:
+    assert get_context_window("gemini", "auto-gemini-3.1") == 1_000_000
+    assert get_context_window("gemini", "gemini-3-flash-preview") == 1_000_000
+    assert get_context_window("gemini", "gemini-3.1-flash-lite-preview") == 1_000_000
 
 
 def test_gemini_3_pro_has_2m_context() -> None:
-    assert get_context_window("gemini", "gemini-3-pro-preview") == 2_000_000
     assert get_context_window("gemini", "gemini-3.1-pro-preview") == 2_000_000
 
 
