@@ -8,7 +8,7 @@ version = "1.1.9"
 description = "AI assistant framework with multi-agent orchestration, background tasks, and persistent memory."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "BSL-1.1"
+license = "LicenseRef-BSL-1.1"
 license-files = ["LICENSE"]
 authors = [{ name = "TIME DESIGN LLC" }]
 keywords = [
