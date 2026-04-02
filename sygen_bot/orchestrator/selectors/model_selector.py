@@ -105,12 +105,14 @@ _SELECTOR_GEMINI_MODELS: tuple[str, ...] = (
 def _gemini_models_for_selector() -> list[str]:
     """Return curated Gemini models for the /model keyboard.
 
-    Always returns the full curated list.  The Gemini CLI accepts any
-    model ID (``auto`` routes internally), so filtering by discovery
-    is unnecessarily restrictive — it hides valid models when the CLI
-    version doesn't expose its full model list during discovery.
+    Shows only the curated list, filtering out entries that weren't
+    discovered (or cached) so stale models don't appear as buttons.
     """
-    return list(_SELECTOR_GEMINI_MODELS)
+    discovered = get_gemini_models()
+    if not discovered:
+        # No cache at all — return the curated list as-is (fallback).
+        return list(_SELECTOR_GEMINI_MODELS)
+    return [m for m in _SELECTOR_GEMINI_MODELS if m in discovered]
 
 
 _BUTTON_LABELS: dict[str, str] = {
