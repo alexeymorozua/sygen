@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from sygen_bot.cli.timeout_controller import TimeoutConfig as TCConfig
 from sygen_bot.cli.timeout_controller import TimeoutController
 from sygen_bot.cli.types import AgentRequest, AgentResponse
-from sygen_bot.config import NULLISH_TEXT_VALUES, resolve_timeout
+from sygen_bot.config import NULLISH_TEXT_VALUES, get_context_window, resolve_timeout
 from sygen_bot.i18n import t
 from sygen_bot.infra.inflight import InflightTurn
 from sygen_bot.log_context import set_log_context
@@ -542,14 +542,24 @@ def _finish_normal(
 
 def _context_warning(
     session: SessionData | None,
-    context_window_tokens: int,
+    context_window_override: int,
     context_warning_percent: int,
 ) -> str:
-    """Return a context-window warning if tokens exceed the configured threshold."""
-    if not session or context_window_tokens <= 0 or context_warning_percent <= 0:
+    """Return a context-window warning if tokens exceed the configured threshold.
+
+    The context window is resolved as:
+    1. ``context_window_override`` from config (if > 0, user explicitly set it)
+    2. Auto-detected from provider + model via ``get_context_window()``
+    """
+    if not session or context_warning_percent <= 0:
         return ""
 
-    threshold = int(context_window_tokens * context_warning_percent / 100)
+    if context_window_override > 0:
+        window = context_window_override
+    else:
+        window = get_context_window(session.provider, session.model)
+
+    threshold = int(window * context_warning_percent / 100)
     if session.total_tokens < threshold:
         return ""
 
@@ -562,7 +572,7 @@ def _context_warning(
     if provider_data:
         provider_data.context_warned = True
 
-    pct = min(round(session.total_tokens / context_window_tokens * 100), 100)
+    pct = min(round(session.total_tokens / window * 100), 100)
     return (
         f"\n\n⚠️ Контекст заполнен на {pct}%. "
         "Рекомендую начать новую сессию.\n"

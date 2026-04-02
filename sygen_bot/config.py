@@ -373,7 +373,7 @@ class AgentConfig(BaseModel):
     sygen_home: str = "~/.sygen"
     idle_timeout_minutes: int = 10080
     session_age_warning_hours: int = 0
-    context_window_tokens: int = 1_000_000
+    context_window_tokens: int = 0  # 0 = auto-detect from provider/model
     context_warning_percent: int = 90
     daily_reset_hour: int = 4
     daily_reset_enabled: bool = False
@@ -533,6 +533,48 @@ def _detect_posix_timezone() -> ZoneInfo | None:
 
 CLAUDE_MODELS_ORDERED: tuple[str, ...] = ("haiku", "sonnet", "opus")
 CLAUDE_MODELS: frozenset[str] = frozenset(CLAUDE_MODELS_ORDERED)
+
+# Context window sizes per provider/model (tokens).
+# Used for context-warning threshold calculation.
+_CONTEXT_WINDOWS: dict[str, int] = {
+    # Claude (all models have 1M context since March 2026)
+    "claude:haiku": 1_000_000,
+    "claude:sonnet": 1_000_000,
+    "claude:opus": 1_000_000,
+    # Gemini
+    "gemini:gemini-2.5-pro": 1_000_000,
+    "gemini:gemini-2.5-flash": 1_000_000,
+    "gemini:gemini-2.5-flash-lite": 1_000_000,
+    "gemini:gemini-3-pro-preview": 2_000_000,
+    "gemini:gemini-3-flash-preview": 1_000_000,
+    "gemini:gemini-3.1-pro-preview": 2_000_000,
+    # Codex / OpenAI
+    "codex:gpt-5.2-codex": 200_000,
+    "codex:gpt-5.3-codex": 200_000,
+    "codex:gpt-5.1-codex-max": 200_000,
+    "codex:gpt-5.2": 200_000,
+    "codex:gpt-5.1-codex-mini": 200_000,
+    "codex:o4-mini": 200_000,
+}
+# Provider-level defaults (when specific model not found).
+_CONTEXT_WINDOW_DEFAULTS: dict[str, int] = {
+    "claude": 1_000_000,
+    "gemini": 1_000_000,
+    "codex": 200_000,
+}
+
+
+def get_context_window(provider: str, model: str) -> int:
+    """Return the context window size for a provider/model pair.
+
+    Looks up ``provider:model`` first, then falls back to provider default,
+    then to 1_000_000 as a safe last resort.
+    """
+    key = f"{provider}:{model}"
+    if key in _CONTEXT_WINDOWS:
+        return _CONTEXT_WINDOWS[key]
+    return _CONTEXT_WINDOW_DEFAULTS.get(provider, 1_000_000)
+
 
 # "auto" is a Gemini-specific alias (Gemini CLI auto-selects the best model).
 _GEMINI_ALIASES: frozenset[str] = frozenset({"auto", "pro", "flash", "flash-lite"})
