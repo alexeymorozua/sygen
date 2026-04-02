@@ -347,7 +347,7 @@ Sygen does not hardcode any AI provider or model in defaults. All crons, tools, 
 
 ## Documentation
 
-Full documentation is available at [https://nicegood-dev.github.io/sygen/](https://nicegood-dev.github.io/sygen/).
+Full documentation is available at [https://alexeymorozua.github.io/sygen/](https://alexeymorozua.github.io/sygen/).
 
 Covers installation, configuration reference, agent setup, tool development, memory system internals, MCP integration, and skill creation.
 

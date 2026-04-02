@@ -84,7 +84,7 @@ docs = [
 dev = ["sygen[test,lint,api,matrix,mcp]"]
 
 [project.urls]
-Documentation = "https://nicegood-dev.github.io/sygen/"
+Documentation = "https://alexeymorozua.github.io/sygen/"
 Repository = "https://github.com/nicegood-dev/sygen"
 Issues = "https://github.com/nicegood-dev/sygen/issues"
 
