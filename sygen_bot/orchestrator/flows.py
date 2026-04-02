@@ -412,7 +412,9 @@ async def normal(
         logger.info("Normal flow completed")
         req_model, _prov = _request_target(orch, request)
         result = _finish_normal(
-            response, session, orch._config.session_age_warning_hours, model_name=req_model
+            response, session, orch._config.session_age_warning_hours, model_name=req_model,
+            context_window_tokens=orch._config.context_window_tokens,
+            context_warning_percent=orch._config.context_warning_percent,
         )
         if session_recovered:
             result.text = f"{_session_recovered_msg()}\n\n{result.text}"
@@ -479,7 +481,9 @@ async def normal_streaming(
         logger.info("Streaming flow completed")
         req_model, _prov = _request_target(orch, request)
         return _finish_normal(
-            response, session, orch._config.session_age_warning_hours, model_name=req_model
+            response, session, orch._config.session_age_warning_hours, model_name=req_model,
+            context_window_tokens=orch._config.context_window_tokens,
+            context_warning_percent=orch._config.context_warning_percent,
         )
     finally:
         orch._inflight_tracker.complete(key.chat_id)
@@ -509,6 +513,8 @@ def _finish_normal(
     warning_hours: int = 0,
     *,
     model_name: str = "",
+    context_window_tokens: int = 0,
+    context_warning_percent: int = 90,
 ) -> OrchestratorResult:
     """Post-processing for normal() and normal_streaming()."""
     if response.is_error:
@@ -521,6 +527,7 @@ def _finish_normal(
     text = response.result
     if session:
         text += _session_age_note(session, warning_hours)
+    text += _context_warning(session, context_window_tokens, context_warning_percent)
 
     return OrchestratorResult(
         text=text,
@@ -530,6 +537,36 @@ def _finish_normal(
         input_tokens=response.input_tokens,
         cost_usd=response.cost_usd,
         duration_ms=response.duration_ms,
+    )
+
+
+def _context_warning(
+    session: SessionData | None,
+    context_window_tokens: int,
+    context_warning_percent: int,
+) -> str:
+    """Return a context-window warning if tokens exceed the configured threshold."""
+    if not session or context_window_tokens <= 0 or context_warning_percent <= 0:
+        return ""
+
+    threshold = int(context_window_tokens * context_warning_percent / 100)
+    if session.total_tokens < threshold:
+        return ""
+
+    # Check if we already warned in this session
+    provider_data = session.provider_sessions.get(session.provider)
+    if provider_data and provider_data.context_warned:
+        return ""
+
+    # Mark as warned
+    if provider_data:
+        provider_data.context_warned = True
+
+    pct = min(round(session.total_tokens / context_window_tokens * 100), 100)
+    return (
+        f"\n\n⚠️ Контекст заполнен на {pct}%. "
+        "Рекомендую начать новую сессию.\n"
+        "[button:🔄 Новая сессия:/new]"
     )
 
 

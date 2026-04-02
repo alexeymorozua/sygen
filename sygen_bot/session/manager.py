@@ -82,6 +82,7 @@ class ProviderSessionData:
     message_count: int = 0
     total_cost_usd: float = 0.0
     total_tokens: int = 0
+    context_warned: bool = False
 
 
 @dataclass(init=False)
@@ -226,6 +227,7 @@ class SessionData:
                 message_count=SessionData._safe_int(value.get("message_count", 0)),
                 total_cost_usd=SessionData._safe_float(value.get("total_cost_usd", 0.0)),
                 total_tokens=SessionData._safe_int(value.get("total_tokens", 0)),
+                context_warned=bool(value.get("context_warned", False)),
             )
         return out
 
@@ -462,6 +464,7 @@ class SessionManager:
                 message_count=data.message_count,
                 total_cost_usd=data.total_cost_usd,
                 total_tokens=data.total_tokens,
+                context_warned=data.context_warned,
             )
             for provider, data in provider_sessions.items()
         }
@@ -477,6 +480,7 @@ class SessionManager:
                     message_count=data.message_count,
                     total_cost_usd=data.total_cost_usd,
                     total_tokens=data.total_tokens,
+                    context_warned=data.context_warned,
                 )
                 continue
             if data.session_id:
