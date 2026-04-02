@@ -1,0 +1,103 @@
+site_name: Sygen Documentation
+site_url: https://nicegood-dev.github.io/sygen/
+repo_url: https://github.com/nicegood-dev/sygen
+repo_name: nicegood-dev/sygen
+site_description: AI assistant framework with multi-agent orchestration, background tasks, and persistent memory.
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Developer Quickstart: developer_quickstart.md
+      - Configuration: config.md
+  - Features:
+      - RAG: RAG.md
+      - Automation: automation.md
+      - Workflows: WORKFLOW.md
+      - File Sharing: fileshare.md
+      - Matrix Setup: matrix-setup.md
+  - Architecture:
+      - Overview: architecture.md
+      - System Overview: system_overview.md
+  - Modules:
+      - API: modules/api.md
+      - Background Tasks: modules/background.md
+      - Bot (Telegram): modules/bot.md
+      - Message Bus: modules/bus.md
+      - CI/CD: modules/ci_cd.md
+      - Cleanup: modules/cleanup.md
+      - CLI Commands: modules/cli_commands.md
+      - CLI Providers: modules/cli.md
+      - Config Reload: modules/config_reload.md
+      - Cron: modules/cron.md
+      - Files: modules/files.md
+      - Heartbeat: modules/heartbeat.md
+      - Infrastructure: modules/infra.md
+      - Logging: modules/logging.md
+      - Matrix: modules/matrix.md
+      - MCP: modules/mcp.md
+      - Messenger: modules/messenger.md
+      - Multi-Agent: modules/multiagent.md
+      - Orchestrator: modules/orchestrator.md
+      - Security: modules/security.md
+      - Service Management: modules/service_management.md
+      - Sessions: modules/session.md
+      - Setup Wizard: modules/setup_wizard.md
+      - Skill Marketplace: modules/skill_marketplace.md
+      - Skill System: modules/skill_system.md
+      - Supervisor: modules/supervisor.md
+      - Tasks: modules/tasks.md
+      - Text Processing: modules/text.md
+      - Webhooks: modules/webhook.md
+      - Workspace: modules/workspace.md
+  - Reference:
+      - Workflow Engine Plan: WORKFLOW_ENGINE_PLAN.md

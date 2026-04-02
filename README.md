@@ -2,11 +2,14 @@
 
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://python.org)
+[![Version 1.1.9](https://img.shields.io/badge/Version-1.1.9-brightgreen.svg)](https://pypi.org/project/sygen/)
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/timedesign)
 
-**AI assistant framework** with multi-agent orchestration, background tasks, and persistent memory.
+**Self-hosted AI assistant framework with multi-agent orchestration, background tasks, and persistent memory.**
 
-Telegram-first personal AI agent that runs CLI tools (Claude Code, Codex, Gemini) and manages complex workflows autonomously.
+### Why Sygen?
+
+Most AI chatbot frameworks give you a single bot that answers questions. Sygen gives you an autonomous agent system that runs on your own hardware, coordinates multiple AI backends (Claude, Codex, Gemini), and manages long-running workflows without babysitting. It persists memory across sessions, schedules recurring tasks, connects to 3000+ external services via MCP, and lets you spin up sub-agents that operate independently — all from a Telegram or Matrix chat.
 
 ## Features
 
@@ -95,12 +98,123 @@ Set `scene.reaction_style: "off"` to disable all reactions.
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.11 or higher
+- A Telegram bot token (create one via [@BotFather](https://t.me/BotFather))
+- At least one AI CLI backend installed: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), or [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+
+### 1. Install Sygen
+
 ```bash
-pip install -e .
+pip install sygen
+```
+
+### 2. Create the config directory and minimal config
+
+```bash
+mkdir -p ~/.sygen/config
+cat > ~/.sygen/config/config.json << 'EOF'
+{
+  "telegram_token": "YOUR_TELEGRAM_BOT_TOKEN",
+  "model": "sonnet",
+  "allowed_user_ids": [YOUR_TELEGRAM_USER_ID]
+}
+EOF
+```
+
+Replace `YOUR_TELEGRAM_BOT_TOKEN` and `YOUR_TELEGRAM_USER_ID` with your actual values. Find your user ID by messaging [@userinfobot](https://t.me/userinfobot) on Telegram.
+
+### 3. Start Sygen
+
+```bash
 sygen
 ```
 
 On first run, Sygen creates a workspace at `~/.sygen/` with default tools, memory templates, and config.
+
+### 4. Send your first message
+
+Open your bot in Telegram and send any message. Sygen will respond using the configured AI backend.
+
+## Usage Examples
+
+### Basic bot setup (minimal config.json)
+
+```json
+{
+  "telegram_token": "123456:ABC-DEF...",
+  "model": "sonnet",
+  "allowed_user_ids": [123456789],
+  "streaming": {
+    "enabled": true,
+    "buffered": true
+  },
+  "scene": {
+    "reaction_style": "detailed"
+  }
+}
+```
+
+### Enable RAG pipeline
+
+Add a `rag` section to `config.json` to let the agent search and reference your local documents:
+
+```json
+{
+  "rag": {
+    "enabled": true,
+    "chunk_size": 512,
+    "top_k_final": 5,
+    "reranker_model": "antoinelouis/colbert-xm"
+  }
+}
+```
+
+The RAG pipeline indexes workspace files and memory modules automatically — no external APIs or vector databases required. Uses BM25 + vector hybrid search with ColBERT v2 reranking. Supported file types: `.md`, `.txt`, `.yaml`, `.yml` (configurable via `workspace_glob_patterns`).
+
+### Set up a cron task
+
+From your Telegram chat with the bot:
+
+```
+You:   Create a cron task that checks Hacker News top stories every morning at 8am
+       and sends me a summary of the top 5.
+
+Sygen: Created cron task "hn-morning" — runs daily at 08:00 (Europe/Berlin).
+       Next run: tomorrow at 08:00.
+
+You:   /cron list
+
+Sygen: Active cron tasks:
+       • hn-morning — daily 08:00 — Check HN top stories
+       • memory-review — monthly — Memory quality review
+```
+
+Cron tasks run as autonomous agent sessions with full tool access. Use `[SILENT]` in the task description to suppress output when there is nothing to report.
+
+### Multi-agent setup
+
+Define sub-agents in `~/.sygen/agents.json`. Each agent gets its own Telegram bot, workspace, and memory:
+
+```json
+[
+  {
+    "name": "researcher",
+    "telegram_token": "111111:AAA-BBB...",
+    "model": "sonnet",
+    "allowed_user_ids": [123456789]
+  },
+  {
+    "name": "coder",
+    "telegram_token": "222222:CCC-DDD...",
+    "model": "o4-mini",
+    "allowed_user_ids": [123456789]
+  }
+]
+```
+
+The main agent can delegate tasks to sub-agents via sync or async messaging. Each sub-agent also works as a standalone bot that you can chat with directly.
 
 ## Configuration
 
@@ -108,13 +222,13 @@ All settings in `~/.sygen/config/config.json`. Key sections:
 
 | Section | What it controls |
 |---|---|
-| `model` | AI provider and model name |
+| `provider` / `model` | AI backend (claude/codex/gemini) and model name (sonnet, opus, flash) |
 | `streaming` | Real-time output (enabled, buffered, min/max chars, idle timeout) |
 | `scene` | Emoji reactions (`reaction_style`: off/seen/detailed), technical footer |
 | `cleanup` | Auto file cleanup (enabled, retention days per category) |
 | `memory` | Memory maintenance (enabled, module line limit, session max age, check hour) |
 | `timeouts` | Response timeouts per mode |
-| `media` | Image quality, audio transcription |
+| `image` / `transcription` | Image quality settings, audio transcription (whisper model, language) |
 | `mcp` | MCP servers (enabled, server list) |
 | `skill_marketplace` | ClawHub integration (enabled, VirusTotal API key) |
 
@@ -212,6 +326,30 @@ VirusTotal API key is optional (free at virustotal.com). Without it, only static
 ## Provider-Neutral Design
 
 Sygen does not hardcode any AI provider or model in defaults. All crons, tools, and templates use `null` for provider/model fields — the user's configured backend is used automatically. Switching from Claude to Gemini requires only a config change, no code edits.
+
+## Comparison
+
+| Feature | Sygen | MemGPT / Letta | OpenClaw | Typical chatbot frameworks |
+|---|---|---|---|---|
+| Self-hosted, runs on your machine | Yes | Yes | Yes | Varies |
+| Multi-agent orchestration | Built-in (supervisor + sub-agents) | Single agent | Single agent | Usually not |
+| Persistent memory (cross-session) | Modular file-based, always load / on demand | Tiered memory (core/archival/recall) | Via skills | Manual or none |
+| RAG pipeline (local, no external APIs) | Built-in | Requires external vector DB | No | Requires setup |
+| Background task delegation | Autonomous agents in separate processes | No | No | No |
+| Cron / scheduled tasks | Native, timezone-aware, with silent mode | No | No | Rarely |
+| Webhooks (inbound HTTP triggers) | Native | No | No | Rarely |
+| MCP protocol (3000+ integrations) | Native client with auto-lifecycle | No | No | No |
+| Skill marketplace (13k+ skills) | ClawHub with security scanning | No | ClawHub (origin) | No |
+| Multiple AI backends | Claude Code, Codex CLI, Gemini CLI | OpenAI only | Claude Code | Usually one |
+| Transport | Telegram + Matrix | Web UI | CLI only | Web / API |
+| Streaming with reaction indicators | Three configurable modes | Basic streaming | No | Varies |
+| Execution traces / observability | SQLite-backed `/logs` command | Basic logging | No | Varies |
+
+## Documentation
+
+Full documentation is available at [https://nicegood-dev.github.io/sygen/](https://nicegood-dev.github.io/sygen/).
+
+Covers installation, configuration reference, agent setup, tool development, memory system internals, MCP integration, and skill creation.
 
 ## Updates
 

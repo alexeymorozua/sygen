@@ -284,8 +284,8 @@ class SceneConfig(BaseModel):
 
     reaction_style:
         "off"      – no emoji reactions
-        "seen"     – 👀 on receipt, ✅ on completion
-        "detailed" – 👀 → 🤔 thinking → ⚙️ tool use → 📦 compacting → ✅ done
+        "seen"     – 👀 on receipt, 👌 on completion
+        "detailed" – 👀 → 🤔 thinking → ✍️ tool use → 💯 compacting → 👌 done
     """
 
     reaction_style: str = "seen"

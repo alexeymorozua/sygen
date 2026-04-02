@@ -1,0 +1,29 @@
+{
+  "_comment": "Reference settings for asciinema recordings and player embeds. Not a direct config file — asciinema uses INI format.",
+
+  "record": {
+    "idle_time_limit": 2,
+    "cols": 100,
+    "rows": 30,
+    "env": "SHELL,TERM"
+  },
+
+  "play": {
+    "speed": 1.0,
+    "idle_time_limit": 1.5
+  },
+
+  "theme": {
+    "name": "monokai",
+    "font_family": "JetBrains Mono, Fira Code, monospace",
+    "font_size": 16
+  },
+
+  "embed": {
+    "autoplay": true,
+    "loop": false,
+    "start_at": 0,
+    "poster": "npt:0:03",
+    "fit": "width"
+  }
+}
