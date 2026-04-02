@@ -297,3 +297,76 @@ def test_empty_cli_parameters_persists_as_empty_list(tmp_path: Path) -> None:
 
     assert reloaded_job.cli_parameters == []
     assert isinstance(reloaded_job.cli_parameters, list)
+
+
+# -- script_mode tests --
+
+
+def test_script_mode_defaults() -> None:
+    """script_mode defaults to False, script defaults to None."""
+    job = CronJob(
+        id="sm-1",
+        title="T",
+        description="D",
+        schedule="* * * * *",
+        task_folder="t",
+        agent_instruction="x",
+    )
+    assert job.script_mode is False
+    assert job.script is None
+
+
+def test_script_mode_round_trip() -> None:
+    """script_mode and script survive serialization."""
+    job = CronJob(
+        id="sm-2",
+        title="Dashboard",
+        description="D",
+        schedule="0 19 * * *",
+        task_folder="dashboard",
+        agent_instruction="x",
+        script_mode=True,
+        script="scripts/dashboard.py",
+    )
+    data = job.to_dict()
+    assert data["script_mode"] is True
+    assert data["script"] == "scripts/dashboard.py"
+
+    restored = CronJob.from_dict(data)
+    assert restored.script_mode is True
+    assert restored.script == "scripts/dashboard.py"
+
+
+def test_script_mode_backward_compat() -> None:
+    """Old jobs without script_mode fields load with defaults."""
+    old = {
+        "id": "old",
+        "title": "Old",
+        "schedule": "* * * * *",
+        "task_folder": "old",
+        "agent_instruction": "x",
+    }
+    job = CronJob.from_dict(old)
+    assert job.script_mode is False
+    assert job.script is None
+
+
+def test_script_mode_persists(tmp_path: Path) -> None:
+    """script_mode fields survive CronManager persist + reload."""
+    jobs_path = tmp_path / "cron_jobs.json"
+    manager = CronManager(jobs_path=jobs_path)
+    manager.add_job(CronJob(
+        id="sm-3",
+        title="T",
+        description="D",
+        schedule="* * * * *",
+        task_folder="t",
+        agent_instruction="x",
+        script_mode=True,
+        script="scripts/test.py",
+    ))
+    manager.reload()
+    job = manager.get_job("sm-3")
+    assert job is not None
+    assert job.script_mode is True
+    assert job.script == "scripts/test.py"
