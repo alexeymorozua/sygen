@@ -119,6 +119,43 @@ Notes:
 - `error:folder_missing` updates `last_run_status` but does not emit a result callback.
 - quiet-hour skips do not emit result callbacks and do not update `last_run_status`.
 
+### Script mode
+
+For cron tasks that just need to run a script and send its output — without LLM reasoning — use `script_mode`. The script is executed directly via `subprocess`, and its stdout is delivered to Telegram. No LLM agent is spawned, no tokens are consumed.
+
+```json
+{
+  "id": "business-dashboard",
+  "title": "Business Dashboard",
+  "schedule": "0 19 * * *",
+  "task_folder": "business-dashboard",
+  "script_mode": true,
+  "script": "scripts/dashboard.py"
+}
+```
+
+The `script` path is relative to the task folder (`cron_tasks/<task_folder>/`).
+
+Runtime behavior in script mode:
+
+1. dependency lock (same as agent mode)
+2. quiet-hour check (same as agent mode)
+3. resolve script path: `cron_tasks/<task_folder>/<script>`
+4. execute: `python3 <script>` with `cwd` set to the task folder
+5. capture stdout as result text; if exit code ≠ 0, stderr is appended
+6. deliver result to chat (same routing as agent mode)
+7. `[SILENT]` marker in stdout suppresses delivery (same as agent mode)
+8. persist status: `success`, `error`, or `error:timeout`
+
+Script mode fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `script_mode` | bool | `false` | Enable direct script execution |
+| `script` | string | `null` | Script path relative to task folder |
+
+When `script_mode` is `false` or absent, the job uses the standard LLM agent path. All other job fields (`provider`, `model`, `cli_parameters`, etc.) are ignored in script mode.
+
 ## Webhooks
 
 Server route: `POST /hooks/{hook_id}`

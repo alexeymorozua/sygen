@@ -47,6 +47,11 @@ class CronJob:
     # Optional dependency for sequential execution
     dependency: str | None = None
 
+    # Script mode: bypass LLM agent and run a script directly.
+    # stdout is delivered as the cron result.
+    script_mode: bool = False
+    script: str | None = None
+
     # Routing: deliver results to the chat/topic where the job was created
     chat_id: int = 0
     topic_id: int | None = None
@@ -75,6 +80,8 @@ class CronJob:
             "quiet_start": self.quiet_start,
             "quiet_end": self.quiet_end,
             "dependency": self.dependency,
+            "script_mode": self.script_mode,
+            "script": self.script,
             "chat_id": self.chat_id,
             "topic_id": self.topic_id,
             "transport": self.transport,
@@ -104,6 +111,8 @@ class CronJob:
             quiet_start=data.get("quiet_start"),
             quiet_end=data.get("quiet_end"),
             dependency=data.get("dependency"),
+            script_mode=data.get("script_mode", False),
+            script=data.get("script"),
             chat_id=data.get("chat_id", 0),
             topic_id=data.get("topic_id"),
             transport=data.get("transport", "tg"),

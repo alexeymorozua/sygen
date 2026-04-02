@@ -319,6 +319,11 @@ class CronObserver(BaseTaskObserver):
         if self._is_quiet_hours(job, job_title):
             return
 
+        # -- Script mode: run script directly, bypass LLM agent --
+        if job and job.script_mode and job.script:
+            await self._execute_script_mode(job_id, job_title, job, routing)
+            return
+
         logger.info("Cron job starting job=%s", job_title)
         t0 = time.monotonic()
 
@@ -403,6 +408,84 @@ class CronObserver(BaseTaskObserver):
         # Refresh our mtime baseline so the file-watcher doesn't treat the
         # run-status write as a user-initiated change and trigger a full
         # reschedule of all other jobs.
+        await self._watcher.update_mtime()
+
+    async def _execute_script_mode(
+        self,
+        job_id: str,
+        job_title: str,
+        job: CronJob,
+        routing: tuple[int, int | None, str],
+    ) -> None:
+        """Run a script directly (no LLM agent) and deliver stdout as result."""
+        import subprocess
+
+        logger.info("Cron job starting (script_mode) job=%s script=%s", job_title, job.script)
+        t0 = time.monotonic()
+
+        task_dir = self._paths.cron_tasks_dir / job.task_folder
+        script_path = task_dir / job.script
+        if not script_path.is_file():
+            error_msg = f"Script not found: {script_path}"
+            logger.error(error_msg)
+            await self._deliver_result(job_id, job_title, error_msg, "error", routing)
+            self._manager.update_run_status(job_id, status="error:script_not_found")
+            return
+
+        timeout = self._config.cli_timeout
+        try:
+            proc = await asyncio.to_thread(
+                subprocess.run,
+                ["python3", str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(task_dir),
+            )
+            result_text = proc.stdout.strip()
+            if proc.returncode != 0:
+                stderr = proc.stderr.strip()
+                status = "error"
+                if stderr:
+                    result_text = f"{result_text}\n\n⚠️ stderr:\n{stderr}".strip()
+                logger.warning(
+                    "Script exited with code %d for job %s: %s",
+                    proc.returncode, job_id, stderr[:200],
+                )
+            else:
+                status = "success"
+        except subprocess.TimeoutExpired:
+            result_text = f"Script timed out after {timeout}s"
+            status = "error:timeout"
+            logger.error("Script timed out for job %s", job_id)
+        except Exception as exc:
+            result_text = f"Script execution failed: {exc}"
+            status = "error"
+            logger.exception("Script execution failed for job %s", job_id)
+
+        elapsed_ms = (time.monotonic() - t0) * 1000
+        logger.info(
+            "Cron job completed (script_mode) job=%s status=%s duration_ms=%.0f result=%d",
+            job_title, status, elapsed_ms, len(result_text),
+        )
+
+        silent = result_text.lstrip().upper().startswith("[SILENT]")
+        if not silent and result_text:
+            await self._deliver_result(job_id, job_title, result_text, status, routing)
+
+        self._record_trace(
+            name=job_title,
+            started_mono=t0,
+            elapsed_ms=elapsed_ms,
+            status=status,
+            result_text=result_text,
+            error=None if status == "success" else result_text[:200],
+            provider="script",
+            model="n/a",
+            job_id=job_id,
+        )
+
+        self._manager.update_run_status(job_id, status=status)
         await self._watcher.update_mtime()
 
     def _is_quiet_hours(self, job: CronJob | None, job_title: str) -> bool:

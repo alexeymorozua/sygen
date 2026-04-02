@@ -51,6 +51,9 @@ CHANGES:
   --dependency "<name>"      Resource dependency for sequential execution (e.g. 'chrome_browser')
   --clear-quiet-hours        Remove quiet hour settings (use global config)
   --clear-dependency         Remove dependency (allow parallel execution)
+  --script-mode              Enable script mode (bypass LLM, run script directly)
+  --script "<path>"          Script path relative to task folder (e.g. 'scripts/dashboard.py')
+  --clear-script-mode        Disable script mode (revert to LLM agent execution)
   --enable                   Set enabled=true
   --disable                  Set enabled=false
 
@@ -121,6 +124,20 @@ def _parse_args() -> argparse.Namespace:
         "--clear-dependency",
         action="store_true",
         help="Remove dependency (allow parallel execution).",
+    )
+    parser.add_argument(
+        "--script-mode",
+        action="store_true",
+        help="Enable script mode (bypass LLM, run script directly).",
+    )
+    parser.add_argument(
+        "--script",
+        help="Script path relative to task folder (e.g. 'scripts/dashboard.py').",
+    )
+    parser.add_argument(
+        "--clear-script-mode",
+        action="store_true",
+        help="Disable script mode (revert to LLM agent execution).",
     )
     enabled_group = parser.add_mutually_exclusive_group()
     enabled_group.add_argument("--enable", action="store_true", help="Enable the job")
@@ -248,6 +265,32 @@ def _apply_updates(args: argparse.Namespace, job: dict[str, Any]) -> tuple[list[
             job.pop("dependency", None)
             updated_fields.append("dependency (cleared)")
 
+    if args.script_mode:
+        if not job.get("script_mode"):
+            job["script_mode"] = True
+            updated_fields.append("script_mode")
+        if args.script:
+            script_val = args.script.strip()
+            if job.get("script") != script_val:
+                job["script"] = script_val
+                updated_fields.append("script")
+    elif args.script:
+        script_val = args.script.strip()
+        if job.get("script") != script_val:
+            job["script"] = script_val
+            updated_fields.append("script")
+
+    if args.clear_script_mode:
+        changed = False
+        if job.get("script_mode"):
+            job["script_mode"] = False
+            changed = True
+        if "script" in job:
+            job.pop("script", None)
+            changed = True
+        if changed:
+            updated_fields.append("script_mode (cleared)")
+
     if args.enable and job.get("enabled", True) is not True:
         job["enabled"] = True
         updated_fields.append("enabled")
@@ -284,6 +327,9 @@ def main() -> None:
             args.dependency is not None,
             args.clear_quiet_hours,
             args.clear_dependency,
+            args.script_mode,
+            args.script is not None,
+            args.clear_script_mode,
             args.enable,
             args.disable,
         ]

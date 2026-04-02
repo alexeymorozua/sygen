@@ -49,6 +49,12 @@ Scripts for creating, editing, listing, and removing scheduled jobs.
    - Explain: "Jobs with the SAME dependency run sequentially. Different dependencies run in parallel."
    - Use `--dependency <name>` (e.g., `chrome_browser`, `api_rate_limit`, `database`)
 
+6. **Does this job just run a script?**
+   - If the task is "run this script and send output" with no LLM reasoning needed:
+   - Use `--script-mode --script "scripts/my_script.py"`
+   - Script stdout is sent directly to Telegram. No LLM agent, no tokens consumed.
+   - Best for: dashboards, data reports, monitoring checks, API calls.
+
 **Present these options and wait for the user's choice!**
 
 Do NOT suggest `--cli-parameters` proactively. Only mention it exists if the user asks.
@@ -106,10 +112,23 @@ python3 tools/cron_tools/cron_add.py \
   --model gemini-2.5-pro
 ```
 
+**Script mode (no LLM):**
+```bash
+python3 tools/cron_tools/cron_add.py \
+  --name "dashboard" \
+  --title "Business Dashboard" \
+  --description "Run dashboard script" \
+  --schedule "0 19 * * *" \
+  --script-mode \
+  --script "scripts/dashboard.py"
+```
+
 **Available parameters:**
 - `--provider` - CLI provider: `claude`, `codex`, or `gemini` (optional, uses global config if omitted)
 - `--model` - Model choice (optional, uses global config if omitted)
 - `--reasoning-effort` - Codex only: thinking level (optional, defaults to `medium`)
+- `--script-mode` - Run script directly, bypass LLM agent entirely
+- `--script` - Script path relative to task folder (required with `--script-mode`)
 - `--cli-parameters` - Advanced: JSON array of CLI flags (only if user explicitly requests)
 
 **Routing (auto-detected, rarely needed manually):**

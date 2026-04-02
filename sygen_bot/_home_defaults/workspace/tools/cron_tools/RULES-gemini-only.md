@@ -26,6 +26,11 @@ Scripts for creating, editing, listing, and removing scheduled jobs.
    - Explain: "Jobs with the SAME dependency run sequentially. Different dependencies run in parallel."
    - Use `--dependency <name>` (e.g., `chrome_browser`, `api_rate_limit`, `database`)
 
+4. **Does this job just run a script?**
+   - If the task is "run this script and send output" with no LLM reasoning needed:
+   - Use `--script-mode --script "scripts/my_script.py"`
+   - Script stdout is sent directly to Telegram. No LLM agent, no tokens consumed.
+
 **Present these options and wait for the user's choice!**
 
 Do NOT suggest `--cli-parameters` proactively. Only mention it exists if the user asks.

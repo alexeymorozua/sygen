@@ -40,7 +40,7 @@ Most AI chatbot frameworks give you a single bot that answers questions. Sygen g
 - **`/skill` command** — search, install, list, remove from Telegram
 
 ### Automation
-- **Cron scheduler** — recurring tasks with timezone support
+- **Cron scheduler** — recurring tasks with timezone support, plus `script_mode` for direct script execution without LLM
 - **Webhook server** — HTTP endpoints that trigger agent actions
 - **Docker sandbox** — optional secure execution for untrusted code
 - **Silent output** — `[SILENT]` marker lets cron/webhook tasks suppress delivery when nothing to report
@@ -192,6 +192,17 @@ Sygen: Active cron tasks:
 ```
 
 Cron tasks run as autonomous agent sessions with full tool access. Use `[SILENT]` in the task description to suppress output when there is nothing to report.
+
+**Script mode** — for tasks that just run a script (dashboards, reports, monitoring), use `script_mode` to bypass the LLM agent entirely. The script's stdout is sent directly to Telegram — no tokens consumed, 100% reliable:
+
+```json
+{
+  "id": "business-dashboard",
+  "script_mode": true,
+  "script": "scripts/dashboard.py",
+  "schedule": "0 19 * * *"
+}
+```
 
 ### Multi-agent setup
 

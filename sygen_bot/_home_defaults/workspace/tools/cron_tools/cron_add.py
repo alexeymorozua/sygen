@@ -75,6 +75,13 @@ ROUTING (optional, auto-detected from current chat/topic):
                       When creating a cron FROM a forum topic, topic_id is captured automatically.
                       Results will be delivered to the same topic. Use these flags only to override.
 
+SCRIPT MODE (optional, bypass LLM agent entirely):
+  --script-mode       Run a Python script directly instead of spawning an LLM agent.
+                      The script's stdout is delivered as the cron result to Telegram.
+                      No tokens consumed. 100% reliable execution.
+  --script            Path to the script RELATIVE to the task folder (e.g. 'scripts/dashboard.py').
+                      Required when --script-mode is used.
+
 DEPENDENCIES (optional, prevent concurrent resource conflicts):
   --dependency        Resource identifier (e.g. 'chrome_browser', 'api_token', 'database')
                       Jobs with the SAME dependency run sequentially (one at a time, FIFO).
@@ -133,6 +140,16 @@ Claude job with browser automation:
       --provider claude \\
       --model sonnet \\
       --cli-parameters '["--chrome"]'
+
+Script mode job (no LLM, direct script execution):
+  python tools/cron_tools/cron_add.py \\
+      --name "business-dashboard" \\
+      --title "Business Dashboard" \\
+      --description "Generate business dashboard from data" \\
+      --schedule "0 19 * * *" \\
+      --script-mode \\
+      --script "scripts/dashboard.py"
+  # stdout of scripts/dashboard.py is sent directly to Telegram. No LLM involved.
 
 Job with quiet hours (don't run at night):
   python tools/cron_tools/cron_add.py \\
@@ -236,6 +253,16 @@ def main() -> None:
         "If omitted, uses only global config parameters.",
     )
     parser.add_argument(
+        "--script-mode",
+        action="store_true",
+        help="Run script directly instead of LLM agent. Requires --script.",
+    )
+    parser.add_argument(
+        "--script",
+        help="Script path relative to task folder (e.g. 'scripts/dashboard.py'). "
+        "Used only with --script-mode.",
+    )
+    parser.add_argument(
         "--quiet-start",
         type=int,
         choices=range(24),
@@ -272,6 +299,10 @@ def main() -> None:
     if missing:
         print(_TUTORIAL)
         print(f"Missing required parameters: {', '.join('--' + m for m in missing)}")
+        sys.exit(1)
+
+    if args.script_mode and not args.script:
+        print(json.dumps({"error": "--script-mode requires --script (path to script file)"}))
         sys.exit(1)
 
     name = sanitize_name(args.name)
@@ -331,6 +362,9 @@ def main() -> None:
         job["quiet_end"] = args.quiet_end
     if args.dependency:
         job["dependency"] = args.dependency.strip()
+    if args.script_mode:
+        job["script_mode"] = True
+        job["script"] = args.script.strip()
     # Routing: CLI args override env vars (auto-detected from current chat/topic).
     chat_id_raw = args.chat_id if args.chat_id is not None else os.environ.get("SYGEN_CHAT_ID", "")
     topic_id_raw = args.topic_id if args.topic_id is not None else os.environ.get("SYGEN_TOPIC_ID", "")
