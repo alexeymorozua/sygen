@@ -40,7 +40,7 @@ Sygen routes chat input to provider CLIs (Claude, Codex, Gemini), streams respon
 === "From source"
 
     ```bash
-    git clone https://github.com/nicegood-dev/sygen.git
+    git clone https://github.com/alexeymorozua/sygen.git
     cd sygen
     python -m venv .venv && source .venv/bin/activate
     pip install -e ".[dev]"

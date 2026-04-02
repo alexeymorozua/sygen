@@ -85,8 +85,8 @@ dev = ["sygen[test,lint,api,matrix,mcp]"]
 
 [project.urls]
 Documentation = "https://alexeymorozua.github.io/sygen/"
-Repository = "https://github.com/nicegood-dev/sygen"
-Issues = "https://github.com/nicegood-dev/sygen/issues"
+Repository = "https://github.com/alexeymorozua/sygen"
+Issues = "https://github.com/alexeymorozua/sygen/issues"
 
 [project.scripts]
 sygen = "sygen_bot.__main__:main"
