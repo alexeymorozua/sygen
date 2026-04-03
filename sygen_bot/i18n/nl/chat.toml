@@ -242,6 +242,15 @@ unknown_action = "Onbekende actie."
 btn_back = "<< Terug"
 switched_while_busy = "**Model gewisseld.** Huidig proces draait nog — nieuw model geldt vanaf het volgende bericht."
 
+# -- Topicmodel --------------------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "Dit commando werkt alleen binnen een topic."
+current = "Standaardmodel voor topic: **{model}** (topic {topic_id})"
+not_set = "Geen topicstandaard ingesteld. Globale standaard: **{default}**"
+unknown_model = "Onbekend model: {model}"
+saved = "Topicstandaard opgeslagen: **{model}** (topic {topic_id})\nNieuwe sessies in dit topic gebruiken dit model."
+
 # -- Cronselector ------------------------------------------------------------------
 
 [cron]

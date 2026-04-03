@@ -242,6 +242,15 @@ unknown_action = "Acción desconocida."
 btn_back = "<< Atrás"
 switched_while_busy = "**Modelo cambiado.** El proceso actual sigue en ejecución — el nuevo modelo se aplicará al siguiente mensaje."
 
+# -- Modelo de tema ------------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "Este comando solo funciona dentro de un tema."
+current = "Modelo por defecto del tema: **{model}** (tema {topic_id})"
+not_set = "Sin modelo de tema configurado. Usando el global: **{default}**"
+unknown_model = "Modelo desconocido: {model}"
+saved = "Modelo de tema guardado: **{model}** (tema {topic_id})\nLas nuevas sesiones en este tema usarán este modelo."
+
 # -- Selector de cron ----------------------------------------------------------
 
 [cron]

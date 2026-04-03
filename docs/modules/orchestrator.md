@@ -71,7 +71,7 @@ Common path:
 
 Registered command handlers:
 
-- `/new`, `/status`, `/model`, `/memory`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
+- `/new`, `/status`, `/model`, `/topicmodel`, `/memory`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
 
 `/model` never blocks: it always executes immediately (bypasses the sequential queue) and shows current model info if a CLI process is active in the chat.
 
@@ -113,6 +113,7 @@ Important model-selector behavior:
 
 - topic-scoped `/model` changes only the active topic session
 - non-topic `/model` updates config defaults (and sub-agent `agents.json` when relevant)
+- `/topicmodel` sets a persistent default model for a topic (stored in `config.json` `topic_defaults`)
 
 ## Flow behavior (`flows.py`)
 

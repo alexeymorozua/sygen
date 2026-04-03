@@ -133,7 +133,7 @@ def _build_help_text() -> str:
         t("help.header"),
         SEP,
         f"{t('help.cat_daily')}\n{_help_line('new')}\n{_help_line('stop')}\n{_help_line('interrupt')}\n{_help_line('stop_all')}\n"
-        f"{_help_line('compact')}\n{_help_line('model')}\n{_help_line('status')}\n{_help_line('memory')}",
+        f"{_help_line('compact')}\n{_help_line('model')}\n{_help_line('topicmodel')}\n{_help_line('status')}\n{_help_line('memory')}",
         f"{t('help.cat_automation')}\n{_help_line('session')}\n{_help_line('sessions')}\n"
         f"{_help_line('tasks')}\n{_help_line('cron')}\n{_help_line('workflow')}\n"
         f"{_help_line('mcp')}\n{_help_line('skill')}",

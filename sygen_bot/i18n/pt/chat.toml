@@ -242,6 +242,15 @@ unknown_action = "Ação desconhecida."
 btn_back = "<< Voltar"
 switched_while_busy = "**Modelo alterado.** O processo atual ainda está rodando — o novo modelo será aplicado na próxima mensagem."
 
+# -- Modelo de tópico ----------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "Este comando só funciona dentro de um tópico."
+current = "Modelo padrão do tópico: **{model}** (tópico {topic_id})"
+not_set = "Nenhum padrão de tópico definido. Usando o global: **{default}**"
+unknown_model = "Modelo desconhecido: {model}"
+saved = "Padrão de tópico salvo: **{model}** (tópico {topic_id})\nNovas sessões neste tópico usarão este modelo."
+
 # -- Seletor de cron -----------------------------------------------------------
 
 [cron]

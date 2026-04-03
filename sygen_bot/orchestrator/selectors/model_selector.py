@@ -337,7 +337,11 @@ async def _status_line(orch: Orchestrator, key: SessionKey) -> str:
     else:
         current = f"{t('model.header')}\n{t('model.current', model=model)}"
 
-    if key.topic_id is None:
+    if key.topic_id is not None:
+        topic_default = orch._config.get_topic_default_model(key.topic_id)
+        if topic_default and model != topic_default:
+            current += f"\n{t('model.configured_default', configured=topic_default)}"
+    else:
         configured = orch._config.model
         if model != configured:
             current += f"\n{t('model.configured_default', configured=configured)}"

@@ -117,7 +117,7 @@ Matrix command ownership (`messenger/matrix/bot.py`):
 
 Orchestrator command registry (`orchestrator/commands.py`):
 
-- `/new`, `/status`, `/model`, `/memory`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
+- `/new`, `/status`, `/model`, `/topicmodel`, `/memory`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
 - multi-agent commands are registered at runtime by supervisor hook
 
 Abort behavior:
@@ -127,7 +127,7 @@ Abort behavior:
 
 Quick-command bypass (`SequentialMiddleware`):
 
-- `/status`, `/memory`, `/cron`, `/diagnose`, `/model`, `/showfiles`, `/sessions`, `/tasks`, `/where`, `/leave`
+- `/status`, `/memory`, `/cron`, `/diagnose`, `/model`, `/topicmodel`, `/showfiles`, `/sessions`, `/tasks`, `/where`, `/leave`
 
 ## Session and Topic Model
 
@@ -150,6 +150,14 @@ Per-topic `/model` behavior:
 
 - inside a topic, model/provider switch updates that topic session only
 - global config (`config.json` / `agents.json`) is updated only outside topic scope
+
+Per-topic default model (`/topicmodel`):
+
+- `/topicmodel [model]` sets a persistent default model for a specific topic
+- stored in `config.json` under `topic_defaults: {"<topic_id>": {"model": "<model_id>"}}`
+- resolution priority: `@directive override` > `topic_default` > `global config.model`
+- new sessions in the topic automatically use the topic default
+- works with any provider (Claude, Gemini, Codex)
 
 ## Flow Details
 

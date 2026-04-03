@@ -103,6 +103,7 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `scene` | `SceneConfig` | see below | Scene indicators and technical footer |
 | `transcription` | `TranscriptionConfig` | see below | Audio/video transcription settings (language, model, custom command) |
 | `update_check` | `bool` | `true` | Enables periodic update observer (`UpdateObserver`) |
+| `topic_defaults` | `dict[str, dict[str, str]]` | `{}` | Per-topic default models. Keys are topic IDs (as strings), values are `{"model": "<model_id>"}`. Set via `/topicmodel` command. Resolution priority: `@directive` > `topic_default` > `config.model` |
 | `interagent_port` | `int` | `8799` | Port for internal localhost API (`InternalAgentAPI`) |
 
 ### Multi-transport behavior

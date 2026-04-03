@@ -242,6 +242,15 @@ unknown_action = "Action inconnue."
 btn_back = "<< Retour"
 switched_while_busy = "**Modèle changé.** Le processus en cours continue — le nouveau modèle s'appliquera au prochain message."
 
+# -- Modèle de sujet -----------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "Cette commande ne fonctionne qu'à l'intérieur d'un sujet."
+current = "Modèle par défaut du sujet : **{model}** (sujet {topic_id})"
+not_set = "Aucun modèle de sujet défini. Défaut global : **{default}**"
+unknown_model = "Modèle inconnu : {model}"
+saved = "Modèle de sujet enregistré : **{model}** (sujet {topic_id})\nLes nouvelles sessions dans ce sujet utiliseront ce modèle."
+
 # -- Sélecteur cron ------------------------------------------------------------
 
 [cron]

@@ -33,7 +33,7 @@ Immediate middleware-handled command path (pre-lock, no normal dispatch):
 
 Orchestrator-routed commands:
 
-- `/status`, `/memory`, `/model`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
+- `/status`, `/memory`, `/model`, `/topicmodel`, `/cron`, `/diagnose`, `/upgrade`, `/sessions`, `/tasks`
 
 ## Middleware behavior
 
@@ -66,7 +66,7 @@ Flow order:
 
 Quick commands:
 
-- `/status`, `/memory`, `/cron`, `/diagnose`, `/model`, `/showfiles`, `/sessions`, `/tasks`, `/where`, `/leave`
+- `/status`, `/memory`, `/cron`, `/diagnose`, `/model`, `/topicmodel`, `/showfiles`, `/sessions`, `/tasks`, `/where`, `/leave`
 
 Queue APIs:
 
@@ -87,6 +87,7 @@ Implications:
 - forum topics are fully isolated sessions
 - locks are topic-aware
 - `/new` and `/model` operate per topic when called inside a topic
+- `/topicmodel [model]` sets a persistent default model for the topic (stored in `config.json`)
 - `/new @topicname` resets a specific topic session by cached name lookup
 
 `TopicNameCache` is seeded from persisted sessions at startup and updated from forum topic create/edit events.

@@ -143,7 +143,7 @@ Sub-agent home: `~/.sygen/agents/<name>/` with its own config/workspace/session 
 
 Chat commands (Telegram and Matrix):
 
-- `/new`, `/stop`, `/stop_all`, `/interrupt`, `/model`, `/status`, `/memory`, `/session`, `/sessions`, `/tasks`, `/cron`, `/diagnose`, `/upgrade`
+- `/new`, `/stop`, `/stop_all`, `/interrupt`, `/model`, `/topicmodel`, `/status`, `/memory`, `/session`, `/sessions`, `/tasks`, `/cron`, `/diagnose`, `/upgrade`
 - Telegram-only utility commands: `/where`, `/leave` (work but are not in command popup)
 - Matrix uses `!` prefix by default (e.g. `!help`, `!status`); `/` also works but may conflict with Element's built-in commands
 

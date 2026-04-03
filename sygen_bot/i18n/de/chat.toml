@@ -242,6 +242,15 @@ unknown_action = "Unbekannte Aktion."
 btn_back = "<< Zurück"
 switched_while_busy = "**Modell gewechselt.** Aktueller Prozess läuft noch — neues Modell gilt ab der nächsten Nachricht."
 
+# -- Themenmodell --------------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "Dieser Befehl funktioniert nur innerhalb eines Themas."
+current = "Standard-Modell des Themas: **{model}** (Thema {topic_id})"
+not_set = "Kein Themenstandard gesetzt. Globaler Standard: **{default}**"
+unknown_model = "Unbekanntes Modell: {model}"
+saved = "Themenstandard gespeichert: **{model}** (Thema {topic_id})\nNeue Sessions in diesem Thema verwenden dieses Modell."
+
 # -- Cron-Selektor -------------------------------------------------------------
 
 [cron]

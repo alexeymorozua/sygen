@@ -71,7 +71,10 @@ async def _prepare_normal(
 
     Returns (request, session) so the caller can update the session after the CLI call.
     """
-    requested_model = model_override or orch._config.model
+    # Per-topic default: if the topic has a configured default model and no
+    # explicit @directive override, use the topic default instead of global.
+    topic_default = orch._config.get_topic_default_model(key.topic_id)
+    requested_model = model_override or topic_default or orch._config.model
     req_model, req_provider = orch.resolve_runtime_target(requested_model)
 
     session, is_new = await orch._sessions.resolve_session(

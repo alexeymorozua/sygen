@@ -241,6 +241,15 @@ unknown_action = "Unknown action."
 btn_back = "<< Back"
 switched_while_busy = "**Model switched.** Current process still running — new model applies to the next message."
 
+# -- Topic model ---------------------------------------------------------------
+
+[topicmodel]
+not_a_topic = "This command only works inside a topic."
+current = "Topic default model: **{model}** (topic {topic_id})"
+not_set = "No topic default set. Using global default: **{default}**"
+unknown_model = "Unknown model: {model}"
+saved = "Topic default saved: **{model}** (topic {topic_id})\nNew sessions in this topic will use this model."
+
 # -- Cron selector -------------------------------------------------------------
 
 [cron]

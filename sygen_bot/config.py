@@ -418,9 +418,19 @@ class AgentConfig(BaseModel):
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
     rag: RAGConfig = Field(default_factory=RAGConfig)
+    topic_defaults: dict[str, dict[str, str]] = Field(default_factory=dict)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)
+
+    def get_topic_default_model(self, topic_id: int | None) -> str | None:
+        """Return the configured default model for a topic, or None."""
+        if topic_id is None or not self.topic_defaults:
+            return None
+        entry = self.topic_defaults.get(str(topic_id))
+        if entry and isinstance(entry, dict):
+            return entry.get("model") or None
+        return None
 
     @field_validator("gemini_api_key", mode="before")
     @classmethod

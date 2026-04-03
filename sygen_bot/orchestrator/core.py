@@ -36,6 +36,7 @@ from sygen_bot.orchestrator.commands import (
     cmd_sessions,
     cmd_status,
     cmd_tasks,
+    cmd_topicmodel,
     cmd_upgrade,
 )
 from sygen_bot.orchestrator.directives import parse_directives
@@ -411,6 +412,8 @@ class Orchestrator:
         reg.register_async("/status", cmd_status)
         reg.register_async("/model", cmd_model)
         reg.register_async("/model ", cmd_model)
+        reg.register_async("/topicmodel", cmd_topicmodel)
+        reg.register_async("/topicmodel ", cmd_topicmodel)
         reg.register_async("/memory", cmd_memory)
         reg.register_async("/cron", cmd_cron)
         reg.register_async("/logs", cmd_logs)

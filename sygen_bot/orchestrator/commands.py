@@ -56,6 +56,42 @@ async def cmd_model(orch: Orchestrator, key: SessionKey, text: str) -> Orchestra
     return OrchestratorResult(text=result_text)
 
 
+async def cmd_topicmodel(orch: Orchestrator, key: SessionKey, text: str) -> OrchestratorResult:
+    """Handle /topicmodel [name]: set or show the default model for this topic."""
+    if key.topic_id is None:
+        return OrchestratorResult(text=t("topicmodel.not_a_topic"))
+
+    parts = text.split(None, 1)
+    if len(parts) < 2:
+        current = orch._config.get_topic_default_model(key.topic_id)
+        if current:
+            return OrchestratorResult(
+                text=t("topicmodel.current", model=current, topic_id=key.topic_id),
+            )
+        return OrchestratorResult(
+            text=t("topicmodel.not_set", default=orch._config.model),
+        )
+
+    model_id = parts[1].strip().lower()
+    # Validate model exists
+    provider = orch.models.provider_for(model_id)
+    if not provider:
+        return OrchestratorResult(text=t("topicmodel.unknown_model", model=model_id))
+
+    topic_key = str(key.topic_id)
+    topic_defaults = dict(orch._config.topic_defaults)
+    topic_defaults[topic_key] = {"model": model_id}
+    orch._config.topic_defaults = topic_defaults
+
+    from sygen_bot.config import update_config_file_async
+
+    await update_config_file_async(orch._paths.config_path, topic_defaults=topic_defaults)
+    logger.info("Topic default set topic=%s model=%s", key.topic_id, model_id)
+    return OrchestratorResult(
+        text=t("topicmodel.saved", model=model_id, topic_id=key.topic_id),
+    )
+
+
 async def cmd_memory(orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /memory."""
     logger.info("Memory requested")
