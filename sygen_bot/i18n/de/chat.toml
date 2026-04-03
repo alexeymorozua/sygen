@@ -441,6 +441,9 @@ restarting = "Bot startet neu..."
 no_changelog = "Kein Changelog für v{version} gefunden."
 changelog_header = "**Changelog v{version}**"
 system_updates_header = "Systemaktualisierungen"
+cli_update_issues_header = "Probleme beim automatischen CLI-Update"
+cli_needs_reinstall = "global installiert (erfordert sudo). Für automatische Updates im User-Space neu installieren."
+cli_update_failed = "automatisches Update fehlgeschlagen. Manuell aktualisieren."
 
 # -- Multi-Agent-Benachrichtigungen -------------------------------------------
 

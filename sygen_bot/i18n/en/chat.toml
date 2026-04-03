@@ -440,6 +440,9 @@ restarting = "Bot is restarting..."
 no_changelog = "No changelog found for v{version}."
 changelog_header = "**Changelog v{version}**"
 system_updates_header = "System Updates"
+cli_update_issues_header = "CLI Auto-Update Issues"
+cli_needs_reinstall = "installed globally (requires sudo). Reinstall in user-space for auto-updates."
+cli_update_failed = "auto-update failed. Update manually."
 
 # -- Multi-agent notifications -------------------------------------------------
 

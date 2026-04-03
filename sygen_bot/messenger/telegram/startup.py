@@ -143,6 +143,7 @@ async def _run_primary_startup(bot: TelegramBot) -> None:
         bot._update_observer = UpdateObserver(
             notify=bot._on_update_available,
             notify_system=bot._on_system_updates_available,
+            notify_cli_issues=bot._on_cli_update_issues,
         )
         bot._update_observer.start()
 

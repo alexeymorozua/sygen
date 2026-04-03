@@ -441,6 +441,9 @@ restarting = "El bot se está reiniciando..."
 no_changelog = "No se encontró changelog para v{version}."
 changelog_header = "**Changelog v{version}**"
 system_updates_header = "Actualizaciones del sistema"
+cli_update_issues_header = "Problemas de actualización automática del CLI"
+cli_needs_reinstall = "instalado globalmente (requiere sudo). Reinstalar en espacio de usuario para actualizaciones automáticas."
+cli_update_failed = "la actualización automática falló. Actualizar manualmente."
 
 # -- Notificaciones multi-agente -----------------------------------------------
 

@@ -272,3 +272,230 @@ async def check_system_updates() -> SystemUpdatesInfo:
     updates = [r for r in results if isinstance(r, ComponentUpdate)]
 
     return SystemUpdatesInfo(updates=updates)
+
+
+# ---------------------------------------------------------------------------
+# CLI auto-update: detect install type + perform update without sudo
+# ---------------------------------------------------------------------------
+
+
+class CLIInstallType:
+    """Installation type of a CLI tool."""
+
+    STANDALONE = "standalone"  # e.g. claude in ~/.local/bin (self-updating)
+    NPM_USER = "npm_user"  # npm --prefix ~/.local or ~/.npm-global
+    NPM_GLOBAL = "npm_global"  # npm -g (requires sudo)
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class CLIUpdateResult:
+    """Result of an auto-update attempt for one CLI tool."""
+
+    name: str
+    old_version: str
+    new_version: str
+    success: bool
+    method: str  # "standalone", "npm_user", "skipped_needs_sudo", "error"
+    message: str = ""
+
+
+def _detect_cli_install_type(binary: str) -> str:
+    """Detect how a CLI tool was installed.
+
+    Returns one of CLIInstallType constants.
+
+    Detection logic:
+    - If binary path is under ~/.local/ → standalone or npm_user
+      - If binary has a built-in ``update`` subcommand → standalone
+      - Otherwise → npm_user
+    - If binary path is under a system dir (/usr/local/, /usr/) → npm_global
+    - If binary path is under /opt/homebrew/ → npm_user (no sudo on macOS)
+    """
+    path = shutil.which(binary)
+    if not path:
+        return CLIInstallType.UNKNOWN
+
+    from pathlib import Path
+
+    resolved = Path(path).resolve()
+    home = Path.home()
+
+    # User-local installs (no sudo needed)
+    if str(resolved).startswith(str(home)):
+        # Check if it's a standalone binary with self-update capability
+        # Claude standalone lives in ~/.local/ and supports `claude update`
+        if binary == "claude":
+            return CLIInstallType.STANDALONE
+        return CLIInstallType.NPM_USER
+
+    # Homebrew on macOS — typically owned by user, no sudo
+    if str(resolved).startswith("/opt/homebrew/"):
+        return CLIInstallType.NPM_USER
+
+    # System-wide installs require sudo
+    if str(resolved).startswith(("/usr/local/", "/usr/")):
+        return CLIInstallType.NPM_GLOBAL
+
+    return CLIInstallType.UNKNOWN
+
+
+async def _auto_update_standalone(binary: str) -> tuple[bool, str]:
+    """Update a standalone CLI (e.g. ``claude update``)."""
+    output = await _run_cmd(binary, "update", timeout=120.0)
+    if output is None:
+        return False, f"{binary} update command failed or timed out"
+    return True, output
+
+
+async def _auto_update_npm_user(
+    binary: str,
+    npm_pkg: str,
+) -> tuple[bool, str]:
+    """Update an npm package in user-space (no sudo).
+
+    Tries several strategies:
+    1. ``npm update <pkg> --prefix ~/.local``
+    2. ``npm install <pkg>@latest --prefix ~/.local``
+    """
+    home = str(Path.home())
+    prefix = f"{home}/.local"
+
+    # Try update first
+    proc = await asyncio.create_subprocess_exec(
+        "npm", "update", npm_pkg, "--prefix", prefix,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120.0)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return False, "npm update timed out"
+
+    output = stdout.decode(errors="replace") if stdout else ""
+    if (proc.returncode or 0) == 0:
+        return True, output
+
+    # Fallback: fresh install
+    proc2 = await asyncio.create_subprocess_exec(
+        "npm", "install", f"{npm_pkg}@latest", "--prefix", prefix,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        stdout2, _ = await asyncio.wait_for(proc2.communicate(), timeout=120.0)
+    except asyncio.TimeoutError:
+        proc2.kill()
+        return False, "npm install timed out"
+
+    output2 = stdout2.decode(errors="replace") if stdout2 else ""
+    return (proc2.returncode or 0) == 0, output2
+
+
+async def auto_update_cli(
+    binary: str,
+    npm_pkg: str | None,
+    current_version: str,
+    latest_version: str,
+) -> CLIUpdateResult:
+    """Attempt to auto-update a CLI tool without sudo.
+
+    Returns a CLIUpdateResult describing what happened.
+    """
+    install_type = _detect_cli_install_type(binary)
+
+    if install_type == CLIInstallType.STANDALONE:
+        ok, msg = await _auto_update_standalone(binary)
+        if ok:
+            new_ver = await _get_cli_version(binary) or latest_version
+            return CLIUpdateResult(
+                name=f"{binary} CLI",
+                old_version=current_version,
+                new_version=new_ver,
+                success=True,
+                method="standalone",
+                message=msg,
+            )
+        return CLIUpdateResult(
+            name=f"{binary} CLI",
+            old_version=current_version,
+            new_version=current_version,
+            success=False,
+            method="standalone",
+            message=msg,
+        )
+
+    if install_type == CLIInstallType.NPM_USER and npm_pkg:
+        ok, msg = await _auto_update_npm_user(binary, npm_pkg)
+        if ok:
+            new_ver = await _get_cli_version(binary) or latest_version
+            return CLIUpdateResult(
+                name=f"{binary} CLI",
+                old_version=current_version,
+                new_version=new_ver,
+                success=True,
+                method="npm_user",
+                message=msg,
+            )
+        return CLIUpdateResult(
+            name=f"{binary} CLI",
+            old_version=current_version,
+            new_version=current_version,
+            success=False,
+            method="npm_user",
+            message=msg,
+        )
+
+    if install_type == CLIInstallType.NPM_GLOBAL:
+        return CLIUpdateResult(
+            name=f"{binary} CLI",
+            old_version=current_version,
+            new_version=current_version,
+            success=False,
+            method="skipped_needs_sudo",
+            message=(
+                f"{binary} CLI is installed globally and requires sudo to update. "
+                "Reinstall in user-space to enable auto-updates."
+            ),
+        )
+
+    return CLIUpdateResult(
+        name=f"{binary} CLI",
+        old_version=current_version,
+        new_version=current_version,
+        success=False,
+        method="unknown",
+        message=f"Could not determine install type for {binary}.",
+    )
+
+
+async def auto_update_all_cli() -> list[CLIUpdateResult]:
+    """Check and auto-update all CLI tools that have updates available.
+
+    Returns results only for CLIs that had updates available.
+    """
+    results: list[CLIUpdateResult] = []
+
+    for binary, npm_pkg, _pip_pkg in _CLI_TOOLS:
+        current = await _get_cli_version(binary)
+        if not current:
+            continue
+
+        latest: str | None = None
+        if npm_pkg:
+            latest = await _get_npm_latest(npm_pkg)
+
+        if not latest:
+            continue
+
+        if _parse_version(latest) <= _parse_version(current):
+            continue
+
+        logger.info(
+            "Auto-updating %s CLI: %s -> %s", binary, current, latest,
+        )
+        result = await auto_update_cli(binary, npm_pkg, current, latest)
+        results.append(result)
+
+    return results

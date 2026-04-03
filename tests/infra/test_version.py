@@ -8,13 +8,17 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from sygen_bot.infra.version import (
+    CLIInstallType,
+    CLIUpdateResult,
     ComponentUpdate,
     SystemUpdatesInfo,
     VersionInfo,
     _check_cli_tool,
     _check_pip_dep,
+    _detect_cli_install_type,
     _get_cli_version,
     _parse_version,
+    auto_update_cli,
     check_pypi,
     check_system_updates,
     fetch_changelog,
@@ -394,3 +398,126 @@ class TestCheckSystemUpdates:
             result = await check_system_updates()
 
         assert not result.has_updates
+
+
+# ---------------------------------------------------------------------------
+# CLI install type detection + auto-update
+# ---------------------------------------------------------------------------
+
+
+class TestDetectCLIInstallType:
+    """Test CLI installation type detection."""
+
+    def test_standalone_claude_in_home(self) -> None:
+        from pathlib import Path
+
+        home = str(Path.home())
+        with patch("sygen_bot.infra.version.shutil.which", return_value=f"{home}/.local/bin/claude"):
+            result = _detect_cli_install_type("claude")
+        assert result == CLIInstallType.STANDALONE
+
+    def test_npm_user_gemini_in_home(self) -> None:
+        from pathlib import Path
+
+        home = str(Path.home())
+        with patch(
+            "sygen_bot.infra.version.shutil.which",
+            return_value=f"{home}/.local/bin/gemini",
+        ):
+            result = _detect_cli_install_type("gemini")
+        assert result == CLIInstallType.NPM_USER
+
+    def test_npm_global_in_usr_local(self) -> None:
+        with patch("sygen_bot.infra.version.shutil.which", return_value="/usr/local/bin/claude"):
+            result = _detect_cli_install_type("claude")
+        assert result == CLIInstallType.NPM_GLOBAL
+
+    def test_homebrew_is_npm_user(self) -> None:
+        with patch(
+            "sygen_bot.infra.version.shutil.which",
+            return_value="/opt/homebrew/bin/gemini",
+        ):
+            result = _detect_cli_install_type("gemini")
+        assert result == CLIInstallType.NPM_USER
+
+    def test_not_installed_returns_unknown(self) -> None:
+        with patch("sygen_bot.infra.version.shutil.which", return_value=None):
+            result = _detect_cli_install_type("nonexistent")
+        assert result == CLIInstallType.UNKNOWN
+
+
+class TestAutoUpdateCLI:
+    """Test CLI auto-update logic."""
+
+    async def test_standalone_success(self) -> None:
+        with (
+            patch(
+                "sygen_bot.infra.version._detect_cli_install_type",
+                return_value=CLIInstallType.STANDALONE,
+            ),
+            patch(
+                "sygen_bot.infra.version._auto_update_standalone",
+                return_value=(True, "Updated successfully"),
+            ),
+            patch("sygen_bot.infra.version._get_cli_version", return_value="2.2.0"),
+        ):
+            result = await auto_update_cli("claude", "@anthropic-ai/claude-code", "2.1.0", "2.2.0")
+
+        assert result.success is True
+        assert result.method == "standalone"
+        assert result.new_version == "2.2.0"
+
+    async def test_npm_user_success(self) -> None:
+        with (
+            patch(
+                "sygen_bot.infra.version._detect_cli_install_type",
+                return_value=CLIInstallType.NPM_USER,
+            ),
+            patch(
+                "sygen_bot.infra.version._auto_update_npm_user",
+                return_value=(True, "updated 1 package"),
+            ),
+            patch("sygen_bot.infra.version._get_cli_version", return_value="0.37.0"),
+        ):
+            result = await auto_update_cli("gemini", "@google/gemini-cli", "0.36.0", "0.37.0")
+
+        assert result.success is True
+        assert result.method == "npm_user"
+        assert result.new_version == "0.37.0"
+
+    async def test_npm_global_skipped(self) -> None:
+        with patch(
+            "sygen_bot.infra.version._detect_cli_install_type",
+            return_value=CLIInstallType.NPM_GLOBAL,
+        ):
+            result = await auto_update_cli("claude", "@anthropic-ai/claude-code", "2.1.0", "2.2.0")
+
+        assert result.success is False
+        assert result.method == "skipped_needs_sudo"
+        assert "sudo" in result.message
+
+    async def test_unknown_install_type(self) -> None:
+        with patch(
+            "sygen_bot.infra.version._detect_cli_install_type",
+            return_value=CLIInstallType.UNKNOWN,
+        ):
+            result = await auto_update_cli("tool", None, "1.0.0", "2.0.0")
+
+        assert result.success is False
+        assert result.method == "unknown"
+
+    async def test_standalone_failure(self) -> None:
+        with (
+            patch(
+                "sygen_bot.infra.version._detect_cli_install_type",
+                return_value=CLIInstallType.STANDALONE,
+            ),
+            patch(
+                "sygen_bot.infra.version._auto_update_standalone",
+                return_value=(False, "update failed"),
+            ),
+        ):
+            result = await auto_update_cli("claude", "@anthropic-ai/claude-code", "2.1.0", "2.2.0")
+
+        assert result.success is False
+        assert result.method == "standalone"

@@ -13,9 +13,12 @@ from pathlib import Path
 
 from sygen_bot.infra.install import needs_break_system_packages as _needs_break_system_packages
 from sygen_bot.infra.version import (
+    CLIUpdateResult,
     SystemUpdatesInfo,
     VersionInfo,
+    _CLI_TOOLS,
     _parse_version,
+    auto_update_all_cli,
     check_pypi,
     check_system_updates,
 )
@@ -28,24 +31,34 @@ _VERIFY_DELAYS_S: tuple[float, ...] = (0.15, 0.35, 0.75, 1.5)
 
 VersionCallback = Callable[[VersionInfo], Awaitable[None]]
 SystemCallback = Callable[[SystemUpdatesInfo], Awaitable[None]]
+CLIResultsCallback = Callable[[list[CLIUpdateResult]], Awaitable[None]]
 
 _UPGRADE_SENTINEL_NAME = "upgrade-sentinel.json"
 
 
 class UpdateObserver:
-    """Background task that checks PyPI + system components for updates."""
+    """Background task that checks PyPI + system components for updates.
+
+    CLI tools (claude, gemini, codex) are auto-updated silently when
+    possible.  Only failures that require manual intervention are
+    reported via *notify_cli_issues*.  Non-CLI component updates (pip
+    optional deps) are still reported via *notify_system*.
+    """
 
     def __init__(
         self,
         *,
         notify: VersionCallback,
         notify_system: SystemCallback | None = None,
+        notify_cli_issues: CLIResultsCallback | None = None,
     ) -> None:
         self._notify = notify
         self._notify_system = notify_system
+        self._notify_cli_issues = notify_cli_issues
         self._task: asyncio.Task[None] | None = None
         self._last_notified: str = ""
         self._last_system_key: str = ""  # dedup key for system updates
+        self._last_cli_issue_key: str = ""  # dedup key for CLI issues
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
@@ -68,17 +81,51 @@ class UpdateObserver:
             except Exception:
                 logger.debug("Update check failed", exc_info=True)
 
-            # System components check (CLI tools + pip deps)
+            # CLI auto-update (silent — only report failures)
+            try:
+                cli_results = await auto_update_all_cli()
+                if cli_results:
+                    for r in cli_results:
+                        if r.success:
+                            logger.info(
+                                "Auto-updated %s: %s -> %s (%s)",
+                                r.name, r.old_version, r.new_version, r.method,
+                            )
+                        else:
+                            logger.warning(
+                                "CLI auto-update failed for %s: %s",
+                                r.name, r.message,
+                            )
+
+                    # Notify user only about failures that need manual action
+                    issues = [r for r in cli_results if not r.success]
+                    if issues and self._notify_cli_issues:
+                        key = "|".join(
+                            f"{r.name}:{r.method}" for r in issues
+                        )
+                        if key != self._last_cli_issue_key:
+                            self._last_cli_issue_key = key
+                            await self._notify_cli_issues(issues)
+            except Exception:
+                logger.debug("CLI auto-update failed", exc_info=True)
+
+            # Non-CLI system components check (pip optional deps only)
             if self._notify_system:
                 try:
                     sys_info = await check_system_updates()
-                    if sys_info.has_updates:
+                    # Filter out CLI tools — they are handled by auto-update
+                    cli_names = {f"{b} CLI" for b, _, _ in _CLI_TOOLS}
+                    non_cli = [
+                        u for u in sys_info.updates if u.name not in cli_names
+                    ]
+                    if non_cli:
+                        filtered = SystemUpdatesInfo(updates=non_cli)
                         key = "|".join(
-                            f"{u.name}:{u.latest}" for u in sys_info.updates
+                            f"{u.name}:{u.latest}" for u in filtered.updates
                         )
                         if key != self._last_system_key:
                             self._last_system_key = key
-                            await self._notify_system(sys_info)
+                            await self._notify_system(filtered)
                 except Exception:
                     logger.debug("System update check failed", exc_info=True)
 

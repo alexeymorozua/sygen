@@ -441,6 +441,9 @@ restarting = "Бот перезапускается..."
 no_changelog = "Changelog для v{version} не найден."
 changelog_header = "**Changelog v{version}**"
 system_updates_header = "Обновления компонентов"
+cli_update_issues_header = "Проблемы авто-обновления CLI"
+cli_needs_reinstall = "установлен глобально (нужен sudo). Переустановите в user-space для авто-обновлений."
+cli_update_failed = "авто-обновление не удалось. Обновите вручную."
 
 # -- Уведомления Multi-Agent ---------------------------------------------------
 

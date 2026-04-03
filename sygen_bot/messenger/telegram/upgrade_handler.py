@@ -12,7 +12,7 @@ from aiogram.exceptions import TelegramBadRequest
 from sygen_bot.i18n import t
 from sygen_bot.infra.restart import EXIT_RESTART
 from sygen_bot.infra.updater import perform_upgrade_pipeline, write_upgrade_sentinel
-from sygen_bot.infra.version import SystemUpdatesInfo, VersionInfo, get_current_version
+from sygen_bot.infra.version import CLIUpdateResult, SystemUpdatesInfo, VersionInfo, get_current_version
 from sygen_bot.messenger.telegram.sender import SendRichOpts, send_rich
 from sygen_bot.text.response_format import SEP, fmt
 
@@ -224,6 +224,31 @@ async def on_system_updates_available(bot: TelegramBot, info: SystemUpdatesInfo)
     lines = [f"🔄 **{t('upgrade_handler.system_updates_header')}**", SEP]
     for upd in info.updates:
         lines.append(f"• {upd.name}: `{upd.current}` → `{upd.latest}`")
+
+    text = "\n".join(lines)
+    await bot.broadcast(text)
+
+
+async def on_cli_update_issues(
+    bot: TelegramBot,
+    issues: list[CLIUpdateResult],
+) -> None:
+    """Notify users about CLI tools that could not be auto-updated."""
+    if not issues:
+        return
+
+    lines = [f"⚠️ **{t('upgrade_handler.cli_update_issues_header')}**", SEP]
+    for r in issues:
+        if r.method == "skipped_needs_sudo":
+            lines.append(
+                f"• {r.name}: `{r.old_version}` — "
+                f"{t('upgrade_handler.cli_needs_reinstall')}"
+            )
+        else:
+            lines.append(
+                f"• {r.name}: `{r.old_version}` — "
+                f"{t('upgrade_handler.cli_update_failed')}"
+            )
 
     text = "\n".join(lines)
     await bot.broadcast(text)

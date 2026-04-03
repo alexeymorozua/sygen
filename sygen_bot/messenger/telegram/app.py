@@ -25,7 +25,7 @@ from sygen_bot.files.allowed_roots import resolve_allowed_roots
 from sygen_bot.i18n import t
 from sygen_bot.infra.restart import EXIT_RESTART, consume_restart_marker
 from sygen_bot.infra.updater import UpdateObserver
-from sygen_bot.infra.version import SystemUpdatesInfo, VersionInfo, get_current_version
+from sygen_bot.infra.version import CLIUpdateResult, SystemUpdatesInfo, VersionInfo, get_current_version
 from sygen_bot.log_context import set_log_context
 from sygen_bot.messenger.notifications import NotificationService
 from sygen_bot.messenger.telegram.callbacks import (
@@ -1464,6 +1464,12 @@ class TelegramBot:
         from sygen_bot.messenger.telegram.upgrade_handler import on_system_updates_available
 
         await on_system_updates_available(self, info)
+
+    async def _on_cli_update_issues(self, issues: list[CLIUpdateResult]) -> None:
+        """Notify users about CLI tools that could not be auto-updated."""
+        from sygen_bot.messenger.telegram.upgrade_handler import on_cli_update_issues
+
+        await on_cli_update_issues(self, issues)
 
     async def _handle_upgrade_callback(
         self, chat_id: int, message_id: int, data: str, *, thread_id: int | None = None
