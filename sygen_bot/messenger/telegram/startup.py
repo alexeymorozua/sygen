@@ -49,19 +49,18 @@ async def _handle_recovery(bot: TelegramBot, sentinel: dict[str, object] | None)
     """Handle upgrade sentinel, startup lifecycle, and auto-recovery of interrupted work."""
     upgrade = await asyncio.to_thread(consume_upgrade_sentinel, bot._orch.paths.sygen_home)
     if upgrade:
-        uid = int(upgrade.get("chat_id", 0))
         old_v = upgrade.get("old_version", "?")
         new_v = upgrade.get("new_version", get_current_version())
-        if uid:
-            from sygen_bot.infra.version import fetch_changelog
 
-            header = t("startup.upgrade_complete", old=old_v, new=new_v)
-            changelog = await fetch_changelog(new_v)
-            text = f"{header}\n\n{changelog}" if changelog else header
-            await bot.notification_service.notify(uid, text)
+        from sygen_bot.infra.version import fetch_changelog
 
-            # Write changelog to workspace so the agent knows what changed
-            _write_last_update(bot._orch.paths.workspace, old_v, new_v, changelog)
+        changelog = await fetch_changelog(new_v)
+
+        # Write changelog to workspace so the agent knows what changed.
+        # No Telegram notification here — the user already saw the changelog
+        # in the /upgrade response. Only LAST_UPDATE.md is needed for the
+        # agent prompt hook.
+        _write_last_update(bot._orch.paths.workspace, old_v, new_v, changelog)
 
     from sygen_bot.infra.startup_state import detect_startup_kind, save_startup_state
     from sygen_bot.text.response_format import startup_notification_text
