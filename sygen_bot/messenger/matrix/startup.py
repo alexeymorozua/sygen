@@ -37,8 +37,8 @@ async def run_matrix_startup(bot: MatrixBot) -> None:
         # Handle restart sentinel
         restart_reason = _consume_restart_sentinel(bot)
 
-        # Notify restart
-        if restart_reason:
+        # Notify restart (main agent only)
+        if restart_reason and bot._agent_name == "main":
             await bot.notification_service.notify_all(
                 t("startup.matrix_restart", reason=restart_reason)
             )
