@@ -8,6 +8,20 @@ from unittest.mock import AsyncMock, MagicMock
 from sygen_bot.multiagent.bus import AsyncSendOptions, InterAgentBus
 
 
+async def _wait_for(
+    collection: list[object],
+    *,
+    count: int = 1,
+    timeout: float = 2.0,
+    interval: float = 0.02,
+) -> None:
+    """Poll *collection* until it has at least *count* items or *timeout* expires."""
+    elapsed = 0.0
+    while len(collection) < count and elapsed < timeout:
+        await asyncio.sleep(interval)
+        elapsed += interval
+
+
 def _make_stack(
     orch_result: str = "response",
     session_name: str = "ia-sender",
@@ -434,7 +448,7 @@ class TestBusChatTopicPropagation:
             "Hello",
             opts=AsyncSendOptions(chat_id=12345, topic_id=678),
         )
-        await asyncio.sleep(0.1)
+        await _wait_for(delivered)
 
         assert len(delivered) == 1
         result = delivered[0]
@@ -451,7 +465,7 @@ class TestBusChatTopicPropagation:
         bus.set_async_result_handler("sender", AsyncMock(side_effect=delivered.append))
 
         bus.send_async("sender", "target", "Hello")
-        await asyncio.sleep(0.1)
+        await _wait_for(delivered)
 
         assert len(delivered) == 1
         result = delivered[0]
@@ -476,7 +490,7 @@ class TestBusChatTopicPropagation:
             "Hello",
             opts=AsyncSendOptions(chat_id=99999, topic_id=42),
         )
-        await asyncio.sleep(0.1)
+        await _wait_for(delivered)
 
         assert len(delivered) == 1
         result = delivered[0]
@@ -500,7 +514,7 @@ class TestBusChatTopicPropagation:
             "Hello",
             opts=AsyncSendOptions(chat_id=111, topic_id=222),
         )
-        await asyncio.sleep(0.1)
+        await _wait_for(delivered)
 
         assert len(delivered) == 1
         result = delivered[0]
