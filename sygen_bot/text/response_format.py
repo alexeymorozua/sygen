@@ -19,6 +19,25 @@ def fmt(*blocks: str) -> str:
     return "\n\n".join(b for b in blocks if b)
 
 
+_META_MAX_LEN = 200
+
+
+def is_meta_only(text: str) -> bool:
+    """Detect short parenthetical meta-messages that should not be sent.
+
+    Returns ``True`` for responses like ``(already processed — ...)``.
+    These are single-line, short, fully parenthesized messages that carry
+    no user-facing content — typically agent self-narration about internal
+    state (e.g. background-task acknowledgments).
+    """
+    stripped = text.strip()
+    if not stripped or len(stripped) > _META_MAX_LEN:
+        return False
+    if "\n" in stripped:
+        return False
+    return stripped.startswith("(") and stripped.endswith(")")
+
+
 # Known CLI error patterns -> user-friendly short explanation.
 _AUTH_PATTERNS = (
     "401",

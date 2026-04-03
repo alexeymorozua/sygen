@@ -166,6 +166,47 @@ class TestStreamEditor:
         assert "<i>italic</i>" in call_text
 
 
+class TestStreamEditorMetaSuppression:
+    """Meta-only messages are suppressed when no prior content was sent."""
+
+    async def test_meta_only_first_chunk_suppressed(self) -> None:
+        bot = MagicMock()
+        bot.send_message = AsyncMock()
+
+        editor = StreamEditor(bot, chat_id=1)
+        await editor.append_text("(already processed — transcription read)")
+        bot.send_message.assert_not_called()
+        assert editor.has_content is False
+
+    async def test_meta_after_real_content_not_suppressed(self) -> None:
+        bot = MagicMock()
+        sent_msg = MagicMock(spec=Message)
+        bot.send_message = AsyncMock(return_value=sent_msg)
+
+        editor = StreamEditor(bot, chat_id=1)
+        await editor.append_text("Real content here")
+        await editor.append_text("(some parenthetical)")
+        assert bot.send_message.call_count == 2
+
+    async def test_long_parenthetical_not_suppressed(self) -> None:
+        bot = MagicMock()
+        sent_msg = MagicMock(spec=Message)
+        bot.send_message = AsyncMock(return_value=sent_msg)
+
+        editor = StreamEditor(bot, chat_id=1)
+        await editor.append_text("(" + "x" * 200 + ")")
+        bot.send_message.assert_called_once()
+
+    async def test_multiline_parenthetical_not_suppressed(self) -> None:
+        bot = MagicMock()
+        sent_msg = MagicMock(spec=Message)
+        bot.send_message = AsyncMock(return_value=sent_msg)
+
+        editor = StreamEditor(bot, chat_id=1)
+        await editor.append_text("(line one\nline two)")
+        bot.send_message.assert_called_once()
+
+
 class TestStreamEditorButtons:
     """Test button keyboard attachment in append-mode finalize."""
 

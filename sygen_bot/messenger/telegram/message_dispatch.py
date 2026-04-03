@@ -17,6 +17,7 @@ from sygen_bot.messenger.telegram.streaming import create_stream_editor
 from sygen_bot.messenger.telegram.typing import TypingContext
 from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session.key import SessionKey
+from sygen_bot.text.response_format import is_meta_only
 
 if TYPE_CHECKING:
     from aiogram import Bot
@@ -102,6 +103,10 @@ async def run_non_streaming_message(
     if style != "off" and dispatch.reply_to:
         await _set_reaction(dispatch.bot, dispatch.reply_to, _STATUS_EMOJI["done"])
 
+    if is_meta_only(result.text):
+        logger.debug("Suppressed meta-only non-streaming response")
+        return result.text
+
     footer = _build_footer(result, dispatch.scene_config)
     result.text += footer
     reply_id = dispatch.reply_to.message_id if dispatch.reply_to else None
@@ -153,6 +158,10 @@ async def run_streaming_message(
                 on_tool_activity=on_tool,
                 on_system_status=on_system,
             )
+
+        if is_meta_only(result.text):
+            logger.debug("Suppressed meta-only buffered response")
+            return result.text
 
         if style != "off":
             await _set_reaction(dispatch.bot, msg, _STATUS_EMOJI["done"])

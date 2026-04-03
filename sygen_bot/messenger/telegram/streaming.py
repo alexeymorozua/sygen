@@ -22,7 +22,7 @@ from sygen_bot.messenger.telegram.formatting import (
     markdown_to_telegram_html,
     split_html_message,
 )
-from sygen_bot.text.response_format import normalize_tool_name
+from sygen_bot.text.response_format import is_meta_only, normalize_tool_name
 
 if TYPE_CHECKING:
     from aiogram import Bot
@@ -79,6 +79,9 @@ class StreamEditor:
     async def append_text(self, text: str) -> None:
         """Format chunk as HTML and send as new message."""
         if not text.strip():
+            return
+        if self._messages_sent == 0 and is_meta_only(text):
+            logger.debug("Suppressed meta-only message: %.80s", text.strip())
             return
         formatted = markdown_to_telegram_html(text)
         chunks = split_html_message(formatted)
