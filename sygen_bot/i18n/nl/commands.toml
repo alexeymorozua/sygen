@@ -4,6 +4,7 @@
 new = "Nieuw gesprek"
 stop = "Huidig + wachtrij stoppen"
 interrupt = "Onderbreken, wachtrij bewaren"
+compact = "Context comprimeren"
 model = "Model tonen/wisselen"
 status = "Sessie-info"
 memory = "Hoofdgeheugen tonen"

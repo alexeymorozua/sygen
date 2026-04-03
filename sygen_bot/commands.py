@@ -19,6 +19,7 @@ def get_bot_commands() -> list[tuple[str, str]]:
         ("new", t_cmd("bot.new")),
         ("stop", t_cmd("bot.stop")),
         ("interrupt", t_cmd("bot.interrupt")),
+        ("compact", t_cmd("bot.compact")),
         ("model", t_cmd("bot.model")),
         ("status", t_cmd("bot.status")),
         ("memory", t_cmd("bot.memory")),

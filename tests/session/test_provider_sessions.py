@@ -84,6 +84,32 @@ def test_tokens_property_per_provider() -> None:
     assert session.total_tokens == 456
 
 
+def test_compact_count_property_per_provider() -> None:
+    session = SessionData(
+        chat_id=1,
+        provider="claude",
+        provider_sessions={
+            "claude": ProviderSessionData(compact_count=3),
+            "codex": ProviderSessionData(compact_count=1),
+        },
+    )
+    assert session.compact_count == 3
+
+    session.provider = "codex"
+    assert session.compact_count == 1
+
+
+def test_compact_count_setter() -> None:
+    session = SessionData(chat_id=1, provider="claude", provider_sessions={})
+    session.compact_count = 5
+    assert session.provider_sessions["claude"].compact_count == 5
+
+
+def test_compact_count_default_zero() -> None:
+    session = SessionData(chat_id=1, provider="claude")
+    assert session.compact_count == 0
+
+
 def test_clear_all_sessions() -> None:
     session = SessionData(
         chat_id=1,

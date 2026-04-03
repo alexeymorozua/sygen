@@ -32,6 +32,9 @@ still_running = "La session '{name}' travaille encore. Patiente ou utilise /stop
 
 # -- Stop/interruption ---------------------------------------------------------
 
+[context]
+compact_warning = "Le contexte a été compressé {count} fois. La qualité peut se dégrader — envisagez une nouvelle session."
+
 [stop]
 header = "**Agent stoppé**"
 killed = "{provider} arrêté. Tous les messages en attente ont été supprimés."
@@ -108,6 +111,7 @@ topic_line = "Sujet : {topic}"
 session_line = "Session : `{sid}`"
 messages_line = "Messages : {count}"
 tokens_line = "Tokens : {tokens}"
+compact_line = "Compactions: {count}"
 cost_line = "Coût : ${cost}"
 bg_header = "Tâches en arrière-plan : {count} en cours"
 auth_header = "Auth :"

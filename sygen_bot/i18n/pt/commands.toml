@@ -4,6 +4,7 @@
 new = "Novo chat"
 stop = "Parar atual + na fila"
 interrupt = "Interromper, manter fila"
+compact = "Comprimir contexto"
 model = "Ver/trocar modelo"
 status = "Info da sessão"
 memory = "Memória principal"

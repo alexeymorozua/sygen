@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from sygen_bot.cli.timeout_controller import TimeoutConfig as TCConfig
 from sygen_bot.cli.timeout_controller import TimeoutController
 from sygen_bot.cli.types import AgentRequest, AgentResponse
-from sygen_bot.config import NULLISH_TEXT_VALUES, get_context_window, resolve_timeout
+from sygen_bot.config import NULLISH_TEXT_VALUES, resolve_timeout
 from sygen_bot.i18n import t
 from sygen_bot.infra.inflight import InflightTurn
 from sygen_bot.log_context import set_log_context
@@ -41,6 +41,7 @@ class StreamingCallbacks:
     on_text_delta: Callable[[str], Awaitable[None]] | None = field(default=None)
     on_tool_activity: Callable[[str], Awaitable[None]] | None = field(default=None)
     on_system_status: Callable[[str | None], Awaitable[None]] | None = field(default=None)
+    on_compact: Callable[[], Awaitable[None]] | None = field(default=None)
 
 
 def _make_timeout_controller(orch: Orchestrator, kind: str) -> TimeoutController | None:
@@ -299,11 +300,18 @@ async def _recover_session(
 
     request, session = await _prepare_normal(orch, key, text, model_override=ctx.model_override)
     if ctx.streaming:
+
+        async def _on_compact_recovery() -> None:
+            session.compact_count += 1
+            if cb.on_compact is not None:
+                await cb.on_compact()
+
         response = await orch._cli_service.execute_streaming(
             request,
             on_text_delta=cb.on_text_delta,
             on_tool_activity=cb.on_tool_activity,
             on_system_status=cb.on_system_status,
+            on_compact=_on_compact_recovery,
         )
     else:
         response = await orch._cli_service.execute(request)
@@ -413,8 +421,7 @@ async def normal(
         req_model, _prov = _request_target(orch, request)
         result = _finish_normal(
             response, session, orch._config.session_age_warning_hours, model_name=req_model,
-            context_window_tokens=orch._config.context_window_tokens,
-            context_warning_percent=orch._config.context_warning_percent,
+            compact_warning_threshold=orch._config.compact_warning_threshold,
         )
         if session_recovered:
             result.text = f"{_session_recovered_msg()}\n\n{result.text}"
@@ -442,11 +449,18 @@ async def normal_streaming(
     _begin_inflight(orch, request, session, is_recovery=False)
     try:
         cb = cbs or StreamingCallbacks()
+
+        async def _on_compact() -> None:
+            session.compact_count += 1
+            if cb.on_compact is not None:
+                await cb.on_compact()
+
         response = await orch._cli_service.execute_streaming(
             request,
             on_text_delta=cb.on_text_delta,
             on_tool_activity=cb.on_tool_activity,
             on_system_status=cb.on_system_status,
+            on_compact=_on_compact,
         )
         _reg = orch._process_registry
         if (
@@ -482,8 +496,7 @@ async def normal_streaming(
         req_model, _prov = _request_target(orch, request)
         return _finish_normal(
             response, session, orch._config.session_age_warning_hours, model_name=req_model,
-            context_window_tokens=orch._config.context_window_tokens,
-            context_warning_percent=orch._config.context_warning_percent,
+            compact_warning_threshold=orch._config.compact_warning_threshold,
         )
     finally:
         orch._inflight_tracker.complete(key.chat_id)
@@ -513,8 +526,7 @@ def _finish_normal(
     warning_hours: int = 0,
     *,
     model_name: str = "",
-    context_window_tokens: int = 0,
-    context_warning_percent: int = 90,
+    compact_warning_threshold: int = 3,
 ) -> OrchestratorResult:
     """Post-processing for normal() and normal_streaming()."""
     if response.is_error:
@@ -527,7 +539,7 @@ def _finish_normal(
     text = response.result
     if session:
         text += _session_age_note(session, warning_hours)
-    text += _context_warning(session, context_window_tokens, context_warning_percent)
+    text += _context_warning(session, compact_warning_threshold)
 
     return OrchestratorResult(
         text=text,
@@ -542,41 +554,30 @@ def _finish_normal(
 
 def _context_warning(
     session: SessionData | None,
-    context_window_override: int,
-    context_warning_percent: int,
+    compact_warning_threshold: int,
 ) -> str:
-    """Return a context-window warning if tokens exceed the configured threshold.
+    """Return a compaction warning if the session has been compacted too many times.
 
-    The context window is resolved as:
-    1. ``context_window_override`` from config (if > 0, user explicitly set it)
-    2. Auto-detected from provider + model via ``get_context_window()``
+    After *compact_warning_threshold* compactions the model has lost significant
+    context and the user should consider starting a fresh session.
+    Set threshold to 0 to disable.
     """
-    if not session or context_warning_percent <= 0:
+    if not session or compact_warning_threshold <= 0:
         return ""
 
-    if context_window_override > 0:
-        window = context_window_override
-    else:
-        window = get_context_window(session.provider, session.model)
-
-    threshold = int(window * context_warning_percent / 100)
-    if session.total_tokens < threshold:
+    if session.compact_count < compact_warning_threshold:
         return ""
 
-    # Check if we already warned in this session
+    # Show warning only once per session.
     provider_data = session.provider_sessions.get(session.provider)
     if provider_data and provider_data.context_warned:
         return ""
-
-    # Mark as warned
     if provider_data:
         provider_data.context_warned = True
 
-    pct = min(round(session.total_tokens / window * 100), 100)
     return (
-        f"\n\n⚠️ Контекст заполнен на {pct}%. "
-        "Рекомендую начать новую сессию.\n"
-        "[button:🔄 Новая сессия:/new]"
+        f"\n\n⚠️ {t('context.compact_warning', count=session.compact_count)}\n"
+        "[button:🔄 /new]"
     )
 
 
@@ -722,6 +723,7 @@ async def named_session_streaming(
         on_text_delta=_tagged_text_delta,
         on_tool_activity=cb.on_tool_activity,
         on_system_status=cb.on_system_status,
+        on_compact=cb.on_compact,
     )
 
     _reg2 = orch._process_registry

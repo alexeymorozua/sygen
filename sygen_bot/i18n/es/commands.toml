@@ -4,6 +4,7 @@
 new = "Nuevo chat"
 stop = "Detener actual + cola"
 interrupt = "Interrumpir, mantener cola"
+compact = "Comprimir contexto"
 model = "Ver/cambiar modelo"
 status = "Info de sesión"
 memory = "Mostrar memoria"

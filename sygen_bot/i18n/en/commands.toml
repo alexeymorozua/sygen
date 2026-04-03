@@ -4,6 +4,7 @@
 new = "Start new chat"
 stop = "Stop current + queued msgs"
 interrupt = "Interrupt current, keep queue"
+compact = "Compress context"
 model = "Show/switch model"
 status = "Session info"
 memory = "Show main memory"

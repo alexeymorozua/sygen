@@ -78,7 +78,7 @@ Most AI chatbot frameworks give you a single bot that answers questions. Sygen g
 - 👀 — message received, processing started
 - 🤔 — model is thinking
 - ✍️ — executing a tool (bash, file read, etc.)
-- 💯 — context compacting (long conversation optimization)
+- 💯 — context compacting (long conversation optimization; use `/compact` to trigger manually)
 - 👌 — response complete
 
 **Buffered mode** is the recommended choice when you want to see what the agent is doing (via reactions) but prefer clean, non-flickering text delivery. Internally, the agent streams events for reaction updates, but text is collected in a buffer and sent as a single message at the end.

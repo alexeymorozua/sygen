@@ -354,11 +354,17 @@ async def _build_status(orch: Orchestrator, key: SessionKey) -> str:
         topic_line = (
             f"{t('status.topic_line', topic=session.topic_name)}\n" if session.topic_name else ""
         )
+        compact_line = (
+            f"{t('status.compact_line', count=session.compact_count)}\n"
+            if session.compact_count > 0
+            else ""
+        )
         session_block = (
             f"{topic_line}"
             f"{t('status.session_line', sid=session.session_id[:8] + '...')}\n"
             f"{t('status.messages_line', count=session.message_count)}\n"
             f"{t('status.tokens_line', tokens=f'{session.total_tokens:,}')}\n"
+            f"{compact_line}"
             f"{t('status.cost_line', cost=f'{session.total_cost_usd:.4f}')}\n"
             f"{_model_line(session.model)}"
         )

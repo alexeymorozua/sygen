@@ -82,6 +82,7 @@ class ProviderSessionData:
     message_count: int = 0
     total_cost_usd: float = 0.0
     total_tokens: int = 0
+    compact_count: int = 0
     context_warned: bool = False
 
 
@@ -191,6 +192,16 @@ class SessionData:
     @total_tokens.setter
     def total_tokens(self, value: int) -> None:
         self._current_provider_data().total_tokens = value
+
+    @property
+    def compact_count(self) -> int:
+        """Number of context compactions for the currently active provider."""
+        current = self.provider_sessions.get(self.provider)
+        return current.compact_count if current is not None else 0
+
+    @compact_count.setter
+    def compact_count(self, value: int) -> None:
+        self._current_provider_data().compact_count = value
 
     def _current_provider_data(self) -> ProviderSessionData:
         """Get/create provider-local state for the active provider."""

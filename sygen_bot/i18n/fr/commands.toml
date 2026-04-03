@@ -4,6 +4,7 @@
 new = "Nouveau chat"
 stop = "Stopper actuel + file"
 interrupt = "Interrompre, garder file"
+compact = "Compresser contexte"
 model = "Modèle actuel/changer"
 status = "Info session"
 memory = "Mémoire principale"

@@ -374,7 +374,8 @@ class AgentConfig(BaseModel):
     idle_timeout_minutes: int = 10080
     session_age_warning_hours: int = 0
     context_window_tokens: int = 0  # 0 = auto-detect from provider/model
-    context_warning_percent: int = 90
+    context_warning_percent: int = 90  # deprecated, kept for config compat
+    compact_warning_threshold: int = 3  # warn after N context compactions (0 = off)
     daily_reset_hour: int = 4
     daily_reset_enabled: bool = False
     max_budget_usd: float | None = None

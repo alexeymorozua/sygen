@@ -4,6 +4,7 @@
 new = "Neuer Chat"
 stop = "Aktuelles + Wartende stoppen"
 interrupt = "Unterbrechen, Queue behalten"
+compact = "Kontext komprimieren"
 model = "Modell anzeigen/wechseln"
 status = "Session-Info"
 memory = "Hauptspeicher zeigen"

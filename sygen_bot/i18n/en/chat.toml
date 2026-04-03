@@ -31,6 +31,9 @@ still_running = "Session '{name}' is still processing. Wait or use /stop to canc
 
 # -- Stop/interrupt ------------------------------------------------------------
 
+[context]
+compact_warning = "Context has been compressed {count} times. Quality may degrade — consider starting a new session."
+
 [stop]
 header = "**Agent Stopped**"
 killed = "{provider} terminated. All queued messages discarded."
@@ -107,6 +110,7 @@ topic_line = "Topic: {topic}"
 session_line = "Session: `{sid}`"
 messages_line = "Messages: {count}"
 tokens_line = "Tokens: {tokens}"
+compact_line = "Compactions: {count}"
 cost_line = "Cost: ${cost}"
 bg_header = "Background tasks: {count} running"
 auth_header = "Auth:"

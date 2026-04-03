@@ -32,6 +32,9 @@ still_running = "Sessão '{name}' ainda está processando. Aguarde ou use /stop 
 
 # -- Parar/Interromper ---------------------------------------------------------
 
+[context]
+compact_warning = "O contexto foi comprimido {count} vezes. A qualidade pode diminuir — considere iniciar uma nova sessão."
+
 [stop]
 header = "**Agente Parado**"
 killed = "{provider} encerrado. Todas as mensagens na fila foram descartadas."
@@ -108,6 +111,7 @@ topic_line = "Tópico: {topic}"
 session_line = "Sessão: `{sid}`"
 messages_line = "Mensagens: {count}"
 tokens_line = "Tokens: {tokens}"
+compact_line = "Compactações: {count}"
 cost_line = "Custo: ${cost}"
 bg_header = "Tarefas em segundo plano: {count} rodando"
 auth_header = "Auth:"

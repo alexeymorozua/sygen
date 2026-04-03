@@ -250,7 +250,11 @@ class TestUpdateObserver:
             patch("sygen_bot.infra.updater._CHECK_INTERVAL_S", 0.01),
         ):
             observer.start()
-            await asyncio.sleep(0.15)
+            # Poll until 2 notifications arrive (instead of fixed sleep)
+            elapsed = 0.0
+            while notify.call_count < 2 and elapsed < 2.0:
+                await asyncio.sleep(0.02)
+                elapsed += 0.02
             await observer.stop()
 
         assert notify.call_count == 2
