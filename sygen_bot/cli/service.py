@@ -248,9 +248,18 @@ class CLIService:
             stream_error,
             timed_out,
         )
+        # Prefer accumulated_text when it captured more content than the
+        # ResultEvent's result field.  This happens when background-task
+        # notifications trigger additional assistant turns within a single
+        # CLI invocation — the ResultEvent only carries the *last* assistant
+        # text, while accumulated_text has everything that was streamed.
+        cli_result = "" if timed_out else (result_event.result or "")
+        if not timed_out and accumulated_text and len(accumulated_text) > len(cli_result):
+            cli_result = accumulated_text
+
         cli_resp = CLIResponse(
             session_id=result_event.session_id,
-            result="" if timed_out else (result_event.result or accumulated_text),
+            result=cli_result,
             is_error=result_event.is_error,
             timed_out=timed_out,
             returncode=result_event.returncode,

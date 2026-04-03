@@ -119,6 +119,44 @@ async def test_execute_streaming_fallback_on_error() -> None:
     assert resp.result == "Fallback result"
 
 
+async def test_execute_streaming_prefers_accumulated_text() -> None:
+    """When accumulated text is longer than ResultEvent.result, prefer it.
+
+    This happens when background-task notifications trigger additional
+    assistant turns within one CLI invocation — the ResultEvent only
+    carries the last assistant text.
+    """
+    svc = _make_service()
+
+    from sygen_bot.cli.stream_events import AssistantTextDelta, ResultEvent
+
+    async def fake_stream(*_args: Any, **_kwargs: Any) -> AsyncGenerator[StreamEvent, None]:
+        # Full response (long)
+        yield AssistantTextDelta(type="assistant", text="Full detailed response about API providers. ")
+        # Meta ack from task-notification (short)
+        yield AssistantTextDelta(type="assistant", text="(already processed)")
+        # ResultEvent only carries the last assistant message
+        yield ResultEvent(
+            type="result",
+            session_id="sess-1",
+            result="(already processed)",
+            total_cost_usd=0.05,
+            usage={"input_tokens": 500, "output_tokens": 200},
+        )
+
+    with patch("sygen_bot.cli.service.create_cli") as mock_create:
+        mock_cli = MagicMock()
+        mock_cli.send_streaming = fake_stream
+        mock_create.return_value = mock_cli
+
+        resp = await svc.execute_streaming(AgentRequest(prompt="hello", chat_id=1))
+
+    # accumulated_text is longer, so it should be preferred
+    assert resp.result == "Full detailed response about API providers. (already processed)"
+    assert "(already processed)" in resp.result
+    assert "Full detailed response" in resp.result
+
+
 def test_update_default_model() -> None:
     svc = _make_service()
     svc.update_default_model("sonnet")
