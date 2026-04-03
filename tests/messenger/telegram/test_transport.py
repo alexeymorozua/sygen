@@ -481,3 +481,122 @@ class TestDispatchFallback:
             await transport.deliver(env)
 
         assert "No handler for origin=user" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# _safe_send fallback on TOPIC_CLOSED
+# ---------------------------------------------------------------------------
+
+
+class TestSafeSendFallback:
+    """Verify that _safe_send falls back to main user DM on topic errors."""
+
+    async def test_topic_closed_falls_back_to_dm(self) -> None:
+        from aiogram.exceptions import TelegramBadRequest
+
+        transport, bot, _ = _make_transport()
+        bot._config.allowed_user_ids = [777]
+
+        call_count = 0
+
+        async def _side_effect(_bot, chat_id, text, opts):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TelegramBadRequest(method=MagicMock(), message="Bad Request: TOPIC_CLOSED")
+
+        with patch(
+            "sygen_bot.messenger.telegram.transport.send_rich", new_callable=AsyncMock
+        ) as mock_send:
+            mock_send.side_effect = _side_effect
+            env = _env(
+                origin=Origin.INTERAGENT,
+                result_text="Agent response",
+                metadata={},
+            )
+            await transport.deliver(env)
+
+        assert mock_send.await_count == 2
+        # Second call should go to fallback DM (user 777)
+        fallback_chat = mock_send.call_args_list[1][0][1]
+        assert fallback_chat == 777
+        fallback_text = mock_send.call_args_list[1][0][2]
+        assert "Delivery failed" in fallback_text
+        assert "Agent response" in fallback_text
+
+    async def test_topic_not_found_falls_back(self) -> None:
+        from aiogram.exceptions import TelegramBadRequest
+
+        transport, bot, _ = _make_transport()
+        bot._config.allowed_user_ids = [777]
+
+        call_count = 0
+
+        async def _side_effect(_bot, chat_id, text, opts):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TelegramBadRequest(method=MagicMock(), message="Bad Request: TOPIC_NOT_FOUND")
+
+        with patch(
+            "sygen_bot.messenger.telegram.transport.send_rich", new_callable=AsyncMock
+        ) as mock_send:
+            mock_send.side_effect = _side_effect
+            env = _env(
+                origin=Origin.TASK_RESULT,
+                status="done",
+                result_text="Task output",
+                needs_injection=True,
+                elapsed_seconds=5.0,
+                metadata={"name": "test-task"},
+            )
+            await transport.deliver(env)
+
+        # notification + fallback-notification + result + fallback-result = at least 2 fallbacks
+        assert mock_send.await_count >= 2
+
+    async def test_non_recoverable_error_propagates(self) -> None:
+        from aiogram.exceptions import TelegramBadRequest
+
+        transport, bot, _ = _make_transport()
+        bot._config.allowed_user_ids = [777]
+
+        with patch(
+            "sygen_bot.messenger.telegram.transport.send_rich", new_callable=AsyncMock
+        ) as mock_send:
+            mock_send.side_effect = TelegramBadRequest(
+                method=MagicMock(), message="Bad Request: MESSAGE_TOO_LONG"
+            )
+            env = _env(
+                origin=Origin.INTERAGENT,
+                result_text="x" * 50000,
+                metadata={},
+            )
+            import pytest
+
+            with pytest.raises(TelegramBadRequest):
+                await transport.deliver(env)
+
+    async def test_no_fallback_when_same_chat(self) -> None:
+        """If fallback_id == chat_id, re-raise instead of infinite loop."""
+        from aiogram.exceptions import TelegramBadRequest
+
+        transport, bot, _ = _make_transport()
+        bot._config.allowed_user_ids = [42]  # same as default chat_id
+
+        with patch(
+            "sygen_bot.messenger.telegram.transport.send_rich", new_callable=AsyncMock
+        ) as mock_send:
+            mock_send.side_effect = TelegramBadRequest(
+                method=MagicMock(), message="Bad Request: TOPIC_CLOSED"
+            )
+            env = _env(
+                origin=Origin.INTERAGENT,
+                chat_id=42,
+                result_text="test",
+                metadata={},
+            )
+            import pytest
+
+            with pytest.raises(TelegramBadRequest):
+                await transport.deliver(env)

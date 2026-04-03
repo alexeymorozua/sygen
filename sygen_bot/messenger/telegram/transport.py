@@ -86,6 +86,61 @@ class TelegramTransport:
     def _roots(self) -> list[Path] | None:
         return self._bot.file_roots(self._bot._orch.paths)
 
+    async def _safe_send(
+        self,
+        chat_id: int,
+        text: str,
+        opts: SendRichOpts,
+        *,
+        context: str = "",
+    ) -> None:
+        """Send with fallback to main user DM on topic/chat failures."""
+        from aiogram.exceptions import TelegramAPIError
+
+        try:
+            await send_rich(self._bot.bot_instance, chat_id, text, opts)
+        except TelegramAPIError as exc:
+            err = str(exc)
+            recoverable = any(
+                k in err
+                for k in (
+                    "TOPIC_CLOSED",
+                    "TOPIC_NOT_FOUND",
+                    "Chat not found",
+                    "chat not found",
+                    "Forbidden",
+                )
+            )
+            if not recoverable:
+                raise
+            target_desc = f"Chat {chat_id}"
+            if opts.thread_id:
+                target_desc += f" / Topic {opts.thread_id}"
+            ctx = f" ({context})" if context else ""
+            logger.warning(
+                "Delivery failed%s for %s: %s — falling back to main user DM",
+                ctx,
+                target_desc,
+                err,
+            )
+            fallback_id = (
+                self._bot._config.allowed_user_ids[0]
+                if self._bot._config.allowed_user_ids
+                else 0
+            )
+            if not fallback_id or fallback_id == chat_id:
+                raise
+            fallback_text = (
+                f"**Delivery failed** (target unavailable){ctx}\n\n"
+                f"Could not deliver to {target_desc}.\n\n---\n{text}"
+            )
+            await send_rich(
+                self._bot.bot_instance,
+                fallback_id,
+                fallback_text,
+                SendRichOpts(allowed_roots=opts.allowed_roots),
+            )
+
     def _opts(self, envelope: Envelope) -> SendRichOpts:
         return SendRichOpts(
             reply_to_message_id=envelope.reply_to_message_id,
@@ -150,33 +205,14 @@ class TelegramTransport:
 
     async def _deliver_heartbeat(self, env: Envelope) -> None:
         """Deliver heartbeat to chat/topic. Falls back to main user on failure."""
-        from aiogram.exceptions import TelegramAPIError
-
         opts = SendRichOpts(allowed_roots=self._roots(), thread_id=env.topic_id)
-        try:
-            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
-            logger.info("Heartbeat delivered")
-        except TelegramAPIError:
-            target = f"Chat {env.chat_id}"
-            if env.topic_id:
-                target += f" / Topic {env.topic_id}"
-            logger.warning("Heartbeat delivery failed for %s, falling back to main user", target)
-            fallback_text = (
-                f"**Heartbeat delivery failed**\n\n"
-                f"Could not deliver to {target}.\n\n"
-                f"---\n{env.result_text}"
-            )
-            fallback_id = self._bot._config.allowed_user_ids[0]
-            await send_rich(
-                self._bot.bot_instance,
-                fallback_id,
-                fallback_text,
-                SendRichOpts(allowed_roots=self._roots()),
-            )
+        await self._safe_send(env.chat_id, env.result_text, opts, context="heartbeat")
+        logger.info("Heartbeat delivered")
 
     async def _deliver_interagent(self, env: Envelope) -> None:
         """Deliver inter-agent result (error notification or injected response)."""
         roots = self._roots()
+        opts = SendRichOpts(allowed_roots=roots)
 
         if env.is_error:
             session_info = f"\nSession: `{env.session_name}`" if env.session_name else ""
@@ -186,28 +222,23 @@ class TelegramTransport:
                 f"Error: {env.metadata.get('error', 'unknown')}\n"
                 f"Request: _{env.prompt_preview}_"
             )
-            await send_rich(
-                self._bot.bot_instance, env.chat_id, error_text, SendRichOpts(allowed_roots=roots)
-            )
+            await self._safe_send(env.chat_id, error_text, opts, context="interagent error")
             return
 
         # Provider switch notice (before result)
         notice = env.metadata.get("provider_switch_notice", "")
         if notice:
-            await send_rich(
-                self._bot.bot_instance,
+            await self._safe_send(
                 env.chat_id,
                 f"**Provider Switch Detected**\n\n{notice}",
-                SendRichOpts(allowed_roots=roots),
+                opts,
+                context="interagent notice",
             )
 
         # Result text (filled by bus injection)
         if env.result_text:
-            await send_rich(
-                self._bot.bot_instance,
-                env.chat_id,
-                env.result_text,
-                SendRichOpts(allowed_roots=roots),
+            await self._safe_send(
+                env.chat_id, env.result_text, opts, context="interagent result"
             )
 
     async def _deliver_task_result(self, env: Envelope) -> None:
@@ -228,11 +259,13 @@ class TelegramTransport:
             note = f"**Task `{name}` failed**\nReason: {env.metadata.get('error', 'unknown')}"
 
         if note:
-            await send_rich(self._bot.bot_instance, env.chat_id, note, opts)
+            await self._safe_send(env.chat_id, note, opts, context=f"task {name}")
 
         # 2. Injected response (filled by bus injection for done/failed)
         if env.needs_injection and env.result_text:
-            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
+            await self._safe_send(
+                env.chat_id, env.result_text, opts, context=f"task {name} result"
+            )
 
     async def _deliver_task_question(self, env: Envelope) -> None:
         """Deliver task question notification + injected agent response."""
@@ -241,21 +274,19 @@ class TelegramTransport:
 
         # 1. Notification
         note = f"**Task `{task_id}` has a question:**\n{env.prompt}"
-        await send_rich(self._bot.bot_instance, env.chat_id, note, opts)
+        await self._safe_send(env.chat_id, note, opts, context=f"task {task_id} question")
 
         # 2. Agent response (filled by bus injection)
         if env.result_text:
-            await send_rich(self._bot.bot_instance, env.chat_id, env.result_text, opts)
+            await self._safe_send(
+                env.chat_id, env.result_text, opts, context=f"task {task_id} answer"
+            )
 
     async def _deliver_webhook_wake(self, env: Envelope) -> None:
         """Deliver webhook wake result."""
         if env.result_text:
-            await send_rich(
-                self._bot.bot_instance,
-                env.chat_id,
-                env.result_text,
-                SendRichOpts(allowed_roots=self._roots()),
-            )
+            opts = SendRichOpts(allowed_roots=self._roots())
+            await self._safe_send(env.chat_id, env.result_text, opts, context="webhook")
 
     async def _deliver_cron(self, env: Envelope) -> None:
         """Deliver cron result to a specific chat/topic (unicast).
