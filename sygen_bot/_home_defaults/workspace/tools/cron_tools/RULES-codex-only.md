@@ -112,6 +112,23 @@ python3 tools/cron_tools/cron_remove.py "exact-job-id"
 
 Use `cron_edit.py` for in-place updates (title/description/schedule/timezone/model/reasoning_effort/enabled).
 
+## Silent Output (`[SILENT]` marker)
+
+Cron results are always delivered to Telegram unless suppressed.
+When writing TASK_DESCRIPTION.md, **always** include a `[SILENT]` fallback
+for cases when the task has nothing to report (no data, no updates, all OK).
+
+The agent must respond with exactly `[SILENT]` (and nothing else) when
+there is nothing to deliver. This marker suppresses Telegram delivery entirely.
+
+**Example in TASK_DESCRIPTION.md:**
+```
+If no new emails found, respond with exactly `[SILENT]` and nothing else.
+```
+
+Without this, the agent may respond with arbitrary text ("Nothing new",
+"All good", etc.) which gets sent to the user as a message.
+
 ## Task Content
 
 Each job owns `cron_tasks/<name>/TASK_DESCRIPTION.md`.
