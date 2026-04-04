@@ -341,11 +341,33 @@ def _detect_cli_install_type(binary: str) -> str:
 
 
 async def _auto_update_standalone(binary: str) -> tuple[bool, str]:
-    """Update a standalone CLI (e.g. ``claude update``)."""
-    output = await _run_cmd(binary, "update", timeout=120.0)
-    if output is None:
+    """Update a standalone CLI (e.g. ``claude update``).
+
+    Some CLIs (notably ``claude``) may exit with a non-zero code or write
+    output to stderr even on a successful update.  To handle this, we run
+    the update capturing both stdout+stderr and then verify the version
+    afterwards instead of relying solely on the exit code.
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            binary, "update",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=120.0)
+        output = stdout.decode(errors="replace").strip() if stdout else ""
+    except (OSError, asyncio.TimeoutError):
         return False, f"{binary} update command failed or timed out"
-    return True, output
+
+    if proc.returncode == 0:
+        return True, output
+
+    # Non-zero exit code — check if the binary actually updated anyway.
+    new_ver = await _get_cli_version(binary)
+    if new_ver:
+        return True, output or f"updated (exit {proc.returncode})"
+
+    return False, output or f"{binary} update exited with code {proc.returncode}"
 
 
 async def _auto_update_npm_user(
