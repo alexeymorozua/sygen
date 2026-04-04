@@ -126,6 +126,24 @@ async def _prepare_normal(
         if roster:
             append_prompt = f"{append_prompt}\n\n{roster}" if append_prompt else roster
 
+    elif session.needs_recontext:
+        # --- Post-compaction context refresh ---
+        # After context compaction the CLI loses significant history.
+        # Re-inject mainmemory so the agent retains long-term knowledge,
+        # and add a language hint so the response stays in the user's language.
+        session.needs_recontext = False
+        mainmemory = await asyncio.to_thread(read_mainmemory, orch.paths)
+        if mainmemory.strip():
+            append_prompt = mainmemory
+        lang_hint = (
+            "IMPORTANT: The conversation context was just compacted. "
+            "Continue answering in the same language the user has been using. "
+            "Do not switch languages."
+        )
+        append_prompt = f"{append_prompt}\n\n{lang_hint}" if append_prompt else lang_hint
+        logger.info("Post-compaction recontext injected")
+        # --- End ---
+
     # Pre-compute RAG context (async) before sync hook application
     rag_context = ""
     if orch._rag_pipeline is not None and text:
@@ -309,6 +327,7 @@ async def _recover_session(
 
         async def _on_compact_recovery() -> None:
             session.compact_count += 1
+            session.needs_recontext = True
             if cb.on_compact is not None:
                 await cb.on_compact()
 
@@ -458,6 +477,7 @@ async def normal_streaming(
 
         async def _on_compact() -> None:
             session.compact_count += 1
+            session.needs_recontext = True
             if cb.on_compact is not None:
                 await cb.on_compact()
 

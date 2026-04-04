@@ -659,3 +659,115 @@ async def test_normal_abort_on_new_session_returns_empty(orch: Orchestrator) -> 
 
     result = await normal(orch, SessionKey(chat_id=1), "Hello")
     assert result.text == ""
+
+
+# -- post-compaction recontext --
+
+
+async def test_compaction_sets_needs_recontext(orch: Orchestrator) -> None:
+    """When on_compact fires during streaming, needs_recontext flag is set."""
+    captured: dict[str, object] = {}
+
+    async def _streaming_with_compact(*args, **kwargs):
+        # Simulate compaction during response
+        on_compact = kwargs.get("on_compact")
+        captured["on_compact"] = on_compact
+        if on_compact:
+            await on_compact()
+        return _mock_response()
+
+    mock_streaming = AsyncMock(side_effect=_streaming_with_compact)
+    object.__setattr__(orch._cli_service, "execute_streaming", mock_streaming)
+
+    await normal_streaming(orch, SessionKey(chat_id=1), "Hello")
+
+    session = await orch._sessions.get_active(SessionKey(chat_id=1))
+    assert session is not None
+    assert session.needs_recontext is True
+
+
+async def test_recontext_injects_mainmemory_after_compaction(orch: Orchestrator) -> None:
+    """After compaction, next message injects mainmemory via append_system_prompt."""
+    orch.paths.mainmemory_path.write_text("# User speaks Russian")
+
+    async def _streaming_with_compact(request, **kwargs):
+        on_compact = kwargs.get("on_compact")
+        if on_compact:
+            await on_compact()
+        return _mock_response()
+
+    mock_streaming = AsyncMock(side_effect=_streaming_with_compact)
+    object.__setattr__(orch._cli_service, "execute_streaming", mock_streaming)
+
+    # First call: compaction happens
+    await normal_streaming(orch, SessionKey(chat_id=1), "Привет")
+
+    # Second call: should inject recontext
+    mock_streaming.side_effect = None
+    mock_streaming.return_value = _mock_response(session_id="sess-123")
+    await normal_streaming(orch, SessionKey(chat_id=1), "Повтори")
+
+    second_request = mock_streaming.call_args_list[1].kwargs.get(
+        "request", mock_streaming.call_args_list[1][0][0]
+    )
+    assert second_request.append_system_prompt is not None
+    assert "User speaks Russian" in second_request.append_system_prompt
+    assert "compacted" in second_request.append_system_prompt.lower()
+
+
+async def test_recontext_clears_flag_after_injection(orch: Orchestrator) -> None:
+    """The needs_recontext flag is cleared after the recontext injection."""
+
+    async def _streaming_with_compact(request, **kwargs):
+        on_compact = kwargs.get("on_compact")
+        if on_compact:
+            await on_compact()
+        return _mock_response()
+
+    mock_streaming = AsyncMock(side_effect=_streaming_with_compact)
+    object.__setattr__(orch._cli_service, "execute_streaming", mock_streaming)
+
+    # First call: compaction sets flag
+    await normal_streaming(orch, SessionKey(chat_id=1), "Hello")
+
+    # Second call: recontext injection clears flag
+    mock_streaming.side_effect = None
+    mock_streaming.return_value = _mock_response(session_id="sess-123")
+    await normal_streaming(orch, SessionKey(chat_id=1), "Follow up")
+
+    session = await orch._sessions.get_active(SessionKey(chat_id=1))
+    assert session is not None
+    assert session.needs_recontext is False
+
+    # Third call: no recontext (flag was cleared)
+    mock_streaming.return_value = _mock_response(session_id="sess-123")
+    await normal_streaming(orch, SessionKey(chat_id=1), "Third")
+
+    third_request = mock_streaming.call_args_list[2][0][0]
+    assert third_request.append_system_prompt is None
+
+
+async def test_recontext_without_mainmemory_still_adds_language_hint(orch: Orchestrator) -> None:
+    """Even without mainmemory, the language hint is injected after compaction."""
+    # Ensure empty mainmemory
+    orch.paths.mainmemory_path.write_text("")
+
+    async def _streaming_with_compact(request, **kwargs):
+        on_compact = kwargs.get("on_compact")
+        if on_compact:
+            await on_compact()
+        return _mock_response()
+
+    mock_streaming = AsyncMock(side_effect=_streaming_with_compact)
+    object.__setattr__(orch._cli_service, "execute_streaming", mock_streaming)
+
+    await normal_streaming(orch, SessionKey(chat_id=1), "Hello")
+
+    mock_streaming.side_effect = None
+    mock_streaming.return_value = _mock_response(session_id="sess-123")
+    await normal_streaming(orch, SessionKey(chat_id=1), "Follow up")
+
+    second_request = mock_streaming.call_args_list[1][0][0]
+    assert second_request.append_system_prompt is not None
+    assert "compacted" in second_request.append_system_prompt.lower()
+    assert "language" in second_request.append_system_prompt.lower()

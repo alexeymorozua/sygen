@@ -84,6 +84,7 @@ class ProviderSessionData:
     total_tokens: int = 0
     compact_count: int = 0
     context_warned: bool = False
+    needs_recontext: bool = False
 
 
 @dataclass(init=False)
@@ -203,6 +204,16 @@ class SessionData:
     def compact_count(self, value: int) -> None:
         self._current_provider_data().compact_count = value
 
+    @property
+    def needs_recontext(self) -> bool:
+        """Whether the next message should re-inject context after compaction."""
+        current = self.provider_sessions.get(self.provider)
+        return current.needs_recontext if current is not None else False
+
+    @needs_recontext.setter
+    def needs_recontext(self, value: bool) -> None:
+        self._current_provider_data().needs_recontext = value
+
     def _current_provider_data(self) -> ProviderSessionData:
         """Get/create provider-local state for the active provider."""
         current = self.provider_sessions.get(self.provider)
@@ -238,7 +249,9 @@ class SessionData:
                 message_count=SessionData._safe_int(value.get("message_count", 0)),
                 total_cost_usd=SessionData._safe_float(value.get("total_cost_usd", 0.0)),
                 total_tokens=SessionData._safe_int(value.get("total_tokens", 0)),
+                compact_count=SessionData._safe_int(value.get("compact_count", 0)),
                 context_warned=bool(value.get("context_warned", False)),
+                needs_recontext=bool(value.get("needs_recontext", False)),
             )
         return out
 
@@ -491,7 +504,9 @@ class SessionManager:
                     message_count=data.message_count,
                     total_cost_usd=data.total_cost_usd,
                     total_tokens=data.total_tokens,
+                    compact_count=data.compact_count,
                     context_warned=data.context_warned,
+                    needs_recontext=data.needs_recontext,
                 )
                 continue
             if data.session_id:
@@ -499,6 +514,8 @@ class SessionManager:
             existing.message_count = max(existing.message_count, data.message_count)
             existing.total_cost_usd = max(existing.total_cost_usd, data.total_cost_usd)
             existing.total_tokens = max(existing.total_tokens, data.total_tokens)
+            existing.compact_count = max(existing.compact_count, data.compact_count)
+            existing.needs_recontext = data.needs_recontext
 
     async def sync_session_target(
         self,
