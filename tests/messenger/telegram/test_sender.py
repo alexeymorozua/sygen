@@ -280,14 +280,13 @@ class TestSendFile:
         bot.send_audio.assert_called_once()
         bot.send_document.assert_called_once()
 
-    async def test_missing_file_sends_error(self, tmp_path: Path) -> None:
+    async def test_missing_file_silently_skipped(self, tmp_path: Path) -> None:
         from sygen_bot.messenger.telegram.sender import send_file
 
         bot = MagicMock()
         bot.send_message = AsyncMock()
         await send_file(bot, chat_id=1, path=tmp_path / "missing.txt")
-        bot.send_message.assert_called_once()
-        assert "not found" in bot.send_message.call_args.kwargs["text"].lower()
+        bot.send_message.assert_not_called()
 
     async def test_blocked_path_sends_warning(self, tmp_path: Path) -> None:
         from sygen_bot.messenger.telegram.sender import send_file
@@ -482,13 +481,13 @@ class TestForumTopicSupport:
 
         assert bot.send_audio.call_args.kwargs["message_thread_id"] == 55
 
-    async def test_send_file_error_message_passes_thread_id(self) -> None:
+    async def test_send_file_missing_silently_skipped_with_thread_id(self) -> None:
         from sygen_bot.messenger.telegram.sender import send_file
 
         bot = MagicMock()
         bot.send_message = AsyncMock()
         await send_file(bot, chat_id=1, path=Path("/nonexistent.txt"), thread_id=33)
-        assert bot.send_message.call_args.kwargs["message_thread_id"] == 33
+        bot.send_message.assert_not_called()
 
     async def test_send_file_blocked_path_passes_thread_id(self, tmp_path: Path) -> None:
         from sygen_bot.messenger.telegram.sender import send_file
