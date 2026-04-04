@@ -757,11 +757,14 @@ async def heartbeat_flow(
     prompt: str | None = None,
     ack_token: str | None = None,
 ) -> str | None:
-    """Run a heartbeat turn in the existing session.
+    """Run a heartbeat check as a one-shot CLI call.
 
     Returns the alert text if the model has something to say, or None if the
-    response was a HEARTBEAT_OK acknowledgment. Does NOT update session state
-    (last_active, message_count) for ack responses.
+    response was a HEARTBEAT_OK acknowledgment.
+
+    The heartbeat runs without ``--resume`` so it never contaminates the
+    user's CLI session history.  Workspace context (memory, cron results)
+    is injected via ``append_system_prompt`` instead.
 
     *prompt* and *ack_token* override the global heartbeat config when set
     (used by per-target overrides in HeartbeatObserver).
@@ -800,13 +803,25 @@ async def heartbeat_flow(
         )
         return None
 
+    # Build workspace context for the one-shot call so the model can
+    # evaluate workspace state without needing the user's session history.
+    context_parts: list[str] = []
+    mainmemory = await asyncio.to_thread(read_mainmemory, orch.paths)
+    if mainmemory.strip():
+        context_parts.append(mainmemory)
+    cron_results = await asyncio.to_thread(read_cron_results, orch.paths)
+    if cron_results.strip():
+        context_parts.append(cron_results)
+    append_ctx = "\n\n".join(context_parts) if context_parts else None
+
     request = AgentRequest(
         prompt=effective_prompt,
         model_override=req_model,
         provider_override=req_provider,
         chat_id=key.chat_id,
         topic_id=key.topic_id,
-        resume_session=session.session_id,
+        resume_session=None,  # One-shot: never contaminate user session
+        append_system_prompt=append_ctx,
         timeout_seconds=resolve_timeout(orch._config, "normal"),
         timeout_controller=_make_timeout_controller(orch, "normal"),
     )
@@ -821,6 +836,7 @@ async def heartbeat_flow(
         logger.info("Heartbeat OK (suppressed)")
         return None
 
-    await _update_session(orch, session, response)
+    # Do NOT call _update_session — the response comes from an ephemeral
+    # session and writing its session_id would corrupt the user's session.
     logger.info("Heartbeat alert chars=%d", len(alert_text))
     return alert_text

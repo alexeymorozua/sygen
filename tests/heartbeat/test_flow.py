@@ -112,10 +112,15 @@ async def test_heartbeat_ok_does_not_increment_message_count(
     assert session_after.message_count == count_before
 
 
-async def test_heartbeat_alert_increments_message_count(
+async def test_heartbeat_alert_does_not_modify_user_session(
     orch: Orchestrator, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Alert responses should update session state normally."""
+    """Alert responses must NOT update the user's session state.
+
+    Heartbeat runs as a one-shot (no --resume) to avoid contaminating the
+    user's CLI session.  The ephemeral heartbeat session_id must never
+    overwrite the user's session_id or increment message_count.
+    """
     from sygen_bot.orchestrator.flows import normal
 
     monkeypatch.setattr(
@@ -126,6 +131,7 @@ async def test_heartbeat_alert_increments_message_count(
     session_before = await orch._sessions.get_active(SessionKey(chat_id=1))
     assert session_before is not None
     count_before = session_before.message_count
+    sid_before = session_before.session_id
 
     alert = "Check out this cool fact!"
     with _past_cooldown():
@@ -136,7 +142,35 @@ async def test_heartbeat_alert_increments_message_count(
 
     session_after = await orch._sessions.get_active(SessionKey(chat_id=1))
     assert session_after is not None
-    assert session_after.message_count == count_before + 1
+    assert session_after.message_count == count_before  # unchanged
+    assert session_after.session_id == sid_before  # not overwritten
+
+
+async def test_heartbeat_runs_as_one_shot(
+    orch: Orchestrator, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Heartbeat must run as one-shot (resume_session=None) to avoid
+    contaminating the user's CLI session history."""
+    from sygen_bot.orchestrator.flows import normal
+
+    monkeypatch.setattr(
+        orch._cli_service, "execute", AsyncMock(return_value=_mock_response(result="Hello"))
+    )
+    await normal(orch, SessionKey(chat_id=1), "init")
+
+    captured_request = None
+
+    async def _capture_execute(request: object) -> object:
+        nonlocal captured_request
+        captured_request = request
+        return _mock_response(result="HEARTBEAT_OK")
+
+    with _past_cooldown():
+        monkeypatch.setattr(orch._cli_service, "execute", _capture_execute)
+        await heartbeat_flow(orch, SessionKey(chat_id=1))
+
+    assert captured_request is not None
+    assert captured_request.resume_session is None  # one-shot, no --resume
 
 
 async def test_heartbeat_cli_error_returns_none(
