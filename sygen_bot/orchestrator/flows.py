@@ -77,11 +77,14 @@ async def _prepare_normal(
     requested_model = model_override or topic_default or orch._config.model
     req_model, req_provider = orch.resolve_runtime_target(requested_model)
 
+    # When a topic default is set and there's no explicit @directive override,
+    # don't preserve the existing session target — apply the topic default.
+    preserve = model_override is None and topic_default is None
     session, is_new = await orch._sessions.resolve_session(
         key,
         provider=req_provider,
         model=req_model,
-        preserve_existing_target=model_override is None,
+        preserve_existing_target=preserve,
     )
     req_model = session.model
     req_provider = session.provider

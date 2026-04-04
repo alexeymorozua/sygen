@@ -463,7 +463,10 @@ class Orchestrator:
         """Reset only the active provider session bucket for a given key."""
         # Use the startup default so /new always resets to the configured
         # default model, not the runtime override set via /model.
-        model, provider = self.resolve_runtime_target(self._default_model)
+        # Per-topic default takes priority over global default.
+        topic_default = self._config.get_topic_default_model(key.topic_id)
+        default_model = topic_default or self._default_model
+        model, provider = self.resolve_runtime_target(default_model)
 
         await self._sessions.reset_provider_session(
             key,

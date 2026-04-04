@@ -106,3 +106,45 @@ class TestTopicDefaultInFlows:
         assert topic_default is None
         requested_model = topic_default or orch._config.model
         assert requested_model == orch._config.model
+
+
+# -- /new respects topic_defaults --
+
+
+class TestNewRespectsTopicDefaults:
+    """Verify that /new (reset_active_provider_session) uses topic default."""
+
+    async def test_reset_uses_topic_default(self, orch: Orchestrator) -> None:
+        """After /new in a topic with topic_defaults, session model should be topic default."""
+        orch._config.topic_defaults = {"68": {"model": "sonnet"}}
+        key = SessionKey(chat_id=1, topic_id=68)
+
+        # Create initial session
+        await orch._sessions.resolve_session(key)
+
+        # /new resets — should use topic default, not global
+        provider = await orch.reset_active_provider_session(key)
+        session = await orch._sessions.get_active(key)
+        assert session is not None
+        assert session.model == "sonnet"
+
+    async def test_reset_uses_global_when_no_topic_default(self, orch: Orchestrator) -> None:
+        """/new in a topic without topic_defaults falls back to global default."""
+        key = SessionKey(chat_id=1, topic_id=99)
+
+        await orch._sessions.resolve_session(key)
+        await orch.reset_active_provider_session(key)
+        session = await orch._sessions.get_active(key)
+        assert session is not None
+        assert session.model == orch._config.model
+
+    async def test_reset_uses_global_in_non_topic_chat(self, orch: Orchestrator) -> None:
+        """/new in a non-topic chat ignores topic_defaults."""
+        orch._config.topic_defaults = {"68": {"model": "sonnet"}}
+        key = SessionKey(chat_id=1, topic_id=None)
+
+        await orch._sessions.resolve_session(key)
+        await orch.reset_active_provider_session(key)
+        session = await orch._sessions.get_active(key)
+        assert session is not None
+        assert session.model == orch._config.model
