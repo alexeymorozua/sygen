@@ -25,7 +25,7 @@ class RAGConfig(BaseModel):
     top_k_final: int = Field(default=5, ge=1, le=50)
 
     # --- Reranker ---
-    reranker_enabled: bool = True
+    reranker_enabled: bool = False
     reranker_model: str = "antoinelouis/colbert-xm"
     reranker_top_k: int = Field(default=5, ge=1, le=50)
 

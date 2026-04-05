@@ -51,3 +51,17 @@ Shared memory: 8 entries, no contradictions found.
 ```
 
 If all memories are healthy: "Memory review: all agent memories are in good shape."
+
+### 5. RAG configuration recommendations
+
+Count total facts/entries across all agents combined. Read `~/.sygen/config/config.json` and check:
+- `rag.enabled` — whether RAG pipeline is active
+- `rag.reranker_enabled` — whether the heavy reranker model is loaded
+- `memory.vector_search` — whether vector search is active
+
+Recommend based on total fact count:
+- **< 200 facts**: BM25 + basic vector search is sufficient. If `reranker_enabled` is `true`, recommend disabling it to save ~2-3 GB RAM (or ~11 GB GPU on Apple Silicon).
+- **200–500 facts**: Vector search + BM25 recommended. Reranker still optional.
+- **500+ facts**: Recommend enabling full RAG with reranker (`reranker_enabled: true`) for better retrieval quality.
+
+Include this in the report under a "📊 RAG Configuration" section. Only show if a change is recommended.
