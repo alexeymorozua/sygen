@@ -20,6 +20,8 @@ pip install sygen[rag]
 
 3. Restart the bot. RAG initializes lazily on the first message.
 
+By default, RAG uses lightweight BM25 + ONNX vector search (no PyTorch). The reranker is disabled by default — enable it when your memory exceeds ~500 facts (see [Scaling Guide](#scaling-guide)).
+
 ## How It Works
 
 ```
@@ -183,7 +185,7 @@ LRU cache avoids redundant searches for repeated queries.
 | `vector_weight` | `0.6` | Weight for vector search in RRF fusion |
 | `top_k_retrieval` | `20` | Candidates from hybrid search |
 | `top_k_final` | `5` | Final results after reranking |
-| `reranker_enabled` | `true` | Enable ColBERT/cross-encoder reranking |
+| `reranker_enabled` | `false` | Enable ColBERT/cross-encoder reranking |
 | `reranker_model` | `antoinelouis/colbert-xm` | Reranker model name |
 | `reranker_top_k` | `5` | Top results from reranker |
 | `query_expansion_enabled` | `true` | Enable query expansion |
@@ -229,6 +231,19 @@ sygen_bot/rag/
 ├── cache.py             # RAGCache — LRU with TTL
 └── pipeline.py          # RAGPipeline — orchestrates all components
 ```
+
+## Scaling Guide
+
+Start lightweight and scale up as your memory grows:
+
+| Facts | Recommended Config | RAM Overhead |
+|-------|-------------------|-------------|
+| < 50 | Base memory only (`rag.enabled: false`) | ~0 MB |
+| 50–200 | Vector search (`memory.vector_search: true`) | ~100–200 MB |
+| 200–500 | RAG without reranker (`rag.enabled: true`, `reranker_enabled: false`) | ~200–500 MB |
+| 500+ | Full RAG with reranker (`reranker_enabled: true`) | +2–3 GB (CPU) / +11 GB (Apple Silicon GPU) |
+
+The monthly memory review cron automatically recommends the appropriate level based on your fact count.
 
 ## Priority Chain
 
