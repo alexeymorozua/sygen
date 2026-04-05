@@ -22,6 +22,7 @@ from sygen_bot.orchestrator.registry import OrchestratorResult
 from sygen_bot.session import SessionData, SessionKey
 from sygen_bot.text.response_format import session_error_text, timeout_error_text
 from sygen_bot.workspace.loader import (
+    clear_cron_results,
     read_always_load_modules,
     read_cron_results,
     read_mainmemory,
@@ -172,10 +173,11 @@ async def _prepare_normal(
     )
     prompt = orch._hook_registry.apply(text, hook_ctx)
 
-    # --- Inject latest cron result into prompt context ---
+    # --- Inject latest cron result into prompt context (one-shot) ---
     cron_buf = await asyncio.to_thread(read_cron_results, orch.paths)
     if cron_buf.strip():
         prompt = f"{prompt}\n\n{cron_buf}"
+        await asyncio.to_thread(clear_cron_results, orch.paths)
     # --- End ---
 
     timeout_secs = resolve_timeout(orch._config, "normal")
@@ -832,6 +834,7 @@ async def heartbeat_flow(
     cron_results = await asyncio.to_thread(read_cron_results, orch.paths)
     if cron_results.strip():
         context_parts.append(cron_results)
+        await asyncio.to_thread(clear_cron_results, orch.paths)
     append_ctx = "\n\n".join(context_parts) if context_parts else None
 
     request = AgentRequest(

@@ -22,6 +22,8 @@ DIRECT_COMMANDS: frozenset[str] = frozenset(
         "agent_commands",
         "showfiles",
         "session",
+        "where",
+        "leave",
     }
 )
 

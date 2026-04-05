@@ -250,7 +250,10 @@ class CronObserver(BaseTaskObserver):
                 scheduled_job.task_folder,
             )
         except asyncio.CancelledError:
-            logger.warning("Cron job %s cancelled during execution", scheduled_job.id)
+            if scheduled_job.id in self._executing:
+                logger.warning("Cron job %s cancelled during execution", scheduled_job.id)
+            else:
+                logger.debug("Cron job %s cancelled while waiting for next run", scheduled_job.id)
             return
         except Exception:
             logger.exception("Cron job %s failed unexpectedly", scheduled_job.id)
